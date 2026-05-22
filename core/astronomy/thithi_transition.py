@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone, timedelta, time
 from functools import lru_cache
-from typing import List
+from typing import List, Tuple
 from pydantic import BaseModel, field_serializer
 from pytz.exceptions import Error
 from skyfield.almanac import ecliptic_frame, find_discrete
@@ -11,7 +11,7 @@ from core.astronomy.ephemeris import ts
 from zoneinfo import ZoneInfo
 import numpy as np
 import math
-from core.constants import DEFAULT_TIMEZONE, THITHI_NAMES  # Python 3.9+
+from core.constants import  THITHI_NAMES  # Python 3.9+
 from core.astronomy.ephemeris import earth, sun, moon
 from utils.thithi import Thithi
 
@@ -85,9 +85,10 @@ def get_thithi(
     thithi_name = THITHI_NAMES[thithi_number - 1]
     return thithi_name
 
-def get_thithi_transition(t: Time) -> bool:
+def get_thithi_transition(t: Time):
     elongation = get_elongations(t)
-    return elongation % 12 < 0.01
+
+    return elongation // 12
 
 
 @lru_cache(maxsize=1000)
@@ -102,21 +103,20 @@ def get_thithi_transition_by_date(date: date, timezone: str) -> List[ThithiTrans
     t, values = find_discrete(t0, t1, get_thithi_transition)
 
     # Filter to keep only the start of transitions (values == 1)
-    transition_times = [ti for ti, vi in zip(t, values) if vi == 1]
+    transition_times = [(ti, vi) for ti, vi in zip(t, values)]
 
     thithis_for_day: List[ThithiTransition] = []
 
     # Convert UTC to IST (UTC+05:30)
     ist_timezone = ZoneInfo(timezone)
-    for i, ti in enumerate(transition_times):
+    for i, (ti, vi) in enumerate(transition_times):
         utc_start_time = ti.utc_datetime()
         ist_start_time: datetime = utc_start_time.astimezone(ist_timezone)
         ist_end_time = None
         if i + 1 != len(transition_times):
-            utc_end_time = transition_times[i+1].utc_datetime()
-            ist_end_time = utc_end_time.astimezone(ist_timezone)
-        thithi_id = get_thithi_id(ts.from_datetime(utc_start_time) + timedelta(minutes=10))
-        thithi = Thithi.from_id(thithi_id)
+            utc_end_time, _ = transition_times[i+1]
+            ist_end_time = utc_end_time.utc_datetime().astimezone(ist_timezone)
+        thithi = Thithi.from_id(int(vi) + 1)
         thithis_for_day.append(ThithiTransition(
             name=thithi.en,
             thithi = thithi,
@@ -164,19 +164,20 @@ def calc_thithi_transition(date: date, timezone: str):
     t, values = find_discrete(t0, t1, get_thithi_transition)
 
     # Filter to keep only the start of transitions (values == 1)
-    transition_times = [ti for ti, vi in zip(t, values) if vi == 1]
+    transition_times = [(ti, vi) for ti, vi in zip(t, values)]
+    
 
     thithis_for_day: List = []
 
     # Convert UTC to IST (UTC+05:30)
     ist_timezone = ZoneInfo(timezone)
-    for i, ti in enumerate(transition_times):
+    for i, (ti, vi) in enumerate(transition_times):
         utc_start_time = ti.utc_datetime()
         ist_start_time: datetime = utc_start_time.astimezone(ist_timezone)
         ist_end_time = None
         if i + 1 != len(transition_times):
-            utc_end_time = transition_times[i+1].utc_datetime()
-            ist_end_time = utc_end_time.astimezone(ist_timezone)
+            utc_end_time, _ = transition_times[i+1]
+            ist_end_time = utc_end_time.utc_datetime().astimezone(ist_timezone)
         thithi_id = get_thithi_id(ts.from_datetime(utc_start_time) + timedelta(minutes=10))
         thithi = Thithi.from_id(thithi_id)
         if ist_end_time is not None:
