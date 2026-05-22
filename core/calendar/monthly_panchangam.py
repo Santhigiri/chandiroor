@@ -24,7 +24,7 @@ def get_monthly_panchangam(
     #print(max(PANCHANGAM_CACHE.keys()))
     for day in cal.itermonthdates(year, month):
         panchangam_data = PANCHANGAM_CACHE.get(day)
-        panchangam_data = None # uncomment to ignore cached data
+        #panchangam_data = None # uncomment to ignore cached data
         if panchangam_data is None:
             panchangam_data = get_panchangam_data(day)
             PANCHANGAM_CACHE[day] = panchangam_data

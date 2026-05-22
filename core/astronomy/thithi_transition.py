@@ -91,7 +91,7 @@ def get_thithi_transition(t: Time):
 
 @lru_cache(maxsize=1000)
 def get_thithi_transition_by_date(date: date, timezone: str) -> List[ThithiTransition]:
-    get_thithi_transition.step_days = 0.0007  #pyright: ignore Step by 1 minute
+    get_thithi_transition.step_days = 0.0001  #pyright: ignore Step by 8 seconds
     
     # Add the step_days attribute to the function
 
