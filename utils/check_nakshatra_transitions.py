@@ -6,6 +6,7 @@ from utils.santhigiri_events import PanchangamData
 
 
 def check_nakshatra_transitions_miss(cache: Dict[date, PanchangamData]):
+    print("Checking for nakshatra transition miss...")
     total_nakshatra_transitions: List[NakshatraTransition] = []
 
     sorted_cache = dict(sorted(cache.items()))
@@ -15,6 +16,9 @@ def check_nakshatra_transitions_miss(cache: Dict[date, PanchangamData]):
 
     print(f"total_nakshatra_transitions: {len(total_nakshatra_transitions)}")
 
+    diffs = []
+
+
     for i, nt in enumerate(total_nakshatra_transitions):
         if i + 1 < len(total_nakshatra_transitions):
             curr = nt.nakshatra.id
@@ -22,5 +26,8 @@ def check_nakshatra_transitions_miss(cache: Dict[date, PanchangamData]):
 
             diff = (next - curr) % 27
             if abs(diff) > 1:
+                diffs.append(nt)
                 print(f"diff is not close by for {nt.nakshatra.en} {nt.start_time} -> {nt.end_time} DIFF: {diff}")
 
+    if len(diffs) == 0:
+        print("No Nakshatra transitions missed!")

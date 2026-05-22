@@ -7,6 +7,7 @@ from typing import Dict
 from fastapi import FastAPI
 
 from utils.check_nakshatra_transitions import check_nakshatra_transitions_miss
+from utils.check_thithi_transitions import check_thithi_transitions_miss
 from utils.santhigiri_events import PanchangamData
 
 PANCHANGAM_CACHE: Dict[date, PanchangamData] = {}
@@ -20,8 +21,8 @@ async def lifespan(app: FastAPI):
             PANCHANGAM_CACHE.update(pickle.load(f))
 
     print("Cache loaded", len(PANCHANGAM_CACHE))
-    print("Checking for nakshatra transition miss...")
-    check_nakshatra_transitions_miss(PANCHANGAM_CACHE)
+    #check_nakshatra_transitions_miss(PANCHANGAM_CACHE)
+    #check_thithi_transitions_miss(PANCHANGAM_CACHE)
     
     yield
 
