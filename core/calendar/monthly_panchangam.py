@@ -58,7 +58,4 @@ def get_monthly_panchangam_2(
             timezone=timezone
         )
         data[day.isoformat()] = panchangam
-    print(f"get_sunrise_sunset_cache: {get_sunrise_sunset.cache_info()}")
-    print(f"get_thithi_transition_by_date: {get_thithi_transition_by_date.cache_info()}")
-    print(f"get_nakshatra_transition_for_date: {get_nakshatra_transition_for_date.cache_info()}")
     return data

@@ -25,7 +25,7 @@ def buildcache(year: int):
 
     print("Saved", file_name)
 
-for year in range(2020, 2031):
+for year in range(2021, 2031):
     buildcache(year)
 
 

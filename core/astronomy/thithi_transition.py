@@ -34,7 +34,6 @@ def get_tropical_longitude( t: Time, body: str):
     else:
         raise Error("Invalid body. body should be 'moon' or 'sun'")
     tropical_longitude = pos[1].degrees
-    
     return tropical_longitude
 
 
@@ -86,19 +85,19 @@ def get_thithi(
 def get_thithi_transition(t: Time):
     elongation = get_elongations(t)
 
-    return elongation // 12
+    return np.floor(elongation // 12).astype(int)
 
 
 @lru_cache(maxsize=1000)
 def get_thithi_transition_by_date(date: date, timezone: str) -> List[ThithiTransition]:
-    get_thithi_transition.step_days = 0.0001  #pyright: ignore Step by 8 seconds
+    get_thithi_transition.step_days = 0.01  #pyright: ignore adjust values to fetch all transition_times
     
     # Add the step_days attribute to the function
 
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-    t, values = find_discrete(t0, t1, get_thithi_transition)
+    t, values = find_discrete(t0, t1, get_thithi_transition, num=100)
 
     # Filter to keep only the start of transitions (values == 1)
     transition_times = [(ti, vi) for ti, vi in zip(t, values)]
