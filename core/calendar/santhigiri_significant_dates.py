@@ -1,79 +1,19 @@
-from datetime import date, datetime
+from datetime import datetime, timedelta
 from typing import List
-from pydantic import BaseModel, field_serializer
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
-from core.calendar.kollavarsham import KollavarshamDate
-from utils.nakshatra import Nakshatra
-from utils.thithi import Thithi
-from typing import List, Optional
-from pydantic import BaseModel
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
-from utils.thithi import Thithi
-
-class EventCondition(BaseModel):
-    nakshatra: Optional[Nakshatra] = None
-    thithi: Optional[Thithi] = None
-    ml_day: Optional[int] = None
-    ml_month: Optional[MalayalamMasa] = None
-    ml_year: Optional[int] = None
-    en_day: Optional[int] = None
-    en_month: Optional[int] = None
-    en_year: Optional[int] = None
-    occurance: Optional[int] = None
-    last_occurance: bool = False
-
-class SanthigiriEvent(BaseModel):
-    name: str
-    description: str
-    event_condition: EventCondition
+from utils.santhigiri_events import SANTHIGIRI_EVENTS, EventCondition, PanchangamData, SanthigiriEvent
+from typing import List
+from utils.lifespan import PANCHANGAM_CACHE
 
 
-class PanchangamData(BaseModel):
-    date: date
-    kv: KollavarshamDate
-    thithi_transitions: List[ThithiTransition]
-    nakshatra_transitions: List[NakshatraTransition]
-    is_pournami: bool
-    thithi: Thithi
-    nakshatra: Nakshatra
-    sunrise: datetime
-    sunset: datetime
-    santhigiri_significant_dates: List[SanthigiriEvent] = []
-
-    @field_serializer("nakshatra")
-    def ser_nakshatra(self, n: Nakshatra):
-        return n.to_dict()
-    
-    @field_serializer('thithi')
-    def ser_thithi(self, t: Thithi):
-        return t.to_dict()
-
-
-
-SANTHIGIRI_EVENTS: List[SanthigiriEvent] = [
-    SanthigiriEvent(
-        name="Navoli Jyothir Dinam",
-        description="Navoli Jyothir Dinam",
-        event_condition=EventCondition(
-            en_day= 6,
-            en_month=5
-        )
-    ),
-    SanthigiriEvent(
-        name="Janmagriha Theertha Yaathra",
-        description="Janmagriha Theertha Yaathra",
-        event_condition= EventCondition(
-            nakshatra=Nakshatra.CHOTHI
-        )
-    )
-]
-
-def get_santhigiri_significant_dates(panchangam_data: PanchangamData) -> List[SanthigiriEvent]:
+def get_santhigiri_significant_dates_without_occurances(panchangam_data: PanchangamData) -> List[SanthigiriEvent]:
     occurances = []
-    for event in SANTHIGIRI_EVENTS:
-        condition = event.event_condition
+    events_without_occurances: List[SanthigiriEvent] = [e for e in SANTHIGIRI_EVENTS if e.event_condition.occurance is None and e.event_condition.last_occurance == False]
+    for event in events_without_occurances:
+        condition: EventCondition = event.event_condition
         if condition.nakshatra is not None and condition.nakshatra != panchangam_data.nakshatra:
             continue
         if condition.thithi is not None and condition.thithi != panchangam_data.thithi:
@@ -94,6 +34,38 @@ def get_santhigiri_significant_dates(panchangam_data: PanchangamData) -> List[Sa
         occurances.append(event)
 
     return occurances
+
+def get_duration_from_sunrise(nakshatra: Nakshatra,nakshatra_transitions: List[NakshatraTransition], sunrise: datetime)-> float:
+    print(f"Nakshatra at Sunrise: {nakshatra}")
+    print(f"Transtions: {nakshatra_transitions}")
+    filtered_transitions = [n for n in nakshatra_transitions if n.nakshatra == nakshatra]
+    overlap_start = sunrise if len(filtered_transitions) == 0 else max(sunrise, filtered_transitions[0].start_time)
+    next_sunrise = sunrise + timedelta(days=1)
+    overlap_end = next_sunrise if filtered_transitions[0].end_time is None else min(next_sunrise, filtered_transitions[0].end_time)
+    
+    if overlap_end <= overlap_start:
+        return 0
+    diff =  overlap_end - overlap_start
+    return duration_to_nazhika(diff)
+    
+def duration_to_nazhika(dur: timedelta) -> float:
+    return round(dur.total_seconds() / 1440, 2)
+
+
+def calculate_navapoojitham_for_year(year: int):
+    chothi_days = [d for d in PANCHANGAM_CACHE.values() 
+        if d.date.year == year and
+        d.kv.kv_month == MalayalamMasa.CHINGAM.id and
+        d.nakshatra == Nakshatra.CHOTHI
+    ]
+    print(f"chothi days count: {len(chothi_days)}")
+
+    for d in chothi_days:
+        print(f"{d.date}: {get_duration_from_sunrise(Nakshatra.CHOTHI, d.nakshatra_transitions, d.sunrise)}")
+
+
+
+
 
 
 

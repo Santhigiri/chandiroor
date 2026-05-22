@@ -1,23 +1,20 @@
 from datetime import datetime, time
 from time import perf_counter
-from typing import Any, Dict, List
+from typing import Any, Dict
 import pytz
 from core.astronomy.calculations import get_sun_sidereal_longitude, get_time
 from core.astronomy.nakshatra import get_nakshatra
-from core.astronomy.nakshatra_transition import NakshatraTransition, calc_nakshatra_transition, calc_nakshatra_transition_for_date, get_nakshatra_id
+from core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.astronomy.thithi import get_thithi
 from core.astronomy.pournami import is_poornima
-from core.astronomy.thithi_transition import ThithiTransition, calc_thithi_transition, calc_thithi_transition_for_date, get_thithi_id, get_thithi_transition
-from core.calendar.kollavarsham import KollavarshamDate, get_kollavarsham_date
+from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id, get_thithi_transition
+from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
-from core.calendar.santhigiri_significant_dates import PanchangamData, SanthigiriEvent, get_santhigiri_significant_dates
+from core.calendar.santhigiri_significant_dates import PanchangamData, get_duration_from_sunrise, get_santhigiri_significant_dates_without_occurances
 from core.constants import DEFAULT_TIMEZONE, Coordinates
 from utils.nakshatra import Nakshatra
 from utils.thithi import Thithi
-
-
-
 
 def get_panchangam_data(
     localdt: date,
@@ -39,6 +36,11 @@ def get_panchangam_data(
     thithi = Thithi.from_id(thithi_id)
     nakshatra_id = get_nakshatra_id(t)
     nakshatra = Nakshatra.from_id(nakshatra_id)
+    nazhika_from_sunrise = get_duration_from_sunrise(
+        nakshatra=nakshatra,
+        nakshatra_transitions=nakshatra_transitions,
+        sunrise=sunrise
+    )
     panchangam_data = PanchangamData(
         date= localdt,
         kv=kv,
@@ -47,11 +49,12 @@ def get_panchangam_data(
         is_pournami= is_pournami,
         thithi = thithi,
         nakshatra = nakshatra,
+        nazhika_from_sunrise=nazhika_from_sunrise,
         sunrise = sunrise,
         sunset = sunset
     )
 
-    santhigiri_significant_dates = get_santhigiri_significant_dates(panchangam_data)
+    santhigiri_significant_dates = get_santhigiri_significant_dates_without_occurances(panchangam_data)
 
     panchangam_data.santhigiri_significant_dates = santhigiri_significant_dates
 
@@ -96,6 +99,3 @@ def get_panchangam(
         "moon_sidereal_longitude": moon_sidereal_longitude
     }
 
-
-
-get_panchangam_data(date(2026,5,6))

@@ -1,10 +1,14 @@
 
 from contextlib import asynccontextmanager
+from datetime import date
 import pickle
+from typing import Dict
 
 from fastapi import FastAPI
 
-PANCHANGAM_CACHE = {}
+from utils.santhigiri_events import PanchangamData
+
+PANCHANGAM_CACHE: Dict[date, PanchangamData] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
