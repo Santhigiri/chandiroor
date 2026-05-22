@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 from numpy import ndarray
 from pydantic import BaseModel, field_serializer
+from pytz import tzinfo
 from skyfield.almanac import find_discrete
 from skyfield.api import Time
 from core.astronomy.calculations import get_time
@@ -39,19 +40,16 @@ def get_nakshatra(t: Time):
 def get_nakshatra_transition(t: Time):
     moon_lon = get_sidereal_longitude_from_time(t, "moon")
 
-    # scalar case
-    print(f"TYPE OF MOON_LONG: {type(moon_lon)}")
-    return moon_lon // (360 / 27)
+    return np.floor(moon_lon / (360 / 27)).astype(int)
 
 
 
 @lru_cache(maxsize=1000)
 def get_nakshatra_transition_for_date(date: date, timezone: str):
-    print(f"CALCULATING NAKSHATRA TRANSITION FOR DATE: {date}")
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-    get_nakshatra_transition.step_days = 0.0007 #pyright: ignore
+    get_nakshatra_transition.step_days = 0.0001 #pyright: ignore
 
     t, values = find_discrete(t0, t1, get_nakshatra_transition)
 
@@ -64,8 +62,7 @@ def get_nakshatra_transition_for_date(date: date, timezone: str):
         nakshatra_start_utc = ti.utc_datetime()
         nakshatra_start_tz: datetime = nakshatra_start_utc.astimezone(timezone_info)
         nakshatra_end_tz: datetime | None = None
-        nakshatra = Nakshatra.from_id(int(vi + 1))
-        print(f"=========={nakshatra.en} ==========")
+        nakshatra = Nakshatra.from_id(int(vi) + 1)
         if i + 1 < len(transition_times):
             end_time, _ = transition_times[i + 1]
             nakshatra_end_utc = end_time[0].utc_datetime() if isinstance(end_time, ndarray) else end_time.utc_datetime()
@@ -79,37 +76,56 @@ def get_nakshatra_transition_for_date(date: date, timezone: str):
     
     return nakshatras_for_day
 
+def find_previous_transitions(date: date, timezone: str):
+    transitions = []
+    for i in range(1,4):
+        offset_date = date - timedelta(days=i)
+        transitions = get_nakshatra_transition_for_date(
+            offset_date,
+            timezone
+        )
+
+        if len(transitions) > 0:
+            break
+
+    return transitions
+
+
+
+def find_next_transitions(date: date, timezone: str):
+    transitions = []
+    for i in range(1,4):
+        offset_date = date + timedelta(days=i)
+        transitions = get_nakshatra_transition_for_date(
+            offset_date,
+            timezone
+        )
+
+        if len(transitions) > 0:
+            break
+
+    return transitions
+
 
 def calc_nakshatra_transition_for_date(date: date, timezone: str):
     total_transitions: List[NakshatraTransition] = []
     current_day_transitions = get_nakshatra_transition_for_date(date, timezone)
-    total_transitions += current_day_transitions
+    previous_transitions = find_previous_transitions(date, timezone)
+    next_transitions = find_next_transitions(date, timezone)
 
-    previous_day = date - timedelta(days=1)
-    previous_day_transitions = get_nakshatra_transition_for_date(previous_day, timezone)
+    total_transitions = previous_transitions + current_day_transitions + next_transitions
 
-    if len(previous_day_transitions) == 0:
-        print("========PREVIOUS DAY TRANSITIONS IS EMPTY================")
-        previous_day = date - timedelta(days=2)
-        previous_day_transitions = get_nakshatra_transition_for_date(previous_day, timezone)
 
-    if len(previous_day_transitions) == 0:
-        print("========PREVIOUS DAY TRANSITIONS IS EMPTY AGAINN================")
 
-    total_transitions = previous_day_transitions + total_transitions
-
-    next_day = date + timedelta(days = 1)
-    next_day_transitions = get_nakshatra_transition_for_date(next_day, timezone)
-
-    total_transitions += next_day_transitions
+    tzinfo = ZoneInfo(timezone)
+    day_start = datetime.combine(date, time.min, tzinfo= tzinfo)
+    day_end = datetime.combine(date, time.max, tzinfo= tzinfo)
 
     for i, transition in enumerate(total_transitions):
         if i + 1 < len(total_transitions):
             transition.end_time = total_transitions[i + 1].start_time
 
-    final_transitions = [transition for transition in total_transitions if transition.start_time.date() <= date and (transition.end_time is not None and transition.end_time.date() >= date)]
-    for transition in final_transitions:
-        print(f"{transition.nakshatra.en} - {transition.start_time} -> {transition.end_time}")
+    final_transitions = [transition for transition in total_transitions if transition.start_time <= day_end and (transition.end_time is not None and transition.end_time >= day_start)]
 
     return final_transitions
 

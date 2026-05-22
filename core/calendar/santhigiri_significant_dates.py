@@ -36,12 +36,12 @@ def get_santhigiri_significant_dates_without_occurances(panchangam_data: Panchan
     return occurances
 
 def get_duration_from_sunrise(nakshatra: Nakshatra,nakshatra_transitions: List[NakshatraTransition], sunrise: datetime)-> float:
-    print(f"Nakshatra at Sunrise: {nakshatra}")
-    print(f"Transtions: {nakshatra_transitions}")
     filtered_transitions = [n for n in nakshatra_transitions if n.nakshatra == nakshatra]
-    overlap_start = sunrise if len(filtered_transitions) == 0 else max(sunrise, filtered_transitions[0].start_time)
+    transition_start_exists = len(filtered_transitions) > 0
+    transition_end_exists = len(filtered_transitions) > 0 and filtered_transitions[0].end_time is not None
+    overlap_start = sunrise if not transition_start_exists else max(sunrise, filtered_transitions[0].start_time)
     next_sunrise = sunrise + timedelta(days=1)
-    overlap_end = next_sunrise if filtered_transitions[0].end_time is None else min(next_sunrise, filtered_transitions[0].end_time)
+    overlap_end = next_sunrise if not transition_end_exists else min(next_sunrise, filtered_transitions[0].end_time)
     
     if overlap_end <= overlap_start:
         return 0
@@ -58,7 +58,6 @@ def calculate_navapoojitham_for_year(year: int):
         d.kv.kv_month == MalayalamMasa.CHINGAM.id and
         d.nakshatra == Nakshatra.CHOTHI
     ]
-    print(f"chothi days count: {len(chothi_days)}")
 
     for d in chothi_days:
         print(f"{d.date}: {get_duration_from_sunrise(Nakshatra.CHOTHI, d.nakshatra_transitions, d.sunrise)}")
