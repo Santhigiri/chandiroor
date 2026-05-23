@@ -5,7 +5,8 @@ from api.routes import panchangam
 from core.astronomy.nakshatra_transition import get_nakshatra_transition_for_date
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.astronomy.thithi_transition import get_thithi_transition_by_date
-from core.calendar.panchangam import PanchangamData, get_panchangam, get_panchangam_data
+from core.calendar.panchangam import get_panchangam, get_panchangam_data
+from schemas.panchangam_data import PanchangamData
 from utils.lifespan import PANCHANGAM_CACHE
 
 cal = calendar.Calendar(firstweekday=6)

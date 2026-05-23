@@ -3,7 +3,7 @@ from time import perf_counter
 from typing import Any, Dict
 import pytz
 from core.astronomy.calculations import get_sun_sidereal_longitude, get_time
-from core.astronomy.nakshatra import get_nakshatra
+from core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
 from core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.astronomy.thithi import get_thithi
@@ -11,8 +11,8 @@ from core.astronomy.pournami import is_poornima
 from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id, get_thithi_transition
 from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
-from core.calendar.santhigiri_significant_dates import PanchangamData, get_duration_from_sunrise, get_santhigiri_significant_dates_without_occurances
 from core.constants import DEFAULT_TIMEZONE, Coordinates
+from schemas.panchangam_data import PanchangamData
 from utils.nakshatra import Nakshatra
 from utils.thithi import Thithi
 
@@ -54,9 +54,9 @@ def get_panchangam_data(
         sunset = sunset
     )
 
-    santhigiri_significant_dates = get_santhigiri_significant_dates_without_occurances(panchangam_data)
+    #santhigiri_significant_dates = get_santhigiri_significant_dates_without_occurances(panchangam_data)
 
-    panchangam_data.santhigiri_significant_dates = santhigiri_significant_dates
+    #panchangam_data.santhigiri_significant_dates = santhigiri_significant_dates
 
     return panchangam_data
 

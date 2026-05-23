@@ -13,6 +13,7 @@ from core.astronomy.calculations import get_time
 from core.astronomy.ephemeris import ephem, ts
 
 from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
+from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 from utils.nakshatra import Nakshatra
 from utils.utils import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
 from core.astronomy.ephemeris import moon, earth
@@ -57,7 +58,7 @@ def get_nakshatra_transition(t: Time):
 
     return idx % 27
 
-get_nakshatra_transition.step_days = 0.01 #pyright: ignore adjust value to fetch all transition_times
+get_nakshatra_transition.step_days = NAKSHATRA_TRANSITION_STEP_DAYS #pyright: ignore adjust value to fetch all transition_times
 
 
 #@lru_cache(maxsize=1000)

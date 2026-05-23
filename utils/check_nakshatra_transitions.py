@@ -2,7 +2,7 @@
 from datetime import date
 from typing import Dict, List
 from core.astronomy.nakshatra_transition import NakshatraTransition
-from utils.santhigiri_events import PanchangamData
+from schemas.panchangam_data import PanchangamData
 
 
 def check_nakshatra_transitions_miss(cache: Dict[date, PanchangamData]):

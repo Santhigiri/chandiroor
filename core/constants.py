@@ -154,3 +154,5 @@ class Coordinates:
     SG_LONGITUDE: float = 76.938
 
 DEFAULT_TIMEZONE = 'Asia/Kolkata'
+
+NAKSHATRA_TRANSITION_STEP_DAYS = 0.01 # 0.01 for 2021-2027, 2029-2030 0.05 for 2028
