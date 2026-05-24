@@ -21,7 +21,7 @@ class SanthigiriEventId(str, Enum):
     POORNA_KUMBAMELA = "POORNA_KUMBAMELA"
     SANYASADHEEKSHA_VARSHIKAM = "SANYASADHEEKSHA_VARSHIKAM"
     SAMSKARIKA_DINAM = "SAMSKARIKA_DINAM"
-    SHISHYAPOOJITHA_BDAY = "SHISHYAPOOJITHA_BDAY"
+    SISHYAPOOJITHA_BDAY = "SHISHYAPOOJITHA_BDAY"
     POURNAMI = "POURNAMI"
 
 class EventCondition(BaseModel):
@@ -231,8 +231,8 @@ SAMSKARIKA_DINAM = SanthigiriEvent(
     )
 )
 
-SHISHYAPOOJITHA_BDAY = SanthigiriEvent(
-    id=SanthigiriEventId.SHISHYAPOOJITHA_BDAY,
+SISHYAPOOJITHA_BDAY = SanthigiriEvent(
+    id=SanthigiriEventId.SISHYAPOOJITHA_BDAY,
     name="Shishyapoojitha's Birthday",
     description="Shishyapoojitha's Birthday",
     event_condition= EventCondition(

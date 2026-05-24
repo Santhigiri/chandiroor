@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 from core.astronomy.nakshatra import get_duration_from_sunrise
 from utils.cache_crud import load_cache, write_cache
 from utils.cache_navapoojitham import calculate_navapoojitham, get_matching_dates
-from utils.cache_utils import get_yearly_cache, remove_event_from_cache
+from utils.cache_utils import get_yearly_cache, remove_events_from_cache
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import JANMAGRIHA_THEERTHA_YATHRA, NAVAPOOJITHAM, EventCondition, SanthigiriEvent
@@ -38,7 +38,8 @@ def calculate_chothi_theerthayathra_for_year(yearly_data: PanchangamCache, year:
 
 def remove_chothi_theerthayathra():
     panchangam_cache = load_cache()
-    updated_panchangam = remove_event_from_cache(panchangam_cache, JANMAGRIHA_THEERTHA_YATHRA)
+    events_to_remove: List[SanthigiriEvent] = [JANMAGRIHA_THEERTHA_YATHRA]
+    updated_panchangam = remove_events_from_cache(panchangam_cache, events_to_remove)
     write_cache(updated_panchangam)
     
 
@@ -72,6 +73,6 @@ def cache_chothi_theerthayathra():
 
 
 #remove_chothi_theerthayathra()
-cache_chothi_theerthayathra()
+#cache_chothi_theerthayathra()
 
 

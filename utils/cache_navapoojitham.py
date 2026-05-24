@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from typing import Dict, List, Tuple
 from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_event_from_cache
+from utils.cache_utils import remove_events_from_cache
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, EventCondition
@@ -57,7 +57,8 @@ def get_matching_dates(data: PanchangamCache, event_condition: EventCondition) -
 
 def remove_navapoojitham():
     panchangam_cache = load_cache()
-    updated_cache = remove_event_from_cache(panchangam_cache, NAVAPOOJITHAM)
+    events_to_remove = [NAVAPOOJITHAM]
+    updated_cache = remove_events_from_cache(panchangam_cache, events_to_remove)
     write_cache(updated_cache)
     
 
