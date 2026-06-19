@@ -8,6 +8,7 @@ from db.models.kollavarsham_date import KollavarshamDate
 from db.models.sunrise_sunset import SunriseSunset
 from db.models.thithi_transition import ThithiTransition
 from db.models.nakshatra_transition import NakshatraTransition
+from db.models.santhigiri_event_condition import SanthigiriEventCondition
 from db.models.santhigiri_significant_date import SanthigiriSignificantDate
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "SunriseSunset",
     "ThithiTransition",
     "NakshatraTransition",
+    "SanthigiriEventCondition",
     "SanthigiriSignificantDate",
 ]

@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from db.models.panchangam import Panchangam
+    from db.models.santhigiri_event_condition import SanthigiriEventCondition
 
 
 class SanthigiriSignificantDate(SQLModel, table=True):
@@ -26,8 +27,12 @@ class SanthigiriSignificantDate(SQLModel, table=True):
             nullable=False,
         )
     )
-    event_id:    str  # SanthigiriEventId str-enum value
-    name:        str
-    description: str
+    event_id:            str           # SanthigiriEventId str-enum value
+    name:                str
+    description:         str
+    event_condition_id:  Optional[int] = Field(
+        default=None, foreign_key="santhigiri_event_condition.id"
+    )
 
-    panchangam: Optional[Panchangam] = Relationship(back_populates="santhigiri_events")
+    panchangam:      Optional[Panchangam]              = Relationship(back_populates="santhigiri_events")
+    event_condition: Optional[SanthigiriEventCondition] = Relationship(back_populates="significant_dates")
