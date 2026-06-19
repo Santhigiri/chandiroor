@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -22,6 +20,6 @@ class Thithi(SQLModel, table=True):
     ml:        str
     en:        str
 
-    paksha:      Optional[Paksha]       = Relationship(back_populates="thithis")
-    panchangams: List[Panchangam]       = Relationship(back_populates="thithi")
-    transitions: List[ThithiTransition] = Relationship(back_populates="thithi")
+    paksha:      Optional["Paksha"]        = Relationship(back_populates="thithis")
+    panchangams: List["Panchangam"]        = Relationship(back_populates="thithi")
+    transitions: List["ThithiTransition"]  = Relationship(back_populates="thithi")

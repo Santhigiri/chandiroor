@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, List
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -19,5 +17,5 @@ class Nakshatra(SQLModel, table=True):
     ml:   str
     en:   str
 
-    panchangams: List[Panchangam]          = Relationship(back_populates="nakshatra")
-    transitions: List[NakshatraTransition] = Relationship(back_populates="nakshatra")
+    panchangams: List["Panchangam"]           = Relationship(back_populates="nakshatra")
+    transitions: List["NakshatraTransition"]  = Relationship(back_populates="nakshatra")

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, List, Optional
 
@@ -32,10 +30,10 @@ class Panchangam(SQLModel, table=True):
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
     nazhika_from_sunrise: float
 
-    thithi:                Optional[Thithi]                = Relationship(back_populates="panchangams")
-    nakshatra:             Optional[Nakshatra]              = Relationship(back_populates="panchangams")
-    kollavarsham:          Optional[KollavarshamDate]       = Relationship(back_populates="panchangam")
-    sunrise_sunsets:       List[SunriseSunset]              = Relationship(back_populates="panchangam")
-    thithi_transitions:    List[ThithiTransition]           = Relationship(back_populates="panchangam")
-    nakshatra_transitions: List[NakshatraTransition]        = Relationship(back_populates="panchangam")
-    santhigiri_events:     List[SanthigiriSignificantDate]  = Relationship(back_populates="panchangam")
+    thithi:                Optional["Thithi"]                = Relationship(back_populates="panchangams")
+    nakshatra:             Optional["Nakshatra"]              = Relationship(back_populates="panchangams")
+    kollavarsham:          Optional["KollavarshamDate"]       = Relationship(back_populates="panchangam")
+    sunrise_sunsets:       List["SunriseSunset"]              = Relationship(back_populates="panchangam")
+    thithi_transitions:    List["ThithiTransition"]           = Relationship(back_populates="panchangam")
+    nakshatra_transitions: List["NakshatraTransition"]        = Relationship(back_populates="panchangam")
+    santhigiri_events:     List["SanthigiriSignificantDate"]  = Relationship(back_populates="panchangam")

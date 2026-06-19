@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -31,5 +29,5 @@ class NakshatraTransition(SQLModel, table=True):
     start_time:   datetime.datetime
     end_time:     Optional[datetime.datetime] = None
 
-    panchangam: Optional[Panchangam] = Relationship(back_populates="nakshatra_transitions")
-    nakshatra:  Optional[Nakshatra]  = Relationship(back_populates="transitions")
+    panchangam: Optional["Panchangam"] = Relationship(back_populates="nakshatra_transitions")
+    nakshatra:  Optional["Nakshatra"]  = Relationship(back_populates="transitions")
