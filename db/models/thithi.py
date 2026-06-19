@@ -6,7 +6,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from db.models.paksha import Paksha
-    from db.models.panchangam import Panchangam
     from db.models.thithi_transition import ThithiTransition
 
 
@@ -22,6 +21,5 @@ class Thithi(SQLModel, table=True):
     ml:        str
     en:        str
 
-    paksha:      Optional[Paksha]        = Relationship(back_populates="thithis")
-    panchangams: List[Panchangam]        = Relationship(back_populates="thithi")
-    transitions: List[ThithiTransition]  = Relationship(back_populates="thithi")
+    paksha:      Optional[Paksha]       = Relationship(back_populates="thithis")
+    transitions: List[ThithiTransition] = Relationship(back_populates="thithi")

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, List
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.panchangam import Panchangam
     from db.models.nakshatra_transition import NakshatraTransition
 
 
@@ -19,5 +18,4 @@ class Nakshatra(SQLModel, table=True):
     ml:   str
     en:   str
 
-    panchangams: List[Panchangam]          = Relationship(back_populates="nakshatra")
     transitions: List[NakshatraTransition] = Relationship(back_populates="nakshatra")
