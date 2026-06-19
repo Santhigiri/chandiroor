@@ -1,6 +1,8 @@
-from datetime import datetime
-from typing import Tuple
+from datetime import datetime, timedelta
+from typing import List, Tuple
 from core.astronomy.calculations import get_moon_sidereal_longitude
+from core.astronomy.nakshatra_transition import NakshatraTransition
+from utils.nakshatra import Nakshatra
 from utils.utils import calc_nakshatra_from_lon
 
 def get_nakshatra(localdt: datetime, timezone: str)->Tuple[str, float]:
@@ -11,3 +13,21 @@ def get_nakshatra(localdt: datetime, timezone: str)->Tuple[str, float]:
     nakshatra = calc_nakshatra_from_lon(moon_sidereal_longitude)
 
     return nakshatra, moon_sidereal_longitude
+
+
+
+def get_duration_from_sunrise(nakshatra: Nakshatra,nakshatra_transitions: List[NakshatraTransition], sunrise: datetime)-> float:
+    filtered_transitions = [n for n in nakshatra_transitions if n.nakshatra == nakshatra]
+    transition_start_exists = len(filtered_transitions) > 0
+    transition_end_exists = len(filtered_transitions) > 0 and filtered_transitions[0].end_time is not None
+    overlap_start = sunrise if not transition_start_exists else max(sunrise, filtered_transitions[0].start_time)
+    next_sunrise = sunrise + timedelta(days=1)
+    overlap_end = next_sunrise if not transition_end_exists else min(next_sunrise, filtered_transitions[0].end_time)
+    
+    if overlap_end <= overlap_start:
+        return 0
+    diff =  overlap_end - overlap_start
+    return duration_to_nazhika(diff)
+    
+def duration_to_nazhika(dur: timedelta) -> float:
+    return round(dur.total_seconds() / 1440, 2)
