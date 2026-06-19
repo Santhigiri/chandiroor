@@ -4,3 +4,6 @@ venv/
 .env
 .env*
 .pytest_cache/
+data/panchangam.db
+data/panchangam.db-shm
+data/panchangam.db-wal
