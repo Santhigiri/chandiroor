@@ -17,16 +17,18 @@ class Panchangam(SQLModel, table=True):
     """
     One row per calendar date.
 
-    Holds only date-level astronomical facts. thithi and nakshatra are
-    intentionally absent — they are always derivable from the transition
-    active at sunrise (thithi_transitions / nakshatra_transitions joined
-    with sunrise_sunset), so storing them here would be redundant.
+    thithi_id and nakshatra_id are stored as plain integers (no FK constraint)
+    so monthly queries can read the day's thithi/nakshatra directly without
+    joining through the transitions tables. They map to the Thithi and Nakshatra
+    enum ids and are kept in sync at write time.
     """
 
     __tablename__ = "panchangam"
 
     date:                 datetime.date = Field(primary_key=True)
     is_pournami:          bool
+    thithi_id:            int           # Thithi.id — no FK, cached for fast reads
+    nakshatra_id:         int           # Nakshatra.id — no FK, cached for fast reads
     nazhika_from_sunrise: float
 
     kollavarsham:          Optional[KollavarshamDate]       = Relationship(back_populates="panchangam")
