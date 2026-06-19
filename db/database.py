@@ -32,6 +32,6 @@ def get_session() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    import db.models  # noqa: F401 — registers all models with SQLModel metadata
+    import db.models  # noqa: F401 — registers all model classes with SQLModel metadata
     SQLModel.metadata.create_all(engine)
     print(f"Database initialized at {DB_PATH}")
