@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -32,5 +30,5 @@ class ThithiTransition(SQLModel, table=True):
     start_time: datetime.datetime
     end_time:   Optional[datetime.datetime]  = None  # NULL = open-ended last transition
 
-    panchangam: Optional[Panchangam] = Relationship(back_populates="thithi_transitions")
-    thithi:     Optional[Thithi]     = Relationship(back_populates="transitions")
+    panchangam: Optional["Panchangam"] = Relationship(back_populates="thithi_transitions")
+    thithi:     Optional["Thithi"]     = Relationship(back_populates="transitions")

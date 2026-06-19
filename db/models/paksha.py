@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, List
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -18,4 +16,4 @@ class Paksha(SQLModel, table=True):
     ml:   str                            # Malayalam label
     en:   str                            # English label
 
-    thithis: List[Thithi] = Relationship(back_populates="paksha")
+    thithis: List["Thithi"] = Relationship(back_populates="paksha")

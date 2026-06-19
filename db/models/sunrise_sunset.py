@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -38,4 +36,4 @@ class SunriseSunset(SQLModel, table=True):
     sunrise:   datetime.datetime
     sunset:    datetime.datetime
 
-    panchangam: Optional[Panchangam] = Relationship(back_populates="sunrise_sunsets")
+    panchangam: Optional["Panchangam"] = Relationship(back_populates="sunrise_sunsets")

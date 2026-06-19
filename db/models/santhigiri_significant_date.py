@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -34,5 +32,5 @@ class SanthigiriSignificantDate(SQLModel, table=True):
         default=None, foreign_key="santhigiri_event_condition.id"
     )
 
-    panchangam:      Optional[Panchangam]              = Relationship(back_populates="santhigiri_events")
-    event_condition: Optional[SanthigiriEventCondition] = Relationship(back_populates="significant_dates")
+    panchangam:      Optional["Panchangam"]               = Relationship(back_populates="santhigiri_events")
+    event_condition: Optional["SanthigiriEventCondition"] = Relationship(back_populates="significant_dates")
