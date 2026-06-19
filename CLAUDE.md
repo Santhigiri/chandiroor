@@ -10,6 +10,23 @@ Default coordinates for all calculations: **8.645° N, 76.938° E** (Santhigiri 
 
 ---
 
+## Git Workflow
+
+- **Always start from `dev`** — before any work, checkout or pull the latest `dev` branch.
+- **All changes merge to `dev` only** — feature branches must be created from `dev` and PRs must target `dev`.
+- **Never touch `main`** — do not commit to, push to, or merge into `main` directly. `main` is promoted to only by the project maintainers.
+
+```bash
+git checkout dev
+git pull origin dev
+git checkout -b feature/<your-feature-name>
+# ... make changes ...
+git push -u origin feature/<your-feature-name>
+# Open PR targeting dev
+```
+
+---
+
 ## Architecture Overview
 
 The codebase uses a **feature-based architecture** with a hard separation between business logic and the API layer. This is a non-negotiable constraint.
