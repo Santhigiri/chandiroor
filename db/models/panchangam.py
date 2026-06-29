@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, ClassVar, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -22,7 +22,7 @@ class Panchangam(SQLModel, table=True):
     relationships rather than using the raw id fields directly.
     """
 
-    __tablename__: ClassVar[str] = "panchangam"
+    __tablename__ = "panchangam"  # type: ignore[assignment]
 
     date:                 datetime.date = Field(primary_key=True)
     is_pournami:          bool
