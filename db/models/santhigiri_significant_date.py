@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Date, ForeignKey, Index
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -32,5 +33,5 @@ class SanthigiriSignificantDate(SQLModel, table=True):
         default=None, foreign_key="santhigiri_event_condition.id"
     )
 
-    panchangam:      Optional["Panchangam"]               = Relationship(back_populates="santhigiri_events")
-    event_condition: Optional["SanthigiriEventCondition"] = Relationship(back_populates="significant_dates")
+    panchangam:      Mapped[Optional["Panchangam"]]               = Relationship(back_populates="santhigiri_events")
+    event_condition: Mapped[Optional["SanthigiriEventCondition"]] = Relationship(back_populates="significant_dates")

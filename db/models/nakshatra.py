@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, List
 
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -17,5 +18,5 @@ class Nakshatra(SQLModel, table=True):
     ml:   str
     en:   str
 
-    panchangams: List["Panchangam"]           = Relationship(back_populates="nakshatra")
-    transitions: List["NakshatraTransition"]  = Relationship(back_populates="nakshatra")
+    panchangams: Mapped[List["Panchangam"]]           = Relationship(back_populates="nakshatra")
+    transitions: Mapped[List["NakshatraTransition"]]  = Relationship(back_populates="nakshatra")

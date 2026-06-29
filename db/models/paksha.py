@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, List
 
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -16,4 +17,4 @@ class Paksha(SQLModel, table=True):
     ml:   str                            # Malayalam label
     en:   str                            # English label
 
-    thithis: List["Thithi"] = Relationship(back_populates="paksha")
+    thithis: Mapped[List["Thithi"]] = Relationship(back_populates="paksha")

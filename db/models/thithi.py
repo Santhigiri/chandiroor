@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -20,6 +21,6 @@ class Thithi(SQLModel, table=True):
     ml:        str
     en:        str
 
-    paksha:      Optional["Paksha"]        = Relationship(back_populates="thithis")
-    panchangams: List["Panchangam"]        = Relationship(back_populates="thithi")
-    transitions: List["ThithiTransition"]  = Relationship(back_populates="thithi")
+    paksha:      Mapped[Optional["Paksha"]]        = Relationship(back_populates="thithis")
+    panchangams: Mapped[List["Panchangam"]]        = Relationship(back_populates="thithi")
+    transitions: Mapped[List["ThithiTransition"]]  = Relationship(back_populates="thithi")

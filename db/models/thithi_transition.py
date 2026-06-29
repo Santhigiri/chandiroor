@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Date, ForeignKey, Index
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -30,5 +31,5 @@ class ThithiTransition(SQLModel, table=True):
     start_time: datetime.datetime
     end_time:   Optional[datetime.datetime]  = None  # NULL = open-ended last transition
 
-    panchangam: Optional["Panchangam"] = Relationship(back_populates="thithi_transitions")
-    thithi:     Optional["Thithi"]     = Relationship(back_populates="transitions")
+    panchangam: Mapped[Optional["Panchangam"]] = Relationship(back_populates="thithi_transitions")
+    thithi:     Mapped[Optional["Thithi"]]     = Relationship(back_populates="transitions")

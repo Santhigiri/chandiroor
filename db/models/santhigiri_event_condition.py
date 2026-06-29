@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Index
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -44,10 +45,10 @@ class SanthigiriEventCondition(SQLModel, table=True):
     last_occurance: Optional[bool] = None   # True = last matching occurrence
 
     # Lookup relationships (unidirectional — no back_populates needed on lookup side)
-    nakshatra: Optional["Nakshatra"] = Relationship()
-    thithi:    Optional["Thithi"]    = Relationship()
+    nakshatra: Mapped[Optional["Nakshatra"]] = Relationship()
+    thithi:    Mapped[Optional["Thithi"]]    = Relationship()
 
     # Occurrences that were matched by this condition
-    significant_dates: List["SanthigiriSignificantDate"] = Relationship(
+    significant_dates: Mapped[List["SanthigiriSignificantDate"]] = Relationship(
         back_populates="event_condition"
     )

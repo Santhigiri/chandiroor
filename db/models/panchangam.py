@@ -1,6 +1,7 @@
 import datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -28,10 +29,10 @@ class Panchangam(SQLModel, table=True):
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
     nazhika_from_sunrise: float
 
-    thithi:                "Thithi"                          = Relationship(back_populates="panchangams")
-    nakshatra:             Optional["Nakshatra"]              = Relationship(back_populates="panchangams")
-    kollavarsham:          Optional["KollavarshamDate"]       = Relationship(back_populates="panchangam")
-    sunrise_sunsets:       List["SunriseSunset"]              = Relationship(back_populates="panchangam")
-    thithi_transitions:    List["ThithiTransition"]           = Relationship(back_populates="panchangam")
-    nakshatra_transitions: List["NakshatraTransition"]        = Relationship(back_populates="panchangam")
-    santhigiri_events:     List["SanthigiriSignificantDate"]  = Relationship(back_populates="panchangam")
+    thithi:                Mapped["Thithi"]                          = Relationship(back_populates="panchangams")
+    nakshatra:             Mapped[Optional["Nakshatra"]]             = Relationship(back_populates="panchangams")
+    kollavarsham:          Mapped[Optional["KollavarshamDate"]]      = Relationship(back_populates="panchangam")
+    sunrise_sunsets:       Mapped[List["SunriseSunset"]]             = Relationship(back_populates="panchangam")
+    thithi_transitions:    Mapped[List["ThithiTransition"]]          = Relationship(back_populates="panchangam")
+    nakshatra_transitions: Mapped[List["NakshatraTransition"]]       = Relationship(back_populates="panchangam")
+    santhigiri_events:     Mapped[List["SanthigiriSignificantDate"]] = Relationship(back_populates="panchangam")

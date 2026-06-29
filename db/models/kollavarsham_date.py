@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Date, ForeignKey
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -26,4 +27,4 @@ class KollavarshamDate(SQLModel, table=True):
     kv_month_name_en: str
     kv_month_name_ml: str
 
-    panchangam: Optional["Panchangam"] = Relationship(back_populates="kollavarsham")
+    panchangam: Mapped[Optional["Panchangam"]] = Relationship(back_populates="kollavarsham")

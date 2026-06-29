@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Date, ForeignKey, Index
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -29,5 +30,5 @@ class NakshatraTransition(SQLModel, table=True):
     start_time:   datetime.datetime
     end_time:     Optional[datetime.datetime] = None
 
-    panchangam: Optional["Panchangam"] = Relationship(back_populates="nakshatra_transitions")
-    nakshatra:  Optional["Nakshatra"]  = Relationship(back_populates="transitions")
+    panchangam: Mapped[Optional["Panchangam"]] = Relationship(back_populates="nakshatra_transitions")
+    nakshatra:  Mapped[Optional["Nakshatra"]]  = Relationship(back_populates="transitions")
