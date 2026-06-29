@@ -20,9 +20,8 @@ def get_duration_from_sunrise(nakshatra: Nakshatra,nakshatra_transitions: List[N
     filtered_transitions = [n for n in nakshatra_transitions if n.nakshatra == nakshatra]
     next_sunrise = sunrise + timedelta(days=1)
     if filtered_transitions:
-        transition = filtered_transitions[0]
-        overlap_start = max(sunrise, transition.start_time)
-        overlap_end = next_sunrise if transition.end_time is None else min(next_sunrise, transition.end_time)
+        overlap_start = max(sunrise, filtered_transitions[0].start_time)
+        overlap_end = next_sunrise if filtered_transitions[0].end_time is None else min(next_sunrise, filtered_transitions[0].end_time)
     else:
         overlap_start = sunrise
         overlap_end = next_sunrise
