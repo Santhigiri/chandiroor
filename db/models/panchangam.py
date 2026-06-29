@@ -1,6 +1,7 @@
 import datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy.orm import declared_attr
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -22,7 +23,9 @@ class Panchangam(SQLModel, table=True):
     relationships rather than using the raw id fields directly.
     """
 
-    __tablename__ = "panchangam"  # type: ignore[assignment]
+    @declared_attr
+    def __tablename__(cls) -> str:
+        return "panchangam"
 
     date:                 datetime.date = Field(primary_key=True)
     is_pournami:          bool
