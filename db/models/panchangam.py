@@ -30,7 +30,7 @@ class Panchangam(SQLModel, table=True):
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
     nazhika_from_sunrise: float
 
-    thithi:                Optional["Thithi"]                = Relationship(back_populates="panchangams")
+    thithi:                "Thithi"                          = Relationship(back_populates="panchangams")
     nakshatra:             Optional["Nakshatra"]              = Relationship(back_populates="panchangams")
     kollavarsham:          Optional["KollavarshamDate"]       = Relationship(back_populates="panchangam")
     sunrise_sunsets:       List["SunriseSunset"]              = Relationship(back_populates="panchangam")
