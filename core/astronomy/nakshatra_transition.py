@@ -23,7 +23,7 @@ class NakshatraTransition(BaseModel):
     name: str
     nakshatra: Nakshatra
     start_time: datetime
-    end_time: datetime 
+    end_time: datetime | None
 
     @field_serializer('nakshatra')
     def ser_nakshatra(self, n: Nakshatra):
