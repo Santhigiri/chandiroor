@@ -12,7 +12,8 @@ if TYPE_CHECKING:
 class ThithiTransition(SQLModel, table=True):
     """A thithi (lunar day) phase active during part of a calendar day."""
 
-    __tablename__ = "thithi_transitions"
+    __tablename__ = "thithi_transitions" # pyright: ignore[reportAssignmentType]
+
     __table_args__ = (
         # Composite covers filter-by-date + order-by-time in one scan
         Index("idx_thithi_transitions_date", "panchangam_date", "start_time"),

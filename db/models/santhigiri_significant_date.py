@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Date, ForeignKey, Index
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -12,7 +13,8 @@ if TYPE_CHECKING:
 class SanthigiriSignificantDate(SQLModel, table=True):
     """A significant Santhigiri ashram event that falls on a panchangam date."""
 
-    __tablename__ = "santhigiri_significant_dates"
+    __tablename__ = "santhigiri_significant_dates" # pyright: ignore[reportAssignmentType]
+
     __table_args__ = (
         Index("idx_santhigiri_events_date", "panchangam_date"),
     )
@@ -33,4 +35,4 @@ class SanthigiriSignificantDate(SQLModel, table=True):
     )
 
     panchangam:      Optional["Panchangam"]               = Relationship(back_populates="santhigiri_events")
-    event_condition: Optional["SanthigiriEventCondition"] = Relationship(back_populates="significant_dates")
+    event_condition: Mapped[Optional["SanthigiriEventCondition"]] = Relationship(back_populates="significant_dates")

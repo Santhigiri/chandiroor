@@ -10,7 +10,8 @@ if TYPE_CHECKING:
 class Nakshatra(SQLModel, table=True):
     """One of the 27 lunar mansions."""
 
-    __tablename__ = "nakshatra"
+    __tablename__ = "nakshatra" # pyright: ignore[reportAssignmentType]
+
 
     id:   int = Field(primary_key=True)  # 1–27
     name: str = Field(unique=True)       # Python enum member name e.g. 'ASWATHI'

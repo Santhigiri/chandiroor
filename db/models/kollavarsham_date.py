@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class KollavarshamDate(SQLModel, table=True):
     """Malayalam solar calendar date corresponding to each panchangam day."""
 
-    __tablename__ = "kollavarsham_date"
+    __tablename__ = "kollavarsham_date" # pyright: ignore[reportAssignmentType]
 
     date: datetime.date = Field(
         sa_column=Column(

@@ -12,7 +12,8 @@ if TYPE_CHECKING:
 class NakshatraTransition(SQLModel, table=True):
     """A nakshatra (lunar mansion) active during part of a calendar day."""
 
-    __tablename__ = "nakshatra_transitions"
+    __tablename__ = "nakshatra_transitions" # pyright: ignore[reportAssignmentType]
+
     __table_args__ = (
         Index("idx_nakshatra_transitions_date", "panchangam_date", "start_time"),
     )

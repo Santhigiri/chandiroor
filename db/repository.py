@@ -8,11 +8,11 @@ core/astronomy and utils.
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional, Sequence
 
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 # ── SQL model aliases ─────────────────────────────────────────────────────────
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
@@ -43,6 +43,8 @@ from utils.thithi import Thithi
 
 def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
     kv_row = row.kollavarsham
+    if kv_row is None:
+        raise ValueError("kv_row is None")
     kv = KollavarshamDate(
         date=kv_row.date,
         kv_day=kv_row.kv_day,
@@ -83,6 +85,9 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
 
     santhigiri_events = [_ssd_row_to_event(e) for e in row.santhigiri_events]
 
+    if ss_row is None:
+        raise ValueError("ss_row cannot be None")
+
     return PanchangamData(
         date=row.date,
         kv=kv,
@@ -91,8 +96,8 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         is_pournami=row.is_pournami,
         thithi=Thithi.from_id(row.thithi_id),
         nakshatra=Nakshatra.from_id(row.nakshatra_id),
-        sunrise=ss_row.sunrise if ss_row else None,
-        sunset=ss_row.sunset if ss_row else None,
+        sunrise=ss_row.sunrise,
+        sunset=ss_row.sunset,
         nazhika_from_sunrise=row.nazhika_from_sunrise,
         santhigiri_significant_dates=santhigiri_events,
     )
@@ -199,7 +204,7 @@ class PanchangamRepository:
         stmt = (
             select(PanchangamRow)
             .where(PanchangamRow.date >= start, PanchangamRow.date <= end)
-            .order_by(PanchangamRow.date)
+            .order_by(str(PanchangamRow.date))
             .options(*_LOAD_OPTIONS)
         )
         rows = self._s.exec(stmt).all()
@@ -299,33 +304,33 @@ class PanchangamRepository:
 
     def _delete_children(self, date: datetime.date) -> None:
         """Delete all child rows for *date* so upsert can re-insert them cleanly."""
-        existing_ssd: List[SanthigiriSignificantDateRow] = self._s.exec(
+        existing_ssd: Sequence[SanthigiriSignificantDateRow] = self._s.exec(
             select(SanthigiriSignificantDateRow).where(
-                SanthigiriSignificantDateRow.panchangam_date == date
+                col(SanthigiriSignificantDateRow.panchangam_date) == date
             )
         ).all()
         ec_ids = [r.event_condition_id for r in existing_ssd if r.event_condition_id is not None]
 
-        self._s.execute(
+        self._s.exec(
             delete(SanthigiriSignificantDateRow).where(
-                SanthigiriSignificantDateRow.panchangam_date == date
+                col(SanthigiriSignificantDateRow.panchangam_date) == date
             )
         )
         for ec_id in ec_ids:
-            self._s.execute(
+            self._s.exec(
                 delete(SanthigiriEventConditionRow).where(
-                    SanthigiriEventConditionRow.id == ec_id
+                    col(SanthigiriEventConditionRow.id) == ec_id
                 )
             )
-        self._s.execute(
-            delete(ThithiTransitionRow).where(ThithiTransitionRow.panchangam_date == date)
+        self._s.exec(
+            delete(ThithiTransitionRow).where( col(ThithiTransitionRow.panchangam_date) == date)
         )
-        self._s.execute(
-            delete(NakshatraTransitionRow).where(NakshatraTransitionRow.panchangam_date == date)
+        self._s.exec(
+            delete(NakshatraTransitionRow).where( col(NakshatraTransitionRow.panchangam_date) == date)
         )
-        self._s.execute(
-            delete(KollavarshamDateRow).where(KollavarshamDateRow.date == date)
+        self._s.exec(
+            delete(KollavarshamDateRow).where( col(KollavarshamDateRow.date) == date)
         )
-        self._s.execute(
-            delete(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
+        self._s.exec(
+            delete(SunriseSunsetRow).where( col(SunriseSunsetRow.date) == date)
         )
