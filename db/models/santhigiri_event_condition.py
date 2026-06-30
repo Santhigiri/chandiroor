@@ -19,7 +19,8 @@ class SanthigiriEventCondition(SQLModel, table=True):
     be looked up efficiently.
     """
 
-    __tablename__ = "santhigiri_event_condition"
+    __tablename__ = "santhigiri_event_condition" # pyright: ignore[reportAssignmentType]
+
     __table_args__ = (
         Index("idx_santhigiri_event_condition_event_id", "event_id"),
     )

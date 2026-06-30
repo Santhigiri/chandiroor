@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class Thithi(SQLModel, table=True):
     """One of the 30 lunar days (15 per paksha)."""
 
-    __tablename__ = "thithi"
+    __tablename__ = "thithi" # pyright: ignore[reportAssignmentType]
 
     id:        int = Field(primary_key=True)        # 1–30
     name:      str = Field(unique=True)             # Python enum member name e.g. 'PRATHAMA_SHUKLA'

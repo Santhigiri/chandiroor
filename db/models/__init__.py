@@ -3,6 +3,7 @@
 from db.models.paksha import Paksha
 from db.models.nakshatra import Nakshatra
 from db.models.thithi import Thithi
+from db.models.malayalam_masa import MalayalamMasa
 from db.models.panchangam import Panchangam
 from db.models.kollavarsham_date import KollavarshamDate
 from db.models.sunrise_sunset import SunriseSunset
@@ -15,6 +16,7 @@ __all__ = [
     "Paksha",
     "Nakshatra",
     "Thithi",
+    "MalayalamMasa",
     "Panchangam",
     "KollavarshamDate",
     "SunriseSunset",

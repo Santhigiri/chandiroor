@@ -7,6 +7,7 @@ from typing import Dict
 
 from fastapi import FastAPI
 
+from db.migrate import init_db_from_pickle
 from utils.check_nakshatra_transitions import check_nakshatra_transitions_miss
 from utils.check_thithi_transitions import check_thithi_transitions_miss
 from schemas.panchangam_data import PanchangamData
@@ -32,7 +33,14 @@ async def lifespan(app: FastAPI):
 
     check_nakshatra_transitions_miss(PANCHANGAM_CACHE)
     check_thithi_transitions_miss(PANCHANGAM_CACHE)
-    
+
+    # Mirror the pickle cache into SQLite if the DB is missing/empty. A DB
+    # failure must not take down startup — the in-memory cache still serves.
+    try:
+        init_db_from_pickle()
+    except Exception as exc:
+        print(f"DB init from pickle failed (continuing with in-memory cache): {exc}")
+
     yield
 
     print("Shutdown")

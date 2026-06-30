@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class Paksha(SQLModel, table=True):
     """Moon phase grouping — Shukla (waxing) or Krishna (waning)."""
 
-    __tablename__ = "paksha"
+    __tablename__ = "paksha" # pyright: ignore[reportAssignmentType]
 
     id:   int = Field(primary_key=True)  # 1=SHUKLA, 2=KRISHNA
     name: str = Field(unique=True)       # Python enum member name

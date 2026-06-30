@@ -8,11 +8,11 @@ core/astronomy and utils.
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional
 
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 # ── SQL model aliases ─────────────────────────────────────────────────────────
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
@@ -43,13 +43,16 @@ from utils.thithi import Thithi
 
 def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
     kv_row = row.kollavarsham
+    if kv_row is None:
+        raise ValueError("kv_row is None")
+    masa = MalayalamMasa.from_id(kv_row.kv_month)
     kv = KollavarshamDate(
         date=kv_row.date,
         kv_day=kv_row.kv_day,
         kv_month=kv_row.kv_month,
         kv_year=kv_row.kv_year,
-        kv_month_name_en=kv_row.kv_month_name_en,
-        kv_month_name_ml=kv_row.kv_month_name_ml,
+        kv_month_name_en=masa.en,
+        kv_month_name_ml=masa.ml,
     )
 
     sg_lat, sg_lon = Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE
@@ -83,6 +86,9 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
 
     santhigiri_events = [_ssd_row_to_event(e) for e in row.santhigiri_events]
 
+    if ss_row is None:
+        raise ValueError("ss_row cannot be None")
+
     return PanchangamData(
         date=row.date,
         kv=kv,
@@ -91,8 +97,8 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         is_pournami=row.is_pournami,
         thithi=Thithi.from_id(row.thithi_id),
         nakshatra=Nakshatra.from_id(row.nakshatra_id),
-        sunrise=ss_row.sunrise if ss_row else None,
-        sunset=ss_row.sunset if ss_row else None,
+        sunrise=ss_row.sunrise,
+        sunset=ss_row.sunset,
         nazhika_from_sunrise=row.nazhika_from_sunrise,
         santhigiri_significant_dates=santhigiri_events,
     )
@@ -150,6 +156,45 @@ def _event_condition_to_row(event: SanthigiriEvent) -> Optional[SanthigiriEventC
     )
 
 
+def _get_or_create_event_condition(
+    session: Session, event: SanthigiriEvent
+) -> Optional[int]:
+    """
+    Return the id of the event-condition row for *event*, reusing an existing
+    identical row when present.
+
+    A condition describes an event-type rule, not a single occurrence, so the
+    same rule matches many dates. Without this dedup, upsert would insert one
+    identical row per matching date and bloat santhigiri_event_condition with
+    duplicates. Returns None when the event carries no matching criteria.
+    """
+    candidate = _event_condition_to_row(event)
+    if candidate is None:
+        return None
+
+    stmt = select(SanthigiriEventConditionRow).where(
+        SanthigiriEventConditionRow.event_id == candidate.event_id,
+        SanthigiriEventConditionRow.nakshatra_id == candidate.nakshatra_id,
+        SanthigiriEventConditionRow.thithi_id == candidate.thithi_id,
+        SanthigiriEventConditionRow.ml_day == candidate.ml_day,
+        SanthigiriEventConditionRow.ml_month == candidate.ml_month,
+        SanthigiriEventConditionRow.ml_year == candidate.ml_year,
+        SanthigiriEventConditionRow.en_day == candidate.en_day,
+        SanthigiriEventConditionRow.en_month == candidate.en_month,
+        SanthigiriEventConditionRow.en_year == candidate.en_year,
+        SanthigiriEventConditionRow.occurance == candidate.occurance,
+        SanthigiriEventConditionRow.is_poornima == candidate.is_poornima,
+        SanthigiriEventConditionRow.last_occurance == candidate.last_occurance,
+    )
+    existing = session.exec(stmt).first()
+    if existing is not None:
+        return existing.id
+
+    session.add(candidate)
+    session.flush()
+    return candidate.id
+
+
 # ── Eager-load strategy used by all getters ───────────────────────────────────
 
 _LOAD_OPTIONS = (
@@ -199,7 +244,7 @@ class PanchangamRepository:
         stmt = (
             select(PanchangamRow)
             .where(PanchangamRow.date >= start, PanchangamRow.date <= end)
-            .order_by(PanchangamRow.date)
+            .order_by(str(PanchangamRow.date))
             .options(*_LOAD_OPTIONS)
         )
         rows = self._s.exec(stmt).all()
@@ -240,8 +285,6 @@ class PanchangamRepository:
                 kv_day=data.kv.kv_day,
                 kv_month=data.kv.kv_month,
                 kv_year=data.kv.kv_year,
-                kv_month_name_en=data.kv.kv_month_name_en,
-                kv_month_name_ml=data.kv.kv_month_name_ml,
             )
         )
         self._s.add(
@@ -273,12 +316,7 @@ class PanchangamRepository:
                 )
             )
         for event in data.santhigiri_significant_dates:
-            ec_row = _event_condition_to_row(event)
-            ec_id: Optional[int] = None
-            if ec_row is not None:
-                self._s.add(ec_row)
-                self._s.flush()
-                ec_id = ec_row.id
+            ec_id = _get_or_create_event_condition(self._s, event)
             self._s.add(
                 SanthigiriSignificantDateRow(
                     panchangam_date=data.date,
@@ -298,34 +336,27 @@ class PanchangamRepository:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _delete_children(self, date: datetime.date) -> None:
-        """Delete all child rows for *date* so upsert can re-insert them cleanly."""
-        existing_ssd: List[SanthigiriSignificantDateRow] = self._s.exec(
-            select(SanthigiriSignificantDateRow).where(
-                SanthigiriSignificantDateRow.panchangam_date == date
-            )
-        ).all()
-        ec_ids = [r.event_condition_id for r in existing_ssd if r.event_condition_id is not None]
+        """Delete all child rows for *date* so upsert can re-insert them cleanly.
 
-        self._s.execute(
+        Event-condition rows are deliberately NOT deleted here: they describe an
+        event-type rule shared across many dates (see
+        _get_or_create_event_condition), so deleting them on a single date's
+        upsert would orphan the conditions referenced by other dates.
+        """
+        self._s.exec(
             delete(SanthigiriSignificantDateRow).where(
-                SanthigiriSignificantDateRow.panchangam_date == date
+                col(SanthigiriSignificantDateRow.panchangam_date) == date
             )
         )
-        for ec_id in ec_ids:
-            self._s.execute(
-                delete(SanthigiriEventConditionRow).where(
-                    SanthigiriEventConditionRow.id == ec_id
-                )
-            )
-        self._s.execute(
-            delete(ThithiTransitionRow).where(ThithiTransitionRow.panchangam_date == date)
+        self._s.exec(
+            delete(ThithiTransitionRow).where( col(ThithiTransitionRow.panchangam_date) == date)
         )
-        self._s.execute(
-            delete(NakshatraTransitionRow).where(NakshatraTransitionRow.panchangam_date == date)
+        self._s.exec(
+            delete(NakshatraTransitionRow).where( col(NakshatraTransitionRow.panchangam_date) == date)
         )
-        self._s.execute(
-            delete(KollavarshamDateRow).where(KollavarshamDateRow.date == date)
+        self._s.exec(
+            delete(KollavarshamDateRow).where( col(KollavarshamDateRow.date) == date)
         )
-        self._s.execute(
-            delete(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
+        self._s.exec(
+            delete(SunriseSunsetRow).where( col(SunriseSunsetRow.date) == date)
         )

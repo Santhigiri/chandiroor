@@ -16,7 +16,8 @@ class SunriseSunset(SQLModel, table=True):
     cached without duplicating astronomical data in the panchangam table.
     """
 
-    __tablename__ = "sunrise_sunset"
+    __tablename__ = "sunrise_sunset" # pyright: ignore[reportAssignmentType]
+
     __table_args__ = (
         UniqueConstraint("date", "latitude", "longitude", name="uq_sunrise_sunset_date_loc"),
         Index("idx_sunrise_sunset_date", "date"),
