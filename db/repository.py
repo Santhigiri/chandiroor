@@ -8,7 +8,7 @@ core/astronomy and utils.
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Iterable, Optional, Sequence
+from typing import Dict, Iterable, Optional
 
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
@@ -155,6 +155,45 @@ def _event_condition_to_row(event: SanthigiriEvent) -> Optional[SanthigiriEventC
     )
 
 
+def _get_or_create_event_condition(
+    session: Session, event: SanthigiriEvent
+) -> Optional[int]:
+    """
+    Return the id of the event-condition row for *event*, reusing an existing
+    identical row when present.
+
+    A condition describes an event-type rule, not a single occurrence, so the
+    same rule matches many dates. Without this dedup, upsert would insert one
+    identical row per matching date and bloat santhigiri_event_condition with
+    duplicates. Returns None when the event carries no matching criteria.
+    """
+    candidate = _event_condition_to_row(event)
+    if candidate is None:
+        return None
+
+    stmt = select(SanthigiriEventConditionRow).where(
+        SanthigiriEventConditionRow.event_id == candidate.event_id,
+        SanthigiriEventConditionRow.nakshatra_id == candidate.nakshatra_id,
+        SanthigiriEventConditionRow.thithi_id == candidate.thithi_id,
+        SanthigiriEventConditionRow.ml_day == candidate.ml_day,
+        SanthigiriEventConditionRow.ml_month == candidate.ml_month,
+        SanthigiriEventConditionRow.ml_year == candidate.ml_year,
+        SanthigiriEventConditionRow.en_day == candidate.en_day,
+        SanthigiriEventConditionRow.en_month == candidate.en_month,
+        SanthigiriEventConditionRow.en_year == candidate.en_year,
+        SanthigiriEventConditionRow.occurance == candidate.occurance,
+        SanthigiriEventConditionRow.is_poornima == candidate.is_poornima,
+        SanthigiriEventConditionRow.last_occurance == candidate.last_occurance,
+    )
+    existing = session.exec(stmt).first()
+    if existing is not None:
+        return existing.id
+
+    session.add(candidate)
+    session.flush()
+    return candidate.id
+
+
 # ── Eager-load strategy used by all getters ───────────────────────────────────
 
 _LOAD_OPTIONS = (
@@ -278,12 +317,7 @@ class PanchangamRepository:
                 )
             )
         for event in data.santhigiri_significant_dates:
-            ec_row = _event_condition_to_row(event)
-            ec_id: Optional[int] = None
-            if ec_row is not None:
-                self._s.add(ec_row)
-                self._s.flush()
-                ec_id = ec_row.id
+            ec_id = _get_or_create_event_condition(self._s, event)
             self._s.add(
                 SanthigiriSignificantDateRow(
                     panchangam_date=data.date,
@@ -303,25 +337,18 @@ class PanchangamRepository:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _delete_children(self, date: datetime.date) -> None:
-        """Delete all child rows for *date* so upsert can re-insert them cleanly."""
-        existing_ssd: Sequence[SanthigiriSignificantDateRow] = self._s.exec(
-            select(SanthigiriSignificantDateRow).where(
-                col(SanthigiriSignificantDateRow.panchangam_date) == date
-            )
-        ).all()
-        ec_ids = [r.event_condition_id for r in existing_ssd if r.event_condition_id is not None]
+        """Delete all child rows for *date* so upsert can re-insert them cleanly.
 
+        Event-condition rows are deliberately NOT deleted here: they describe an
+        event-type rule shared across many dates (see
+        _get_or_create_event_condition), so deleting them on a single date's
+        upsert would orphan the conditions referenced by other dates.
+        """
         self._s.exec(
             delete(SanthigiriSignificantDateRow).where(
                 col(SanthigiriSignificantDateRow.panchangam_date) == date
             )
         )
-        for ec_id in ec_ids:
-            self._s.exec(
-                delete(SanthigiriEventConditionRow).where(
-                    col(SanthigiriEventConditionRow.id) == ec_id
-                )
-            )
         self._s.exec(
             delete(ThithiTransitionRow).where( col(ThithiTransitionRow.panchangam_date) == date)
         )
