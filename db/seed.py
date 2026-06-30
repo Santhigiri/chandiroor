@@ -1,21 +1,23 @@
 """
-Seed the immutable lookup tables (Paksha, Thithi, Nakshatra) from the Python enums.
+Seed the immutable lookup tables (Paksha, Thithi, Nakshatra, MalayalamMasa) from the Python enums.
 
 Call seed_lookup_tables(session) once after init_db().  Subsequent calls are
 safe — session.merge() is idempotent on rows that already exist.
 """
 from sqlmodel import Session
 
+from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
 from db.models.paksha import Paksha as PakshaRow
 from db.models.thithi import Thithi as ThithiRow
+from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
 from utils.thithi import Thithi
 
 
 def seed_lookup_tables(session: Session) -> None:
-    """Insert all Paksha, Thithi, and Nakshatra values into their lookup tables."""
+    """Insert all Paksha, Thithi, Nakshatra, and MalayalamMasa values into their lookup tables."""
     for p in Paksha:
         session.merge(PakshaRow(id=p.id, name=p.name, ml=p.ml, en=p.en))
 
@@ -33,5 +35,8 @@ def seed_lookup_tables(session: Session) -> None:
 
     for n in Nakshatra:
         session.merge(NakshatraRow(id=n.id, name=n.name, ml=n.ml, en=n.en))
+
+    for m in MalayalamMasa:
+        session.merge(MalayalamMasaRow(id=m.id, name=m.name, ml=m.ml, en=m.en))
 
     session.commit()

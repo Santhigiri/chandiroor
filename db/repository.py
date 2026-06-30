@@ -45,13 +45,14 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
     kv_row = row.kollavarsham
     if kv_row is None:
         raise ValueError("kv_row is None")
+    masa = MalayalamMasa.from_id(kv_row.kv_month)
     kv = KollavarshamDate(
         date=kv_row.date,
         kv_day=kv_row.kv_day,
         kv_month=kv_row.kv_month,
         kv_year=kv_row.kv_year,
-        kv_month_name_en=kv_row.kv_month_name_en,
-        kv_month_name_ml=kv_row.kv_month_name_ml,
+        kv_month_name_en=masa.en,
+        kv_month_name_ml=masa.ml,
     )
 
     sg_lat, sg_lon = Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE
@@ -284,8 +285,6 @@ class PanchangamRepository:
                 kv_day=data.kv.kv_day,
                 kv_month=data.kv.kv_month,
                 kv_year=data.kv.kv_year,
-                kv_month_name_en=data.kv.kv_month_name_en,
-                kv_month_name_ml=data.kv.kv_month_name_ml,
             )
         )
         self._s.add(
