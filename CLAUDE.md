@@ -12,17 +12,17 @@ Default coordinates for all calculations: **8.645° N, 76.938° E** (Santhigiri 
 
 ## Git Workflow
 
-- **Always start from `dev`** — before any work, checkout or pull the latest `dev` branch.
-- **All changes merge to `dev` only** — feature branches must be created from `dev` and PRs must target `dev`.
+- **Always start from `develop`** — before any work, checkout or pull the latest `develop` branch.
+- **All changes merge to `develop` only** — feature branches must be created from `develop` and PRs must target `develop`.
 - **Never touch `main`** — do not commit to, push to, or merge into `main` directly. `main` is promoted to only by the project maintainers.
 
 ```bash
-git checkout dev
-git pull origin dev
+git checkout develop
+git pull origin develop
 git checkout -b feature/<your-feature-name>
 # ... make changes ...
 git push -u origin feature/<your-feature-name>
-# Open PR targeting dev
+# Open PR targeting develop
 ```
 
 ---
