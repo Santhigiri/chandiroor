@@ -36,6 +36,7 @@ The codebase uses a **feature-based architecture** with a hard separation betwee
 panchangam-api/
 ├── main.py                     # App factory: wires lifespan, CORS, routers
 ├── api/routes/                 # HTTP boundary only — thin, dumb handlers
+│   └── v1/                     # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
 ├── services/
 │   └── panchangam_service.py   # Reads through db/repository.py; falls back to live computation on a DB miss
 ├── db/                         # SQLite persistence layer (SQLModel)
@@ -116,9 +117,9 @@ Follow these rules without exception.
 
 ### Adding a new API endpoint
 
-1. Create a new file under `api/routes/<feature>.py`. Do not add endpoints to an existing route file unless they are closely related.
+1. Create a new file under `api/routes/<feature>.py` for unversioned endpoints, or `api/routes/<version>/<feature>.py` (e.g. `api/routes/v1/panchangam.py`) for versioned ones. Do not add endpoints to an existing route file unless they are closely related.
 2. Define request params as a Pydantic `BaseModel` in `schemas/`.
-3. Register the new router in `main.py` using `app.include_router(...)`.
+3. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment.
 4. All domain logic the endpoint needs must be implemented in `core/`.
 
 ### Enum usage
@@ -244,8 +245,10 @@ The container exposes port 8000 and runs `uvicorn main:app --host 0.0.0.0 --port
 
 ### Endpoints
 
-- `GET /panchangam/?date_str=YYYY-MM-DD` — returns full Panchangam for a single day
-- `GET /panchangam/monthly?year=YYYY&month=MM` — returns full Panchangam for every day in the month
+- `GET /api/v1/panchangam/?date_str=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
+- `GET /api/v1/panchangam/monthly?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
+- `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
+- `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
 
 All parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
 
