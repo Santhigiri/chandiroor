@@ -1,7 +1,9 @@
 fastapi[standard]
 uvicorn
-skyfield 
+skyfield
 pytz
 pandas
 pyswisseph
+sqlmodel
+pytest
 

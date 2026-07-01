@@ -4,3 +4,8 @@ venv/
 .env
 .env*
 .pytest_cache/
+# data/panchangam.db is committed so deployed instances (GCP) start pre-seeded
+# and don't rebuild from the pickle cache on every boot. Only the transient
+# WAL/SHM sidecars stay ignored.
+data/panchangam.db-shm
+data/panchangam.db-wal
