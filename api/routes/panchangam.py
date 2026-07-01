@@ -1,45 +1,42 @@
 from typing import Annotated
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from datetime import datetime
 
-from pytz import timezone
-from core.astronomy.sunrise_sunset import get_sunrise_sunset
-from core.calendar.monthly_panchangam import get_monthly_panchangam
-from core.calendar.panchangam import get_panchangam, get_panchangam_data
+from sqlmodel import Session
+
+from db.database import get_session
+from db.repository import PanchangamRepository
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
+from services.panchangam_service import PanchangamService
 
 
 router = APIRouter(prefix='/panchangam')
 
+
+def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
+    return PanchangamService(PanchangamRepository(session))
+
+
 @router.get('/')
 def panchangam(
     params: Annotated[GetPanchangamParams, Query()],
+    service: Annotated[PanchangamService, Depends(_get_service)],
 ):
     try:
-        date = datetime.strptime(str(params.date_str), "%Y-%m-%d")
-        time = datetime.strptime(params.time_str, "%H:%M:%S").time()
-        latitude_degrees = round(params.latitude,3)
-        longitude_degrees = round(params.longitude,3)
-        localdt = datetime.combine(date, time)
+        parsed_date = datetime.strptime(str(params.date_str), "%Y-%m-%d").date()
     except ValueError:
         return {'error': 'Invalid Date format. Use YYYY-MM-DD'}, 400
 
-
-
-    return get_panchangam_data(
-        localdt=date.date()
-    )
+    return service.get_by_date(parsed_date)
 
 
 @router.get('/monthly')
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
+    service: Annotated[PanchangamService, Depends(_get_service)],
 ):
-    return get_monthly_panchangam(
+    return service.get_by_month(
         year=params.year,
         month=params.month,
-        latitude_degrees=round(params.latitude,3),
-        longitude_degrees=round(params.longitude,3),
-        timezone=params.timezone
     )

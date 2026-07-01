@@ -4,9 +4,6 @@ from api.routes.panchangam import router as panchangam_router
 
 from utils.lifespan import lifespan
 
-PANCHANGAM_CACHE = {}
-
-
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
