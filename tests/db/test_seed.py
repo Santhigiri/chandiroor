@@ -5,12 +5,14 @@ from db.models.location import Location as LocationRow
 from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
 from db.models.paksha import Paksha as PakshaRow
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.thithi import Thithi as ThithiRow
 from db.seed import seed_lookup_tables
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
+from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from utils.thithi import Thithi
 
 
@@ -26,6 +28,7 @@ def test_seed_inserts_exact_enum_counts(session):
     assert _count(session, NakshatraRow) == 27
     assert _count(session, MalayalamMasaRow) == 12
     assert _count(session, LocationRow) == len(list(Location))
+    assert _count(session, SanthigiriEventRow) == len(EVENT_DEFINITIONS_BY_ID)
 
 
 def test_seed_values_match_enums(session):

@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from datetime import datetime
 
 from sqlmodel import Session
@@ -10,6 +10,11 @@ from schemas.compact_panchangam_data import CompactPanchangamData
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
+from services.etag_service import (
+    build_year_payload,
+    conditional_json_response,
+    year_key,
+)
 from services.panchangam_service import PanchangamService
 
 
@@ -51,11 +56,17 @@ def panchangam_monthly(
 
 @router.get('/year')
 def panchangam_yearly(
+    request: Request,
     params: Annotated[GetYearlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
-):
-    data = service.get_by_year(year=params.year)
-    return {
-        day: CompactPanchangamData.from_panchangam_data(value)
-        for day, value in data.items()
-    }
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    # ETag-validated: unchanged years return 304 so the frontend skips the
+    # full-year download. The stored ETag is refreshed whenever the data is
+    # reloaded (see db.migrate / services.etag_service).
+    return conditional_json_response(
+        request,
+        session,
+        year_key(params.year),
+        lambda: build_year_payload(service, params.year),
+    )

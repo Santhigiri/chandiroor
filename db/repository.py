@@ -118,10 +118,13 @@ def _ssd_row_to_event(row: SanthigiriSignificantDateRow) -> SanthigiriEvent:
         )
     else:
         cond = EventCondition()
+    definition = row.event
+    if definition is None:
+        raise ValueError(f"No santhigiri_event definition for {row.event_id!r}")
     return SanthigiriEvent(
         id=SanthigiriEventId(row.event_id),
-        name=row.name,
-        description=row.description,
+        name=definition.name,
+        description=definition.description,
         event_condition=cond,
     )
 
@@ -200,6 +203,9 @@ _LOAD_OPTIONS = (
     selectinload(PanchangamRow.nakshatra_transitions),
     selectinload(PanchangamRow.santhigiri_events).selectinload(
         SanthigiriSignificantDateRow.event_condition
+    ),
+    selectinload(PanchangamRow.santhigiri_events).selectinload(
+        SanthigiriSignificantDateRow.event
     ),
 )
 
@@ -315,8 +321,6 @@ class PanchangamRepository:
                 SanthigiriSignificantDateRow(
                     panchangam_date=data.date,
                     event_id=event.id.value,
-                    name=event.name,
-                    description=event.description,
                     event_condition_id=ec_id,
                 )
             )
