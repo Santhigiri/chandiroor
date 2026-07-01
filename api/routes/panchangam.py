@@ -17,6 +17,7 @@ from utils.thithi import Thithi
 
 
 router = APIRouter(prefix='/panchangam')
+v1_router = APIRouter(prefix='/api/v1/panchangam')
 
 
 def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
@@ -47,8 +48,8 @@ def panchangam_monthly(
     )
 
 
-@router.get('/v2')
-def panchangam_v2(
+@v1_router.get('/')
+def panchangam_v1(
     params: Annotated[GetPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
 ):
@@ -61,8 +62,8 @@ def panchangam_v2(
     return CompactPanchangamData.from_panchangam_data(data)
 
 
-@router.get('/v2/monthly')
-def panchangam_v2_monthly(
+@v1_router.get('/monthly')
+def panchangam_v1_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
 ):

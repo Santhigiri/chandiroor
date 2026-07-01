@@ -244,8 +244,10 @@ The container exposes port 8000 and runs `uvicorn main:app --host 0.0.0.0 --port
 
 ### Endpoints
 
-- `GET /panchangam/?date_str=YYYY-MM-DD` — returns full Panchangam for a single day
-- `GET /panchangam/monthly?year=YYYY&month=MM` — returns full Panchangam for every day in the month
+- `GET /api/v1/panchangam/?date_str=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
+- `GET /api/v1/panchangam/monthly?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
+- `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
+- `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
 
 All parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
 
