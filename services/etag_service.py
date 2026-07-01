@@ -17,26 +17,22 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from db.etag_repository import EtagRepository
+from db.reference_repository import ReferenceRepository
 from db.repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData
 from services.panchangam_service import PanchangamService
 from utils.content_hash import stable_hash
 from utils.etag import if_none_match_satisfied
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
 
-# Enum reference datasets exposed by the API, each keyed by its route name.
-ENUM_PAYLOAD_BUILDERS = {
-    "thithi": lambda: [t.to_dict() for t in Thithi],
-    "nakshatra": lambda: [n.to_dict() for n in Nakshatra],
-    "masa": lambda: [m.to_dict() for m in MalayalamMasa],
-    "events": lambda: [
-        {"id": e.id.value, "name": e.name, "description": e.description}
-        for e in EVENT_DEFINITIONS_BY_ID.values()
-    ],
+# Enum reference datasets exposed by the API, keyed by route name → the
+# ReferenceRepository method that reads each one from the database.
+_ENUM_READERS = {
+    "thithi": "list_thithis",
+    "nakshatra": "list_nakshatras",
+    "masa": "list_masas",
+    "events": "list_events",
 }
+ENUM_NAMES = tuple(_ENUM_READERS)
 
 
 # ── Keys ──────────────────────────────────────────────────────────────────────
@@ -62,9 +58,10 @@ def build_year_payload(
     }
 
 
-def build_enum_payload(name: str) -> List[Dict[str, Any]]:
-    """Return the reference list for an enum dataset name (thithi/nakshatra/masa/events)."""
-    return ENUM_PAYLOAD_BUILDERS[name]()
+def build_enum_payload(session: Session, name: str) -> List[Dict[str, Any]]:
+    """Return the reference list for an enum dataset name, read from the DB."""
+    repo = ReferenceRepository(session)
+    return getattr(repo, _ENUM_READERS[name])()
 
 
 # ── ETag ──────────────────────────────────────────────────────────────────────
@@ -117,7 +114,7 @@ def refresh_etags(session: Session, years: Iterable[int]) -> None:
     for year in years:
         etag_repo.set(year_key(year), compute_etag(build_year_payload(service, year)))
 
-    for name in ENUM_PAYLOAD_BUILDERS:
-        etag_repo.set(enum_key(name), compute_etag(build_enum_payload(name)))
+    for name in ENUM_NAMES:
+        etag_repo.set(enum_key(name), compute_etag(build_enum_payload(session, name)))
 
     session.commit()
