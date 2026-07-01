@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.santhigiri_event_condition import (
     SanthigiriEventCondition as ConditionRow,
 )
@@ -19,26 +20,25 @@ from db.repository import (
     _row_to_panchangam_data,
 )
 from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EventCondition, SanthigiriEvent, SanthigiriEventId
+from utils.santhigiri_events import (
+    EVENT_DEFINITIONS_BY_ID,
+    EventCondition,
+    SanthigiriEvent,
+    SanthigiriEventId,
+)
 from utils.thithi import Thithi
 
 
 def _pournami_event() -> SanthigiriEvent:
-    return SanthigiriEvent(
-        id=SanthigiriEventId.POURNAMI,
-        name="Pournami",
-        description="full moon day",
-        event_condition=EventCondition(is_poornima=True),
-    )
+    # name/description now come from the seeded definition, so build from it to
+    # keep the get→domain round-trip equal.
+    return EVENT_DEFINITIONS_BY_ID[SanthigiriEventId.POURNAMI].model_copy(deep=True)
 
 
 def _chothi_event() -> SanthigiriEvent:
-    return SanthigiriEvent(
-        id=SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA,
-        name="Janmagriha Theertha Yaathra",
-        description="chothi day",
-        event_condition=EventCondition(nakshatra=Nakshatra.CHOTHI),
-    )
+    return EVENT_DEFINITIONS_BY_ID[
+        SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA
+    ].model_copy(deep=True)
 
 
 def _count(session, model) -> int:
@@ -228,6 +228,41 @@ def test_delete_children_preserves_shared_condition(seeded_session, make_panchan
     assert seeded_session.exec(
         select(SsdRow).where(SsdRow.panchangam_date == d2)).all()
     assert _count(seeded_session, ConditionRow) == 1
+
+
+# ── Event definition FK ───────────────────────────────────────────────────────
+
+def test_event_name_description_derive_from_definition(seeded_session, make_panchangam_data):
+    """Editing the definition changes what get_by_date reconstructs — no stale copy."""
+    repo = PanchangamRepository(seeded_session)
+    date = datetime.date(2026, 6, 2)
+    repo.upsert(make_panchangam_data(date, santhigiri_significant_dates=[_pournami_event()]))
+    seeded_session.commit()
+
+    definition = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    definition.name = "Poornima (edited)"
+    definition.description = "edited description"
+    seeded_session.add(definition)
+    seeded_session.commit()
+
+    event = repo.get_by_date(date).santhigiri_significant_dates[0]
+    assert event.name == "Poornima (edited)"
+    assert event.description == "edited description"
+
+
+def test_deleting_definition_cascades_to_occurrences(seeded_session, make_panchangam_data):
+    repo = PanchangamRepository(seeded_session)
+    repo.upsert(make_panchangam_data(
+        datetime.date(2026, 6, 3), santhigiri_significant_dates=[_pournami_event()]))
+    seeded_session.commit()
+    assert _count(seeded_session, SsdRow) == 1
+
+    definition = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    seeded_session.delete(definition)
+    seeded_session.commit()
+
+    # ON DELETE CASCADE removed the occurrence row with the definition.
+    assert _count(seeded_session, SsdRow) == 0
 
 
 # ── Converter units ───────────────────────────────────────────────────────────
