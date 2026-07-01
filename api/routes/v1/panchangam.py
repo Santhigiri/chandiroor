@@ -20,7 +20,7 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> Panchanga
     return PanchangamService(PanchangamRepository(session))
 
 
-@router.get('/')
+@router.get('/day')
 def panchangam(
     params: Annotated[GetPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
@@ -34,7 +34,7 @@ def panchangam(
     return CompactPanchangamData.from_panchangam_data(data)
 
 
-@router.get('/monthly')
+@router.get('/month')
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
@@ -49,7 +49,7 @@ def panchangam_monthly(
     }
 
 
-@router.get('/yearly')
+@router.get('/year')
 def panchangam_yearly(
     params: Annotated[GetYearlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
