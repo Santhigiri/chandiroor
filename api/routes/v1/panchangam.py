@@ -8,6 +8,7 @@ from db.database import get_session
 from db.repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
 from services.panchangam_service import PanchangamService
 
@@ -19,7 +20,7 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> Panchanga
     return PanchangamService(PanchangamRepository(session))
 
 
-@router.get('/')
+@router.get('/day')
 def panchangam(
     params: Annotated[GetPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
@@ -33,7 +34,7 @@ def panchangam(
     return CompactPanchangamData.from_panchangam_data(data)
 
 
-@router.get('/monthly')
+@router.get('/month')
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
@@ -42,6 +43,18 @@ def panchangam_monthly(
         year=params.year,
         month=params.month,
     )
+    return {
+        day: CompactPanchangamData.from_panchangam_data(value)
+        for day, value in data.items()
+    }
+
+
+@router.get('/year')
+def panchangam_yearly(
+    params: Annotated[GetYearlyPanchangamParams, Query()],
+    service: Annotated[PanchangamService, Depends(_get_service)],
+):
+    data = service.get_by_year(year=params.year)
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
         for day, value in data.items()
