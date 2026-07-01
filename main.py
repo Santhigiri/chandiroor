@@ -14,5 +14,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(panchangam_router)
-app.include_router(panchangam_v1_router)
+app.include_router(panchangam_v1_router, prefix="/api/v1")
 

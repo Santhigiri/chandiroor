@@ -17,7 +17,7 @@ from utils.thithi import Thithi
 
 
 router = APIRouter(prefix='/panchangam')
-v1_router = APIRouter(prefix='/api/v1/panchangam')
+v1_router = APIRouter(prefix='/panchangam')
 
 
 def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
