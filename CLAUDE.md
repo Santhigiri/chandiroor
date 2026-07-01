@@ -15,6 +15,7 @@ Default coordinates for all calculations: **8.645° N, 76.938° E** (Santhigiri 
 - **Always start from `develop`** — before any work, checkout or pull the latest `develop` branch.
 - **All changes merge to `develop` only** — feature branches must be created from `develop` and PRs must target `develop`.
 - **Never touch `main`** — do not commit to, push to, or merge into `main` directly. `main` is promoted to only by the project maintainers.
+- **Keep the PR title and description in sync with the diff** — before merging a PR, re-check that its title and description still accurately describe the actual changes on the branch (commits are often added after the PR was opened). Update both if they've drifted before merging.
 
 ```bash
 git checkout develop
