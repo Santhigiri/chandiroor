@@ -5,4 +5,5 @@ pytz
 pandas
 pyswisseph
 sqlmodel
+pytest
 
