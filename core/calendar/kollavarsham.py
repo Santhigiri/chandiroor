@@ -82,7 +82,7 @@ def get_kollavarsham_date(
 ) -> KollavarshamDate:
 
 
-    # Today's raasi at sunrise
+    # Today's raasi at sunset
     today_raasi = get_sunset_raasi(
         dt=dt,
         timezone=timezone,
@@ -90,27 +90,26 @@ def get_kollavarsham_date(
         longitude=longitude
     )
 
-    current_date = dt
-
-    malayalam_day = 1
-
-    # Walk backwards sunset-by-sunset
-    while True:
-
-        previous_date: date = current_date - timedelta(days=1)
-        previous_raasi = get_sunset_raasi(
-            dt=previous_date,
-            latitude= latitude,
+    # The Malayalam day is the count of sunsets since the Sun entered the current
+    # raasi (the Sankranti). The sunset-raasi is constant within a month and changes
+    # exactly at the month boundary, so instead of walking backwards one day at a time
+    # we binary-search for the largest offset `k` (a Malayalam month is < 32 days) whose
+    # sunset-raasi still equals today's. `malayalam_day` is then `k + 1`.
+    lo, hi = 0, 32
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        mid_raasi = get_sunset_raasi(
+            dt=dt - timedelta(days=mid),
+            latitude=latitude,
             longitude=longitude,
             timezone=timezone
         )
+        if mid_raasi == today_raasi:
+            lo = mid
+        else:
+            hi = mid - 1
 
-        # Month boundary found
-        if previous_raasi != today_raasi:
-            break
-
-        malayalam_day += 1
-        current_date = previous_date
+    malayalam_day = lo + 1
 
 
     # Kollam Era year starts at Chingam
