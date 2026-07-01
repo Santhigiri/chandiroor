@@ -31,8 +31,8 @@ from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
 from core.calendar.kollavarsham import KollavarshamDate
-from core.constants import DEFAULT_TIMEZONE, Coordinates
 from schemas.panchangam_data import PanchangamData
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import EventCondition, SanthigiriEvent, SanthigiriEventId
@@ -55,12 +55,8 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         kv_month_name_ml=masa.ml,
     )
 
-    sg_lat, sg_lon = Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE
     ss_row = next(
-        (
-            s for s in row.sunrise_sunsets
-            if abs(s.latitude - sg_lat) < 1e-3 and abs(s.longitude - sg_lon) < 1e-3
-        ),
+        (s for s in row.sunrise_sunsets if s.location_id == Location.TVM.id),
         row.sunrise_sunsets[0] if row.sunrise_sunsets else None,
     )
 
@@ -290,9 +286,7 @@ class PanchangamRepository:
         self._s.add(
             SunriseSunsetRow(
                 date=data.date,
-                latitude=Coordinates.SG_LATITUDE,
-                longitude=Coordinates.SG_LONGITUDE,
-                timezone=DEFAULT_TIMEZONE,
+                location_id=Location.TVM.id,
                 sunrise=data.sunrise,
                 sunset=data.sunset,
             )
