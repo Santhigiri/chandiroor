@@ -1,24 +1,11 @@
 """Tests for db/reference_repository.py — reference datasets served from the DB."""
-import datetime
-
-from sqlmodel import select
-
-from db.models.santhigiri_significant_date import (
-    SanthigiriSignificantDate as SsdRow,
-)
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.reference_repository import ReferenceRepository
-from db.repository import PanchangamRepository
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
-from utils.santhigiri_events import EventCondition, SanthigiriEvent, SanthigiriEventId
+from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID, SanthigiriEventId
 from utils.thithi import Thithi
-
-
-def _event(id_: SanthigiriEventId, name: str, description: str) -> SanthigiriEvent:
-    return SanthigiriEvent(
-        id=id_, name=name, description=description, event_condition=EventCondition()
-    )
 
 
 # ── Lookup-table datasets ─────────────────────────────────────────────────────
@@ -54,50 +41,27 @@ def test_list_nakshatras_and_masas(seeded_session):
     assert meenam["name"] == MalayalamMasa.MEENAM.name
 
 
-# ── Events derived from significant-date occurrences ──────────────────────────
+# ── Events from the editable definition table ─────────────────────────────────
 
-def _seed_events(seeded_session, make_panchangam_data):
-    """Two Pournami occurrences (same definition) + one distinct event."""
-    repo = PanchangamRepository(seeded_session)
-    pournami = _event(SanthigiriEventId.POURNAMI, "Pournami", "full moon day")
-    janma = _event(
-        SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA, "Janmagriha", "chothi day"
-    )
-    repo.upsert(
-        make_panchangam_data(datetime.date(2024, 1, 1), santhigiri_significant_dates=[pournami])
-    )
-    repo.upsert(
-        make_panchangam_data(datetime.date(2024, 1, 2), santhigiri_significant_dates=[pournami])
-    )
-    repo.upsert(
-        make_panchangam_data(datetime.date(2024, 1, 3), santhigiri_significant_dates=[janma])
-    )
-    seeded_session.commit()
-
-
-def test_list_events_dedups_across_occurrences(seeded_session, make_panchangam_data):
-    _seed_events(seeded_session, make_panchangam_data)
-
+def test_list_events_returns_every_defined_event(seeded_session):
+    """All defined events appear regardless of whether they occur in the data."""
     events = ReferenceRepository(seeded_session).list_events()
 
-    # Two Pournami occurrences collapse to one definition; ordered by event_id.
-    assert [e["id"] for e in events] == [
-        SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA.value,
-        SanthigiriEventId.POURNAMI.value,
-    ]
-    assert events[1]["name"] == "Pournami"
-    assert events[1]["description"] == "full moon day"
+    assert len(events) == len(EVENT_DEFINITIONS_BY_ID)
+    assert {e["id"] for e in events} == {
+        e.id.value for e in EVENT_DEFINITIONS_BY_ID.values()
+    }
+    # Ordered by the seeded display order (sort_order).
+    first = next(iter(EVENT_DEFINITIONS_BY_ID.values()))
+    assert events[0]["id"] == first.id.value
 
 
-def test_list_events_reflects_db_edit(seeded_session, make_panchangam_data):
+def test_list_events_reflects_db_edit(seeded_session):
     """Editing the name in the DB changes the endpoint output — the whole point."""
-    _seed_events(seeded_session, make_panchangam_data)
-
-    for row in seeded_session.exec(
-        select(SsdRow).where(SsdRow.event_id == SanthigiriEventId.POURNAMI.value)
-    ).all():
-        row.name = "Poornima (corrected)"
-        seeded_session.add(row)
+    row = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    assert row is not None
+    row.name = "Poornima (corrected)"
+    seeded_session.add(row)
     seeded_session.commit()
 
     events = ReferenceRepository(seeded_session).list_events()

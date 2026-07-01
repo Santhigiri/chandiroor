@@ -15,7 +15,7 @@ from db.database import engine, init_db
 from db.models.dataset_etag import DatasetEtag as DatasetEtagRow
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.repository import PanchangamRepository
-from db.seed import seed_lookup_tables
+from db.seed import seed_lookup_tables, seed_santhigiri_events_if_empty
 from services.etag_service import refresh_etags
 from utils.cache_crud import load_cache
 
@@ -39,14 +39,15 @@ def _stored_years(session: Session) -> List[int]:
 def init_db_from_pickle(force: bool = False) -> None:
     """
     Create the DB schema if needed, fill it from the pickle cache, and make sure
-    the dataset ETags are present.
+    the reference tables and dataset ETags are present.
 
     The pickle import is a no-op when the ``panchangam`` table already has rows
-    (unless ``force`` is set). ETags are (re)computed whenever data is imported,
-    and are also **backfilled** for an already-populated DB that predates this
-    feature so conditional requests work immediately after deploy rather than
-    lazily on first request. Lookup tables are seeded before the panchangam rows
-    because ``panchangam.thithi_id``/``nakshatra_id`` are foreign keys into them.
+    (unless ``force`` is set). The santhigiri_event definitions and the dataset
+    ETags are (re)computed whenever data is imported, and are also **backfilled**
+    for an already-populated DB that predates those tables — so both the /events
+    reference and conditional requests work immediately after deploy rather than
+    lazily. Lookup tables are seeded before the panchangam rows because
+    ``panchangam.thithi_id``/``nakshatra_id`` are foreign keys into them.
     """
     init_db()
 
@@ -58,11 +59,13 @@ def init_db_from_pickle(force: bool = False) -> None:
             cache = load_cache()
             PanchangamRepository(session).upsert_many(cache.values())
             print(f"Imported {len(cache)} dates from pickle into DB")
-        elif _has_etags(session):
-            print("DB already populated; skipping pickle import")
-            return
         else:
-            print("DB already populated; backfilling missing ETags")
+            # Backfill reference tables added after this DB was first populated.
+            seeded_events = seed_santhigiri_events_if_empty(session)
+            if _has_etags(session) and not seeded_events:
+                print("DB already populated; skipping pickle import")
+                return
+            print("DB already populated; backfilling missing reference data / ETags")
 
         # Precompute ETags for every stored year and the enum references so
         # conditional requests can be answered without rebuilding the payload.

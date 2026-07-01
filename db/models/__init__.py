@@ -12,6 +12,7 @@ from db.models.thithi_transition import ThithiTransition
 from db.models.nakshatra_transition import NakshatraTransition
 from db.models.santhigiri_event_condition import SanthigiriEventCondition
 from db.models.santhigiri_significant_date import SanthigiriSignificantDate
+from db.models.santhigiri_event import SanthigiriEvent
 from db.models.dataset_etag import DatasetEtag
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     "NakshatraTransition",
     "SanthigiriEventCondition",
     "SanthigiriSignificantDate",
+    "SanthigiriEvent",
     "DatasetEtag",
 ]

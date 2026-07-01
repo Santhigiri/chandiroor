@@ -17,9 +17,7 @@ from sqlmodel import Session, select
 
 from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
-from db.models.santhigiri_significant_date import (
-    SanthigiriSignificantDate as SanthigiriSignificantDateRow,
-)
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.thithi import Thithi as ThithiRow
 
 
@@ -64,24 +62,15 @@ class ReferenceRepository:
         ]
 
     def list_events(self) -> List[Dict[str, Any]]:
-        """Distinct event definitions drawn from the significant-date rows.
+        """Every defined event, from the editable santhigiri_event table.
 
-        Ordered by ``event_id`` so the output (and therefore its ETag) is stable
-        and identical across instances.
+        Includes events that do not occur in the loaded date range, ordered by
+        ``sort_order`` so the output (and therefore its ETag) is stable and
+        identical across instances.
         """
         rows = self._s.exec(
-            select(
-                SanthigiriSignificantDateRow.event_id,
-                SanthigiriSignificantDateRow.name,
-                SanthigiriSignificantDateRow.description,
-            )
-            .distinct()
-            .order_by(
-                SanthigiriSignificantDateRow.event_id,
-                SanthigiriSignificantDateRow.name,
-            )
+            select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
         ).all()
         return [
-            {"id": event_id, "name": name, "description": description}
-            for event_id, name, description in rows
+            {"id": e.id, "name": e.name, "description": e.description} for e in rows
         ]

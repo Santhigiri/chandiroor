@@ -17,6 +17,8 @@ from db.database import init_db
 from db.migrate import _is_db_populated, init_db_from_pickle
 from db.models.dataset_etag import DatasetEtag as DatasetEtagRow
 from db.models.panchangam import Panchangam as PanchangamRow
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from db.repository import PanchangamRepository
 
 PICKLE_2022 = "data/panchangam_2022.pkl"
@@ -120,3 +122,29 @@ def test_init_db_from_pickle_backfills_etags_without_reimport(temp_db, monkeypat
     assert calls["n"] == 1
     with Session(temp_db) as s:
         assert s.exec(select(DatasetEtagRow)).first() is not None
+
+
+def test_init_db_from_pickle_backfills_santhigiri_events(temp_db, monkeypatch):
+    """A populated DB predating the santhigiri_event table gets it backfilled."""
+    calls = {"n": 0}
+
+    def counting_load():
+        calls["n"] += 1
+        return _load_2022()
+
+    monkeypatch.setattr(migrate, "load_cache", counting_load)
+
+    init_db_from_pickle()  # imports + seeds event definitions (load_cache call #1)
+
+    # Simulate an old DB: the definition table exists but is empty.
+    with Session(temp_db) as s:
+        s.exec(delete(SanthigiriEventRow))
+        s.commit()
+
+    init_db_from_pickle()  # should backfill events, NOT reimport
+
+    assert calls["n"] == 1
+    with Session(temp_db) as s:
+        assert len(s.exec(select(SanthigiriEventRow)).all()) == len(
+            EVENT_DEFINITIONS_BY_ID
+        )
