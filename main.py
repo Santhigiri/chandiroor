@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes.panchangam import router as panchangam_router, v1_router as panchangam_v1_router
+from api.routes.panchangam import router as panchangam_router
+from api.routes.v1.panchangam import router as panchangam_v1_router
 
 from utils.lifespan import lifespan
 
