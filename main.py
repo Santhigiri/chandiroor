@@ -13,6 +13,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["ETag"],  # let browser JS read the ETag to send back in If-None-Match
 )
 app.include_router(panchangam_router)
 app.include_router(panchangam_v1_router, prefix="/api/v1")

@@ -9,11 +9,13 @@ import datetime
 import pickle
 
 import pytest
+from sqlalchemy import delete
 from sqlmodel import Session, select
 
 import db.migrate as migrate
 from db.database import init_db
 from db.migrate import _is_db_populated, init_db_from_pickle
+from db.models.dataset_etag import DatasetEtag as DatasetEtagRow
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.repository import PanchangamRepository
 
@@ -80,3 +82,41 @@ def test_init_db_from_pickle_force_reimports(temp_db, monkeypatch):
     with Session(temp_db) as s:
         # upsert replaces rather than duplicating — count stays at one year.
         assert len(s.exec(select(PanchangamRow)).all()) == len(cache)
+
+
+def test_init_db_from_pickle_populates_etags(temp_db, monkeypatch):
+    monkeypatch.setattr(migrate, "load_cache", _load_2022)
+
+    init_db_from_pickle()
+
+    with Session(temp_db) as s:
+        etags = {e.key: e.etag for e in s.exec(select(DatasetEtagRow)).all()}
+
+    # One ETag for the imported year plus one per enum reference dataset.
+    assert etags["year:2022"].startswith('"')
+    for name in ("thithi", "nakshatra", "masa", "events"):
+        assert etags[f"enum:{name}"].startswith('"')
+
+
+def test_init_db_from_pickle_backfills_etags_without_reimport(temp_db, monkeypatch):
+    """A populated DB predating this feature gets ETags backfilled, no reimport."""
+    calls = {"n": 0}
+
+    def counting_load():
+        calls["n"] += 1
+        return _load_2022()
+
+    monkeypatch.setattr(migrate, "load_cache", counting_load)
+
+    init_db_from_pickle()  # imports + writes etags (load_cache call #1)
+
+    # Simulate an old DB: data present but no ETags stored.
+    with Session(temp_db) as s:
+        s.exec(delete(DatasetEtagRow))
+        s.commit()
+
+    init_db_from_pickle()  # should backfill etags, NOT reimport
+
+    assert calls["n"] == 1
+    with Session(temp_db) as s:
+        assert s.exec(select(DatasetEtagRow)).first() is not None

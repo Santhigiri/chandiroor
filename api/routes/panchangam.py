@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from datetime import datetime
 
 from sqlmodel import Session
@@ -8,11 +8,12 @@ from db.database import get_session
 from db.repository import PanchangamRepository
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
+from services.etag_service import (
+    build_enum_payload,
+    conditional_json_response,
+    enum_key,
+)
 from services.panchangam_service import PanchangamService
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
 
 
 router = APIRouter(prefix='/panchangam')
@@ -46,24 +47,43 @@ def panchangam_monthly(
     )
 
 
+# The enum reference datasets are static in code, so their ETags change only on
+# deploy. Each is served ETag-validated so the frontend can revalidate cheaply
+# and reuse its cached copy on a 304. See services.etag_service for the payloads.
+
+def _reference_response(request: Request, session: Session, name: str) -> Response:
+    return conditional_json_response(
+        request, session, enum_key(name), lambda: build_enum_payload(name)
+    )
+
+
 @router.get('/thithi')
-def thithi_reference():
-    return [t.to_dict() for t in Thithi]
+def thithi_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return _reference_response(request, session, "thithi")
 
 
 @router.get('/nakshatra')
-def nakshatra_reference():
-    return [n.to_dict() for n in Nakshatra]
+def nakshatra_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return _reference_response(request, session, "nakshatra")
 
 
 @router.get('/masa')
-def masa_reference():
-    return [m.to_dict() for m in MalayalamMasa]
+def masa_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return _reference_response(request, session, "masa")
 
 
 @router.get('/events')
-def events_reference():
-    return [
-        {"id": e.id.value, "name": e.name, "description": e.description}
-        for e in EVENT_DEFINITIONS_BY_ID.values()
-    ]
+def events_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return _reference_response(request, session, "events")
