@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from db.models.kollavarsham_date import KollavarshamDate
     from db.models.nakshatra import Nakshatra
     from db.models.nakshatra_transition import NakshatraTransition
-    from db.models.santhigiri_significant_date import SanthigiriSignificantDate
+    from db.models.santhigiri_event_date import SanthigiriEventDate
     from db.models.sunrise_sunset import SunriseSunset
     from db.models.thithi import Thithi
     from db.models.thithi_transition import ThithiTransition
@@ -37,4 +37,4 @@ class Panchangam(SQLModel, table=True):
     sunrise_sunsets:       Mapped[List["SunriseSunset"]]              = Relationship(back_populates="panchangam")
     thithi_transitions:    Mapped[List["ThithiTransition"]]           = Relationship(back_populates="panchangam")
     nakshatra_transitions: Mapped[List["NakshatraTransition"]]        = Relationship(back_populates="panchangam")
-    santhigiri_events:     Mapped[List["SanthigiriSignificantDate"]]  = Relationship(back_populates="panchangam")
+    santhigiri_events:     Mapped[List["SanthigiriEventDate"]]  = Relationship(back_populates="panchangam")

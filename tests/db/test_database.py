@@ -24,8 +24,8 @@ EXPECTED_TABLES = {
     "sunrise_sunset",
     "thithi_transitions",
     "nakshatra_transitions",
-    "santhigiri_event_condition",
-    "santhigiri_significant_dates",
+    "santhigiri_event",
+    "santhigiri_event_dates",
 }
 
 

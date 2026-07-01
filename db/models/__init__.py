@@ -10,9 +10,8 @@ from db.models.kollavarsham_date import KollavarshamDate
 from db.models.sunrise_sunset import SunriseSunset
 from db.models.thithi_transition import ThithiTransition
 from db.models.nakshatra_transition import NakshatraTransition
-from db.models.santhigiri_event_condition import SanthigiriEventCondition
-from db.models.santhigiri_significant_date import SanthigiriSignificantDate
 from db.models.santhigiri_event import SanthigiriEvent
+from db.models.santhigiri_event_date import SanthigiriEventDate
 from db.models.dataset_etag import DatasetEtag
 
 __all__ = [
@@ -26,8 +25,7 @@ __all__ = [
     "SunriseSunset",
     "ThithiTransition",
     "NakshatraTransition",
-    "SanthigiriEventCondition",
-    "SanthigiriSignificantDate",
     "SanthigiriEvent",
+    "SanthigiriEventDate",
     "DatasetEtag",
 ]

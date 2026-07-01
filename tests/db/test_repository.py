@@ -7,16 +7,12 @@ from sqlmodel import Session, select
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.santhigiri_event_condition import (
-    SanthigiriEventCondition as ConditionRow,
-)
-from db.models.santhigiri_significant_date import (
-    SanthigiriSignificantDate as SsdRow,
+from db.models.santhigiri_event_date import (
+    SanthigiriEventDate as SsdRow,
 )
 from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from db.repository import (
     PanchangamRepository,
-    _event_condition_to_row,
     _row_to_panchangam_data,
 )
 from utils.nakshatra import Nakshatra
@@ -190,46 +186,6 @@ def test_get_by_month_december_boundary(seeded_session, make_panchangam_data):
     assert datetime.date(2027, 1, 1) not in dec
 
 
-# ── Event-condition dedup ─────────────────────────────────────────────────────
-
-def test_event_condition_deduplicated_across_dates(seeded_session, make_panchangam_data):
-    repo = PanchangamRepository(seeded_session)
-    repo.upsert(make_panchangam_data(
-        datetime.date(2026, 4, 1), santhigiri_significant_dates=[_pournami_event()]))
-    repo.upsert(make_panchangam_data(
-        datetime.date(2026, 4, 2), santhigiri_significant_dates=[_pournami_event()]))
-    seeded_session.commit()
-
-    # Same rule on two dates → a single shared condition row.
-    assert _count(seeded_session, ConditionRow) == 1
-    assert _count(seeded_session, SsdRow) == 2
-
-    # A different rule adds exactly one more condition row.
-    repo.upsert(make_panchangam_data(
-        datetime.date(2026, 4, 3), santhigiri_significant_dates=[_chothi_event()]))
-    seeded_session.commit()
-    assert _count(seeded_session, ConditionRow) == 2
-
-
-def test_delete_children_preserves_shared_condition(seeded_session, make_panchangam_data):
-    repo = PanchangamRepository(seeded_session)
-    d1, d2 = datetime.date(2026, 4, 10), datetime.date(2026, 4, 11)
-    repo.upsert(make_panchangam_data(d1, santhigiri_significant_dates=[_pournami_event()]))
-    repo.upsert(make_panchangam_data(d2, santhigiri_significant_dates=[_pournami_event()]))
-    seeded_session.commit()
-    assert _count(seeded_session, ConditionRow) == 1
-
-    repo._delete_children(d1)
-    seeded_session.commit()
-
-    # d1's significant-date row is gone, d2's remains, the shared rule is kept.
-    assert seeded_session.exec(
-        select(SsdRow).where(SsdRow.panchangam_date == d1)).all() == []
-    assert seeded_session.exec(
-        select(SsdRow).where(SsdRow.panchangam_date == d2)).all()
-    assert _count(seeded_session, ConditionRow) == 1
-
-
 # ── Event definition FK ───────────────────────────────────────────────────────
 
 def test_event_name_description_derive_from_definition(seeded_session, make_panchangam_data):
@@ -266,21 +222,6 @@ def test_deleting_definition_cascades_to_occurrences(seeded_session, make_pancha
 
 
 # ── Converter units ───────────────────────────────────────────────────────────
-
-def test_event_condition_to_row_none_when_no_criteria():
-    event = SanthigiriEvent(
-        id=SanthigiriEventId.SAMSKARIKA_DINAM, name="x", description="y",
-        event_condition=EventCondition(),
-    )
-    assert _event_condition_to_row(event) is None
-
-
-def test_event_condition_to_row_populates_fields():
-    row = _event_condition_to_row(_chothi_event())
-    assert row is not None
-    assert row.event_id == SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA.value
-    assert row.nakshatra_id == Nakshatra.CHOTHI.id
-
 
 def test_row_to_panchangam_data_raises_without_kollavarsham():
     """A panchangam row with no kollavarsham child cannot be converted."""

@@ -27,12 +27,24 @@ def seed_santhigiri_events(session: Session) -> None:
     Does NOT commit — callers batch this with the rest of a seed transaction.
     """
     for order, event in enumerate(EVENT_DEFINITIONS_BY_ID.values()):
+        c = event.event_condition
         session.merge(
             SanthigiriEventRow(
                 id=event.id.value,
                 name=event.name,
                 description=event.description,
                 sort_order=order,
+                nakshatra_id=c.nakshatra.id if c.nakshatra else None,
+                thithi_id=c.thithi.id if c.thithi else None,
+                ml_day=c.ml_day,
+                ml_month=c.ml_month.id if c.ml_month else None,
+                ml_year=c.ml_year,
+                en_day=c.en_day,
+                en_month=c.en_month,
+                en_year=c.en_year,
+                occurance=c.occurance,
+                is_poornima=c.is_poornima,
+                last_occurance=c.last_occurance,
             )
         )
 

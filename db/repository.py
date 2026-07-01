@@ -18,11 +18,9 @@ from sqlmodel import Session, col, select
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from db.models.nakshatra_transition import NakshatraTransition as NakshatraTransitionRow
 from db.models.panchangam import Panchangam as PanchangamRow
-from db.models.santhigiri_event_condition import (
-    SanthigiriEventCondition as SanthigiriEventConditionRow,
-)
-from db.models.santhigiri_significant_date import (
-    SanthigiriSignificantDate as SanthigiriSignificantDateRow,
+from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from db.models.santhigiri_event_date import (
+    SanthigiriEventDate as SanthigiriEventDateRow,
 )
 from db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
 from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
@@ -100,98 +98,29 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
     )
 
 
-def _ssd_row_to_event(row: SanthigiriSignificantDateRow) -> SanthigiriEvent:
-    ec = row.event_condition
-    if ec is not None:
-        cond = EventCondition(
-            nakshatra=Nakshatra.from_id(ec.nakshatra_id) if ec.nakshatra_id else None,
-            thithi=Thithi.from_id(ec.thithi_id) if ec.thithi_id else None,
-            ml_day=ec.ml_day,
-            ml_month=MalayalamMasa.from_id(ec.ml_month) if ec.ml_month else None,
-            ml_year=ec.ml_year,
-            en_day=ec.en_day,
-            en_month=ec.en_month,
-            en_year=ec.en_year,
-            occurance=ec.occurance,
-            is_poornima=ec.is_poornima,
-            last_occurance=ec.last_occurance,
-        )
-    else:
-        cond = EventCondition()
-    definition = row.event
-    if definition is None:
+def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
+    ev = row.event
+    if ev is None:
         raise ValueError(f"No santhigiri_event definition for {row.event_id!r}")
+    cond = EventCondition(
+        nakshatra=Nakshatra.from_id(ev.nakshatra_id) if ev.nakshatra_id else None,
+        thithi=Thithi.from_id(ev.thithi_id) if ev.thithi_id else None,
+        ml_day=ev.ml_day,
+        ml_month=MalayalamMasa.from_id(ev.ml_month) if ev.ml_month else None,
+        ml_year=ev.ml_year,
+        en_day=ev.en_day,
+        en_month=ev.en_month,
+        en_year=ev.en_year,
+        occurance=ev.occurance,
+        is_poornima=ev.is_poornima,
+        last_occurance=ev.last_occurance,
+    )
     return SanthigiriEvent(
         id=SanthigiriEventId(row.event_id),
-        name=definition.name,
-        description=definition.description,
+        name=ev.name,
+        description=ev.description,
         event_condition=cond,
     )
-
-
-# ── Domain type → SQL row conversions ────────────────────────────────────────
-
-def _event_condition_to_row(event: SanthigiriEvent) -> Optional[SanthigiriEventConditionRow]:
-    """Return an EventCondition row when the event carries any matching criteria."""
-    c = event.event_condition
-    if not any([
-        c.nakshatra, c.thithi, c.ml_day, c.ml_month, c.ml_year,
-        c.en_day, c.en_month, c.en_year, c.occurance, c.is_poornima, c.last_occurance,
-    ]):
-        return None
-    return SanthigiriEventConditionRow(
-        event_id=event.id.value,
-        nakshatra_id=c.nakshatra.id if c.nakshatra else None,
-        thithi_id=c.thithi.id if c.thithi else None,
-        ml_day=c.ml_day,
-        ml_month=c.ml_month.id if c.ml_month else None,
-        ml_year=c.ml_year,
-        en_day=c.en_day,
-        en_month=c.en_month,
-        en_year=c.en_year,
-        occurance=c.occurance,
-        is_poornima=c.is_poornima,
-        last_occurance=c.last_occurance,
-    )
-
-
-def _get_or_create_event_condition(
-    session: Session, event: SanthigiriEvent
-) -> Optional[int]:
-    """
-    Return the id of the event-condition row for *event*, reusing an existing
-    identical row when present.
-
-    A condition describes an event-type rule, not a single occurrence, so the
-    same rule matches many dates. Without this dedup, upsert would insert one
-    identical row per matching date and bloat santhigiri_event_condition with
-    duplicates. Returns None when the event carries no matching criteria.
-    """
-    candidate = _event_condition_to_row(event)
-    if candidate is None:
-        return None
-
-    stmt = select(SanthigiriEventConditionRow).where(
-        SanthigiriEventConditionRow.event_id == candidate.event_id,
-        SanthigiriEventConditionRow.nakshatra_id == candidate.nakshatra_id,
-        SanthigiriEventConditionRow.thithi_id == candidate.thithi_id,
-        SanthigiriEventConditionRow.ml_day == candidate.ml_day,
-        SanthigiriEventConditionRow.ml_month == candidate.ml_month,
-        SanthigiriEventConditionRow.ml_year == candidate.ml_year,
-        SanthigiriEventConditionRow.en_day == candidate.en_day,
-        SanthigiriEventConditionRow.en_month == candidate.en_month,
-        SanthigiriEventConditionRow.en_year == candidate.en_year,
-        SanthigiriEventConditionRow.occurance == candidate.occurance,
-        SanthigiriEventConditionRow.is_poornima == candidate.is_poornima,
-        SanthigiriEventConditionRow.last_occurance == candidate.last_occurance,
-    )
-    existing = session.exec(stmt).first()
-    if existing is not None:
-        return existing.id
-
-    session.add(candidate)
-    session.flush()
-    return candidate.id
 
 
 # ── Eager-load strategy used by all getters ───────────────────────────────────
@@ -202,10 +131,7 @@ _LOAD_OPTIONS = (
     selectinload(PanchangamRow.thithi_transitions),
     selectinload(PanchangamRow.nakshatra_transitions),
     selectinload(PanchangamRow.santhigiri_events).selectinload(
-        SanthigiriSignificantDateRow.event_condition
-    ),
-    selectinload(PanchangamRow.santhigiri_events).selectinload(
-        SanthigiriSignificantDateRow.event
+        SanthigiriEventDateRow.event
     ),
 )
 
@@ -316,12 +242,10 @@ class PanchangamRepository:
                 )
             )
         for event in data.santhigiri_significant_dates:
-            ec_id = _get_or_create_event_condition(self._s, event)
             self._s.add(
-                SanthigiriSignificantDateRow(
+                SanthigiriEventDateRow(
                     panchangam_date=data.date,
                     event_id=event.id.value,
-                    event_condition_id=ec_id,
                 )
             )
 
@@ -334,16 +258,10 @@ class PanchangamRepository:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _delete_children(self, date: datetime.date) -> None:
-        """Delete all child rows for *date* so upsert can re-insert them cleanly.
-
-        Event-condition rows are deliberately NOT deleted here: they describe an
-        event-type rule shared across many dates (see
-        _get_or_create_event_condition), so deleting them on a single date's
-        upsert would orphan the conditions referenced by other dates.
-        """
+        """Delete all child rows for *date* so upsert can re-insert them cleanly."""
         self._s.exec(
-            delete(SanthigiriSignificantDateRow).where(
-                col(SanthigiriSignificantDateRow.panchangam_date) == date
+            delete(SanthigiriEventDateRow).where(
+                col(SanthigiriEventDateRow.panchangam_date) == date
             )
         )
         self._s.exec(
