@@ -12,6 +12,7 @@ from schemas.GetDayPanchangamParams import GetPanchangamParams
 from services.panchangam_service import PanchangamService
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
+from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from utils.thithi import Thithi
 
 
@@ -88,3 +89,11 @@ def nakshatra_reference():
 @router.get('/masa')
 def masa_reference():
     return [m.to_dict() for m in MalayalamMasa]
+
+
+@router.get('/events')
+def events_reference():
+    return [
+        {"id": e.id.value, "name": e.name, "description": e.description}
+        for e in EVENT_DEFINITIONS_BY_ID.values()
+    ]

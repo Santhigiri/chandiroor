@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 from utils.malayalam_masa import MalayalamMasa
@@ -241,4 +241,23 @@ SISHYAPOOJITHA_BDAY = SanthigiriEvent(
         last_occurance=True
     )
 )
+
+
+# Every defined event, unlike SANTHIGIRI_EVENTS (which excludes events handled
+# by dedicated cache logic, e.g. Pournami/Navapoojitham/Sishya-bday). Used to
+# build the id -> definition lookup for the /panchangam/events reference endpoint.
+ALL_SANTHIGIRI_EVENTS: List[SanthigiriEvent] = [
+    POURNAMI, NAVOLI_JYOTHIR_DINAM, JANMAGRIHA_THEERTHA_YATHRA,
+    POOJITHA_PEEDA_SAMARPANAM, POOJITHA_PEEDA_VRITHARAMBAM, PRATHISTA_VARSHIKAM,
+    NAVOLI_JYOTHIR_DINAM_VRITARAMBAM, SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM,
+    PRATHISTA_POORTHIKARANA_VARSHIKAM, DIVYA_POOJA_SAMARPANA_VARSHIKAM,
+    NAVAPOOJITHAM_VRITHARAMBAM, NAVAPOOJITHAM, POORNA_KUMBAMELA,
+    SANYASADEEKSHA_VARSHIKAM, SAMSKARIKA_DINAM, SISHYAPOOJITHA_BDAY,
+]
+
+# NAVOLI_JYOTHIR_DINAM_VRITARAMBAM shares its id with NAVOLI_JYOTHIR_DINAM, so
+# setdefault keeps whichever is listed first (NAVOLI_JYOTHIR_DINAM).
+EVENT_DEFINITIONS_BY_ID: Dict[SanthigiriEventId, SanthigiriEvent] = {}
+for _event in ALL_SANTHIGIRI_EVENTS:
+    EVENT_DEFINITIONS_BY_ID.setdefault(_event.id, _event)
 
