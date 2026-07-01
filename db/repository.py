@@ -240,7 +240,7 @@ class PanchangamRepository:
         stmt = (
             select(PanchangamRow)
             .where(PanchangamRow.date >= start, PanchangamRow.date <= end)
-            .order_by(str(PanchangamRow.date))
+            .order_by(PanchangamRow.date)
             .options(*_LOAD_OPTIONS)
         )
         rows = self._s.exec(stmt).all()
