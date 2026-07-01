@@ -16,6 +16,24 @@ from schemas.panchangam_data import PanchangamData
 from utils.nakshatra import Nakshatra
 from utils.thithi import Thithi
 
+def _active_at(transitions, instant):
+    """Return the transition whose [start_time, end_time) interval contains `instant`.
+
+    Falls back to the nearest edge transition if `instant` lies just outside the
+    covered range (e.g. rounding at a day boundary). Assumes `transitions` is
+    non-empty and ordered by start_time.
+    """
+    for transition in transitions:
+        if transition.start_time <= instant and (
+            transition.end_time is None or instant < transition.end_time
+        ):
+            return transition
+    # instant precedes the first interval -> first; otherwise -> last
+    if instant < transitions[0].start_time:
+        return transitions[0]
+    return transitions[-1]
+
+
 def get_panchangam_data(
     localdt: date,
     latitude: float = Coordinates.SG_LATITUDE,
@@ -31,11 +49,11 @@ def get_panchangam_data(
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     is_pournami = is_poornima(datetime.combine(localdt, time.min),timezone)
-    t = get_time(sunrise.replace(tzinfo=None), timezone)
-    thithi_id = get_thithi_id(t)
-    thithi = Thithi.from_id(thithi_id)
-    nakshatra_id = get_nakshatra_id(t)
-    nakshatra = Nakshatra.from_id(nakshatra_id)
+    # The thithi/nakshatra "of the day" is the one active at sunrise. Both transition
+    # lists were just computed for this day, so derive it from them instead of doing
+    # two more ephemeris evaluations at sunrise.
+    thithi = _active_at(thithi_transitions, sunrise).thithi
+    nakshatra = _active_at(nakshatra_transitions, sunrise).nakshatra
     nazhika_from_sunrise = get_duration_from_sunrise(
         nakshatra=nakshatra,
         nakshatra_transitions=nakshatra_transitions,
