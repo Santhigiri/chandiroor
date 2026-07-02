@@ -13,8 +13,6 @@ from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
 from core.constants import DEFAULT_TIMEZONE, Coordinates
 from schemas.panchangam_data import PanchangamData
-from utils.nakshatra import Nakshatra
-from utils.thithi import Thithi
 
 def _active_at(transitions, instant):
     """Return the transition whose [start_time, end_time) interval contains `instant`.
@@ -64,7 +62,6 @@ def get_panchangam_data(
         kv=kv,
         thithi_transitions= thithi_transitions,
         nakshatra_transitions= nakshatra_transitions,
-        is_pournami= is_pournami,
         thithi = thithi,
         nakshatra = nakshatra,
         nazhika_from_sunrise=nazhika_from_sunrise,

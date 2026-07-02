@@ -31,7 +31,6 @@ class CompactPanchangamData(BaseModel):
     kv: CompactKollavarshamDate
     thithi_transitions: List[CompactThithiTransition]
     nakshatra_transitions: List[CompactNakshatraTransition]
-    is_pournami: bool
     thithi: str
     nakshatra: str
     sunrise: datetime
@@ -64,7 +63,6 @@ class CompactPanchangamData(BaseModel):
                 )
                 for n in data.nakshatra_transitions
             ],
-            is_pournami=data.is_pournami,
             thithi=data.thithi.name,
             nakshatra=data.nakshatra.name,
             sunrise=data.sunrise,

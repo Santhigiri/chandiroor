@@ -88,7 +88,6 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         kv=kv,
         thithi_transitions=thithi_transitions,
         nakshatra_transitions=nakshatra_transitions,
-        is_pournami=row.is_pournami,
         thithi=Thithi.from_id(row.thithi_id),
         nakshatra=Nakshatra.from_id(row.nakshatra_id),
         sunrise=ss_row.sunrise,
