@@ -46,7 +46,6 @@ def get_panchangam_data(
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
-    is_pournami = is_poornima(datetime.combine(localdt, time.min),timezone)
     # The thithi/nakshatra "of the day" is the one active at sunrise. Both transition
     # lists were just computed for this day, so derive it from them instead of doing
     # two more ephemeris evaluations at sunrise.

@@ -226,7 +226,7 @@ def test_deleting_definition_cascades_to_occurrences(seeded_session, make_pancha
 def test_row_to_panchangam_data_raises_without_kollavarsham():
     """A panchangam row with no kollavarsham child cannot be converted."""
     row = PanchangamRow(
-        date=datetime.date(2026, 1, 2), is_pournami=True,
+        date=datetime.date(2026, 1, 2),
         thithi_id=Thithi.POORNIMA.id, nakshatra_id=Nakshatra.CHOTHI.id,
         nazhika_from_sunrise=0.0,
     )
@@ -238,7 +238,7 @@ def test_get_by_date_raises_without_sunrise(seeded_session):
     """get_by_date surfaces the missing-sunrise guard in _row_to_panchangam_data."""
     date = datetime.date(2026, 1, 2)
     seeded_session.add(PanchangamRow(
-        date=date, is_pournami=True, thithi_id=Thithi.POORNIMA.id,
+        date=date, thithi_id=Thithi.POORNIMA.id,
         nakshatra_id=Nakshatra.CHOTHI.id, nazhika_from_sunrise=0.0,
     ))
     seeded_session.add(KollavarshamDateRow(
