@@ -3,7 +3,7 @@ from typing import List, Tuple
 from core.astronomy.calculations import get_moon_sidereal_longitude
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from utils.nakshatra import Nakshatra
-from utils.utils import calc_nakshatra_from_lon
+from core.astronomy.nakshatra_longitude import calc_nakshatra_from_lon
 
 def get_nakshatra(localdt: datetime, timezone: str)->Tuple[str, float]:
     # Calculate Moon's sidereal longitude

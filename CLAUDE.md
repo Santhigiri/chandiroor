@@ -35,29 +35,52 @@ The codebase uses a **feature-based architecture** with a hard separation betwee
 ```
 panchangam-api/
 ├── main.py                     # App factory: wires lifespan, CORS, routers
-├── api/routes/                 # HTTP boundary only — thin, dumb handlers
-│   └── v1/                     # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
+├── api/
+│   ├── deps.py                 # Shared FastAPI dependency providers (e.g. get_service)
+│   └── routes/                 # HTTP boundary only — thin, dumb handlers
+│       └── v1/                 # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
+├── app/                        # Runtime application infra (not domain logic)
+│   ├── lifespan.py             # Startup: init_db_from_pickle() ensures the SQLite DB is seeded
+│   ├── etag.py                 # If-None-Match header parsing / ETag comparison
+│   └── content_hash.py         # stable_hash() used to compute ETags
 ├── services/
-│   └── panchangam_service.py   # Reads through db/repository.py; falls back to live computation on a DB miss
+│   ├── panchangam_service.py   # Reads through db/repository.py; falls back to live computation on a DB miss
+│   └── etag_service.py         # Canonical payload builders + ETag computation (shared read/write path)
 ├── db/                         # SQLite persistence layer (SQLModel)
 │   ├── database.py             # Engine, session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
+│   ├── reference_repository.py # ReferenceRepository — reads enum/event reference datasets from the DB
+│   ├── etag_repository.py      # EtagRepository — stores/reads per-dataset ETags
 │   ├── migrate.py              # init_db_from_pickle() — one-shot seed from the pickle cache
 │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location)
 │   └── models/                 # SQLModel table definitions
 ├── core/
 │   ├── astronomy/              # Pure astronomical computation (no HTTP, no Pydantic responses)
+│   │   └── nakshatra_longitude.py  # Nakshatra-from-longitude helpers (was utils/utils.py)
 │   ├── calendar/               # Domain aggregation: combines astronomy into calendar objects
 │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
-├── schemas/                    # Pydantic request/response models
-├── utils/                      # Enums, cache tooling, event definitions
-│   ├── lifespan.py             # Startup: init_db_from_pickle() ensures the SQLite DB is seeded
-│   ├── cache_crud.py           # Reads/writes pickle files on disk
-│   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
-│   ├── cache_navapoojitham.py  # Populates Navapoojitham (Guru birthday) into cache
-│   ├── cache_sishya_bday.py    # Populates Shishyapoojitha birthday into cache
-│   ├── cache_chothi_theerthayathra.py  # Populates pilgrimage dates into cache
-│   └── santhigiri_events.py    # Event definitions and matching conditions
+├── schemas/                    # Pydantic request/response models (snake_case module names)
+├── utils/                      # Domain enums (top-level) + offline tooling in subpackages
+│   ├── nakshatra.py            # Nakshatra enum (.en/.ml)
+│   ├── thithi.py               # Thithi enum (.en/.ml)
+│   ├── paksha.py               # Paksha enum
+│   ├── malayalam_masa.py       # MalayalamMasa enum
+│   ├── location.py             # Location enum (coordinates)
+│   ├── santhigiri_events.py    # Event definitions and matching conditions
+│   │                           #   NOTE: these enum modules are kept at utils/ top level ON PURPOSE —
+│   │                           #   the pickle cache (data/*.pkl) embeds their module paths
+│   │                           #   (e.g. utils.thithi). Moving them breaks pickle loading and the
+│   │                           #   pending Postgres seed migration. Do not relocate them.
+│   ├── cache/                  # Offline pickle-cache build scripts (not called at runtime)
+│   │   ├── cache_crud.py       # Reads/writes pickle files on disk
+│   │   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
+│   │   ├── cache_navapoojitham.py  # Populates Navapoojitham (Guru birthday) into cache
+│   │   ├── cache_sishya_bday.py     # Populates Shishyapoojitha birthday into cache
+│   │   ├── cache_chothi_theerthayathra.py  # Populates pilgrimage dates into cache
+│   │   └── cache_utils.py      # Shared helpers for the cache scripts
+│   └── scripts/                # Offline validation scripts (transition-miss checkers)
+│       ├── check_nakshatra_transitions.py
+│       └── check_thithi_transitions.py
 ├── data/panchangam.db          # SQLite DB — committed, pre-seeded; the runtime source of truth
 └── data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030), used only to seed the DB
 ```
@@ -72,11 +95,17 @@ panchangam-api/
 
 **`db/`** is the SQLite persistence layer (SQLModel). `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/migrate.py::init_db_from_pickle()` creates the schema and seeds it from the pickle cache the first time the `panchangam` table is empty; it is a no-op once the DB is populated.
 
-**`api/routes/`** is the HTTP boundary. Route handlers parse and validate query parameters, obtain a `PanchangamService` via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
+**`api/routes/`** is the HTTP boundary. Route handlers parse and validate query parameters, obtain a `PanchangamService` via the shared `api/deps.py::get_service` `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls. Shared dependency wiring lives in `api/deps.py` so it is not duplicated across routers.
 
-**`schemas/`** holds Pydantic models. Request schemas live here (query param validation with defaults). The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
+**`app/`** holds runtime application infrastructure that is neither domain logic nor persistence: `lifespan.py` (startup seeding hook), `etag.py` (HTTP conditional-request header handling), and `content_hash.py` (`stable_hash()`). These support the request/response lifecycle and are kept out of `utils/` so `utils/` stays purely domain + offline tooling.
 
-**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `db/migrate.py` to seed the DB. They are not called at runtime.
+**ETag layer.** The `/api/v1/panchangam/year` endpoint and the reference endpoints (`/thithi`, `/nakshatra`, `/masa`, `/events`) are served with strong ETags so the frontend can revalidate cheaply and get `304 Not Modified` on repeat polls. `services/etag_service.py` is the single source of truth: it builds each payload and hashes it the same way on both the write path (`db/migrate.py` recomputes ETags when data is loaded) and the read path (the routes serve body + ETag). ETags are stored via `db/etag_repository.py::EtagRepository`; enum/event reference datasets are read from the DB via `db/reference_repository.py::ReferenceRepository` (so DB edits to event names/descriptions are reflected).
+
+**`schemas/`** holds Pydantic models with snake_case module names. Request schemas live here (query param validation with defaults). `PanchangamData` in `schemas/panchangam_data.py` is the type returned by both the repository and the live-computation fallback; `CompactPanchangamData` (`schemas/compact_panchangam_data.py`) is the trimmed response model the v1 endpoints serialize to.
+
+**`utils/`** holds the typed domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`, `Location`) and event definitions (`santhigiri_events.py`) as modules at its top level, plus offline tooling split into subpackages: `utils/cache/` (offline pickle-cache build scripts) and `utils/scripts/` (offline transition-miss validators). Cache scripts (`utils/cache/cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `db/migrate.py` to seed the DB. They are not called at runtime.
+
+> **Do not move the enum modules out of `utils/` top level.** The pickle cache (`data/panchangam_YYYY.pkl`) embeds their fully-qualified module paths (e.g. `utils.thithi.Thithi`). Relocating them breaks `pickle.load`, which breaks `db/migrate.py` re-seeding and the pending SQLite→Postgres seed migration. They stay put until the pickle cache is retired.
 
 ---
 
@@ -86,8 +115,8 @@ Follow these rules without exception.
 
 ### Layer import boundaries
 
-- Route handlers in `api/routes/` must only parse HTTP params and delegate to `services/panchangam_service.py`. They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly.
-- `core/astronomy/` functions must not import from `api/`, `schemas/`, or `utils/lifespan.py`.
+- Route handlers in `api/routes/` must only parse HTTP params and delegate to `services/` (via `api/deps.py::get_service`). They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly. (The ETag-served endpoints legitimately take a `Session` to reach `services/etag_service.py`, which owns the DB reads for those datasets.)
+- `core/astronomy/` functions must not import from `api/`, `schemas/`, or `app/`. They may import typed domain enums from `utils/`.
 - `core/calendar/` functions must not import from `api/`.
 - `db/` (models, `repository.py`) must not import from `api/` or `services/`.
 - Pydantic models belong in `schemas/`. Do not define response models inside `core/` or `utils/`.
@@ -97,7 +126,7 @@ Follow these rules without exception.
 - All astronomical calculations go in `core/astronomy/`.
 - All calendar/domain aggregation goes in `core/calendar/`.
 - Event definitions go in `utils/santhigiri_events.py`.
-- Cache management scripts go in `utils/cache_*.py`.
+- Cache management scripts go in `utils/cache/cache_*.py`.
 - No business logic may live inside a route handler.
 
 ### Adding a new astronomical value
@@ -110,17 +139,18 @@ Follow these rules without exception.
 ### Adding a new Santhigiri event
 
 1. Define the event in `utils/santhigiri_events.py` with the appropriate `EventCondition`.
-2. If condition-based (fixed English/Malayalam date, Nakshatra, Thithi, or Pournami), add it to `_COMMON_EVENTS` in `utils/cache_common_events.py`.
-3. If it uses "last occurrence" logic (like Navapoojitham or Shishyapoojitha birthday), write a dedicated `utils/cache_<event_name>.py` following the pattern in `cache_navapoojitham.py`.
+2. If condition-based (fixed English/Malayalam date, Nakshatra, Thithi, or Pournami), add it to `_COMMON_EVENTS` in `utils/cache/cache_common_events.py`.
+3. If it uses "last occurrence" logic (like Navapoojitham or Shishyapoojitha birthday), write a dedicated `utils/cache/cache_<event_name>.py` following the pattern in `cache_navapoojitham.py`.
 4. Run the appropriate cache script offline to rebuild the pickle files.
 5. The event will appear in `PanchangamData.santhigiri_significant_dates` in the API response.
 
 ### Adding a new API endpoint
 
 1. Create a new file under `api/routes/<feature>.py` for unversioned endpoints, or `api/routes/<version>/<feature>.py` (e.g. `api/routes/v1/panchangam.py`) for versioned ones. Do not add endpoints to an existing route file unless they are closely related.
-2. Define request params as a Pydantic `BaseModel` in `schemas/`.
-3. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment.
-4. All domain logic the endpoint needs must be implemented in `core/`.
+2. Define request params as a Pydantic `BaseModel` in `schemas/` (snake_case module name).
+3. Obtain the service via the shared `api/deps.py::get_service` dependency rather than re-wiring the repository in the router.
+4. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment.
+5. All domain logic the endpoint needs must be implemented in `core/`.
 
 ### Enum usage
 
@@ -245,9 +275,10 @@ The container exposes port 8000 and runs `uvicorn main:app --host 0.0.0.0 --port
 
 ### Endpoints
 
-- `GET /api/v1/panchangam/day?date_str=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
+- `GET /api/v1/panchangam/day?day=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
-- `GET /api/v1/panchangam/year?year=YYYY` — main version; returns the compact Panchangam for every day in the year
+- `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (`304` on repeat polls); returns the compact Panchangam for every day in the year
+- `GET /api/v1/panchangam/thithi` · `/nakshatra` · `/masa` · `/events` — reference datasets read from the DB, each ETag-validated
 - `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
 - `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
 
@@ -278,7 +309,7 @@ This is the most performance-critical aspect of the system. Understand it before
 
 Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against `data/panchangam.db` (committed, pre-seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-running `db/migrate.py` rather than relying on organic backfill.
 
-At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db_from_pickle()`, which creates the schema if absent and seeds it from `data/panchangam_YYYY.pkl` only when the `panchangam` table is empty — a no-op on every normal boot since the DB ships pre-seeded.
+At startup, the FastAPI lifespan (`app/lifespan.py`) calls `init_db_from_pickle()`, which creates the schema if absent and seeds it from `data/panchangam_YYYY.pkl` only when the `panchangam` table is empty — a no-op on every normal boot since the DB ships pre-seeded.
 
 ### Function-level LRU caches
 
@@ -293,7 +324,7 @@ These are critical for the transition-detection logic, which calls the same func
 
 ### Offline cache management (pickle files)
 
-The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `utils/`:
+The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `utils/cache/`:
 
 1. `cache_crud.py::buildcache(year)` — computes all 365 days for a year and writes a pickle file.
 2. `cache_common_events.py::cache_common_events()` — reads all pickle files, matches simple event conditions, and rewrites them with `santhigiri_significant_dates` populated.
@@ -329,7 +360,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 
 ## Known Issues and Active Work
 
-- `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only (seeded offline from the pickle cache), so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
+- There is no live computation path for Santhigiri event dates (`get_santhigiri_significant_dates_without_occurances` is commented out in `panchangam.py`; the former empty `core/calendar/santhigiri_significant_dates.py` placeholder has been removed). Santhigiri event dates come from the DB only (seeded offline from the pickle cache), so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to `data/panchangam.db`. A persistent gap must be closed by re-running `db/migrate.py`, not by traffic alone.

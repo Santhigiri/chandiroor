@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from typing import Dict, List, Tuple
-from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache
+from utils.cache.cache_crud import load_cache, write_cache
+from utils.cache.cache_utils import remove_events_from_cache
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, EventCondition

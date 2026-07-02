@@ -11,7 +11,7 @@ from core.astronomy.calculations import get_time
 from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
 from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 from utils.nakshatra import Nakshatra
-from utils.utils import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
+from core.astronomy.nakshatra_longitude import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
 
 
 class NakshatraTransition(BaseModel):

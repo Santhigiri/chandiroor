@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes.panchangam import router as panchangam_router
 from api.routes.v1.panchangam import router as panchangam_v1_router
 
-from utils.lifespan import lifespan
+from app.lifespan import lifespan
 
 app = FastAPI(lifespan=lifespan)
 

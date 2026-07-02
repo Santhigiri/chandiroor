@@ -1,14 +1,14 @@
 from typing import Annotated, Dict, List
 from fastapi import APIRouter, Depends, Query, Request, Response
-from datetime import date, datetime
+from datetime import date
 
 from sqlmodel import Session
 
+from api.deps import get_service
 from db.database import get_session
-from db.repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
-from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
-from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
+from schemas.get_monthly_panchangam_params import GetMonthlyPanchangamParams
+from schemas.get_yearly_panchangam_params import GetYearlyPanchangamParams
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -26,17 +26,13 @@ from utils.thithi import Thithi
 router = APIRouter(prefix='/panchangam')
 
 
-def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
-    return PanchangamService(PanchangamRepository(session))
-
-
 @router.get(
     '/day',
     response_model=CompactPanchangamData
 )
 def panchangam(
     day: Annotated[date, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
 ):
 
     data = service.get_by_date(day)
@@ -49,7 +45,7 @@ def panchangam(
 )
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
 ):
     data = service.get_by_month(
         year=params.year,
@@ -65,7 +61,7 @@ def panchangam_monthly(
 def panchangam_yearly(
     request: Request,
     params: Annotated[GetYearlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
     # ETag-validated: unchanged years return 304 so the frontend skips the

@@ -21,8 +21,8 @@ from db.reference_repository import ReferenceRepository
 from db.repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData
 from services.panchangam_service import PanchangamService
-from utils.content_hash import stable_hash
-from utils.etag import if_none_match_satisfied
+from app.content_hash import stable_hash
+from app.etag import if_none_match_satisfied
 
 # Enum reference datasets exposed by the API, keyed by route name → the
 # ReferenceRepository method that reads each one from the database.

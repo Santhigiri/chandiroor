@@ -17,7 +17,7 @@ from db.models.panchangam import Panchangam as PanchangamRow
 from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables, seed_santhigiri_events_if_empty
 from services.etag_service import refresh_etags
-from utils.cache_crud import load_cache
+from utils.cache.cache_crud import load_cache
 
 
 def _is_db_populated(session: Session) -> bool:

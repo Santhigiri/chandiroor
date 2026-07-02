@@ -21,8 +21,8 @@ from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from main import app
 from services.etag_service import refresh_etags
-from utils.content_hash import stable_hash
-from utils.etag import if_none_match_satisfied
+from app.content_hash import stable_hash
+from app.etag import if_none_match_satisfied
 
 PICKLE_2022 = "data/panchangam_2022.pkl"
 YEAR = 2022
