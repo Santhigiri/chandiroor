@@ -36,7 +36,7 @@ class CompactPanchangamData(BaseModel):
     sunrise: datetime
     sunset: datetime
     nazhika_from_sunrise: float
-    santhigiri_significant_dates: List[SanthigiriEventId] = []
+    santhigiri_significant_dates: List[str] = []
 
     @classmethod
     def from_panchangam_data(cls, data: PanchangamData) -> "CompactPanchangamData":

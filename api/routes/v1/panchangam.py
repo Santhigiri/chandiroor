@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Dict
 from fastapi import APIRouter, Depends, Query, Request, Response
 from datetime import date, datetime
 
@@ -27,7 +27,10 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> Panchanga
     return PanchangamService(PanchangamRepository(session))
 
 
-@router.get('/day')
+@router.get(
+    '/day',
+    response_model=CompactPanchangamData
+)
 def panchangam(
     day: Annotated[date, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
@@ -37,7 +40,10 @@ def panchangam(
     return CompactPanchangamData.from_panchangam_data(data)
 
 
-@router.get('/month')
+@router.get(
+    '/month',
+    response_model=Dict[date, CompactPanchangamData]
+)
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(_get_service)],
