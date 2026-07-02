@@ -1,4 +1,4 @@
-from typing import Annotated, Dict
+from typing import Annotated, Dict, List
 from fastapi import APIRouter, Depends, Query, Request, Response
 from datetime import date, datetime
 
@@ -6,10 +6,9 @@ from sqlmodel import Session
 
 from db.database import get_session
 from db.repository import PanchangamRepository
-from schemas.compact_panchangam_data import CompactPanchangamData
+from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
-from schemas.GetDayPanchangamParams import GetPanchangamParams
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -18,6 +17,10 @@ from services.etag_service import (
     year_key,
 )
 from services.panchangam_service import PanchangamService
+from utils.malayalam_masa import MalayalamMasa
+from utils.nakshatra import Nakshatra
+from utils.santhigiri_events import SanthigiriEvent
+from utils.thithi import Thithi
 
 
 router = APIRouter(prefix='/panchangam')
@@ -88,7 +91,10 @@ def _reference_response(request: Request, session: Session, name: str) -> Respon
     )
 
 
-@router.get('/thithi')
+@router.get(
+    '/thithi',
+    response_model= List[Thithi]
+)
 def thithi_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
@@ -96,7 +102,10 @@ def thithi_reference(
     return _reference_response(request, session, "thithi")
 
 
-@router.get('/nakshatra')
+@router.get(
+    '/nakshatra',
+    response_model= List[Nakshatra]
+)
 def nakshatra_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
@@ -104,7 +113,10 @@ def nakshatra_reference(
     return _reference_response(request, session, "nakshatra")
 
 
-@router.get('/masa')
+@router.get(
+    '/masa',
+    response_model= List[MalayalamMasa]
+)
 def masa_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
@@ -112,7 +124,10 @@ def masa_reference(
     return _reference_response(request, session, "masa")
 
 
-@router.get('/events')
+@router.get(
+    '/events',
+    response_model= List[CompactSanthigiriEvent]
+)
 def events_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],

@@ -25,6 +25,11 @@ class CompactNakshatraTransition(BaseModel):
     start_time: datetime
     end_time: Optional[datetime]
 
+class CompactSanthigiriEvent(BaseModel):
+    id: str
+    name: str
+    description: str
+
 
 class CompactPanchangamData(BaseModel):
     date: date
