@@ -198,7 +198,6 @@ class PanchangamRepository:
         self._s.merge(
             PanchangamRow(
                 date=data.date,
-                is_pournami=data.is_pournami,
                 thithi_id=data.thithi.id,
                 nakshatra_id=data.nakshatra.id,
                 nazhika_from_sunrise=data.nazhika_from_sunrise,

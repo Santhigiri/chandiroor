@@ -19,9 +19,11 @@ from db.models.dataset_etag import DatasetEtag as DatasetEtagRow
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from utils.thithi import Thithi
 from db.repository import PanchangamRepository
 
 PICKLE_2022 = "data/panchangam_2022.pkl"
+# A known full-moon date whose thithi at sunrise is Poornima (thithi id 15).
 KNOWN_POURNAMI = datetime.date(2022, 1, 17)
 
 
@@ -49,7 +51,7 @@ def test_init_db_from_pickle_populates(temp_db, monkeypatch):
         pd = PanchangamRepository(s).get_by_date(KNOWN_POURNAMI)
         assert pd is not None
         assert pd.date == KNOWN_POURNAMI
-        assert pd.is_pournami is True
+        assert pd.thithi == Thithi.POORNIMA
 
 
 def test_init_db_from_pickle_skips_when_populated(temp_db, monkeypatch):

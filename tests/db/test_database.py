@@ -49,7 +49,6 @@ def test_invalid_foreign_key_rejected(seeded_session):
     seeded_session.add(
         PanchangamRow(
             date=datetime.date(2026, 1, 2),
-            is_pournami=True,
             thithi_id=999,        # no such thithi
             nakshatra_id=1,
             nazhika_from_sunrise=0.0,

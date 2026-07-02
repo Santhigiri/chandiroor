@@ -1,5 +1,7 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Tuple
+from core.astronomy.pournami import is_poornima
+from core.constants import DEFAULT_TIMEZONE
 from utils.cache_crud import load_cache, write_cache
 from utils.cache_utils import remove_events_from_cache
 from utils.malayalam_masa import MalayalamMasa
@@ -47,7 +49,7 @@ def get_matching_dates(data: PanchangamCache, event_condition: EventCondition) -
             continue
         if event_condition.en_year is not None and event_condition.en_year != panchangam_data.date.year:
             continue
-        if event_condition.is_poornima is not None and event_condition.is_poornima != panchangam_data.is_pournami:
+        if event_condition.is_poornima is not None and event_condition.is_poornima != is_poornima(datetime.combine(panchangam_data.date, time.min), DEFAULT_TIMEZONE):
             continue
 
         occurances.append((d, panchangam_data))

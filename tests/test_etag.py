@@ -147,11 +147,11 @@ def test_year_served_etag_matches_stored(client, api_engine):
 
 @pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "events"])
 def test_reference_etag_round_trip(client, name):
-    first = client.get(f"/panchangam/{name}")
+    first = client.get(f"/api/v1/panchangam/{name}")
     assert first.status_code == 200
     etag = first.headers["etag"]
     assert etag and first.json()
 
-    second = client.get(f"/panchangam/{name}", headers={"If-None-Match": etag})
+    second = client.get(f"/api/v1/panchangam/{name}", headers={"If-None-Match": etag})
     assert second.status_code == 304
     assert second.content == b""
