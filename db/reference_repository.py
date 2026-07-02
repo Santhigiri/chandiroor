@@ -19,6 +19,7 @@ from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.thithi import Thithi as ThithiRow
+from schemas.compact_panchangam_data import CompactSanthigiriEvent
 
 
 class ReferenceRepository:
@@ -61,7 +62,7 @@ class ReferenceRepository:
             {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
         ]
 
-    def list_events(self) -> List[Dict[str, Any]]:
+    def list_events(self) -> List[CompactSanthigiriEvent]:
         """Every defined event, from the editable santhigiri_event table.
 
         Includes events that do not occur in the loaded date range, ordered by
@@ -72,5 +73,5 @@ class ReferenceRepository:
             select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
         ).all()
         return [
-            {"id": e.id, "name": e.name, "description": e.description} for e in rows
+            CompactSanthigiriEvent(id=e.id, name=e.name, description=e.description) for e in rows
         ]

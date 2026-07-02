@@ -25,19 +25,23 @@ class CompactNakshatraTransition(BaseModel):
     start_time: datetime
     end_time: Optional[datetime]
 
+class CompactSanthigiriEvent(BaseModel):
+    id: str
+    name: str
+    description: str
+
 
 class CompactPanchangamData(BaseModel):
     date: date
     kv: CompactKollavarshamDate
     thithi_transitions: List[CompactThithiTransition]
     nakshatra_transitions: List[CompactNakshatraTransition]
-    is_pournami: bool
     thithi: str
     nakshatra: str
     sunrise: datetime
     sunset: datetime
     nazhika_from_sunrise: float
-    santhigiri_significant_dates: List[SanthigiriEventId] = []
+    santhigiri_significant_dates: List[str] = []
 
     @classmethod
     def from_panchangam_data(cls, data: PanchangamData) -> "CompactPanchangamData":
@@ -64,7 +68,6 @@ class CompactPanchangamData(BaseModel):
                 )
                 for n in data.nakshatra_transitions
             ],
-            is_pournami=data.is_pournami,
             thithi=data.thithi.name,
             nakshatra=data.nakshatra.name,
             sunrise=data.sunrise,

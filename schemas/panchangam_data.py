@@ -15,7 +15,6 @@ class PanchangamData(BaseModel):
     kv: KollavarshamDate
     thithi_transitions: List[ThithiTransition]
     nakshatra_transitions: List[NakshatraTransition]
-    is_pournami: bool
     thithi: Thithi
     nakshatra: Nakshatra
     sunrise: datetime

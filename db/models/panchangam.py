@@ -26,7 +26,6 @@ class Panchangam(SQLModel, table=True):
     __tablename__ = "panchangam" # pyright: ignore[reportAssignmentType]
 
     date:                 datetime.date = Field(primary_key=True)
-    is_pournami:          bool
     thithi_id:            int           = Field(foreign_key="thithi.id")
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
     nazhika_from_sunrise: float
