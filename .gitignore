@@ -3,9 +3,10 @@ venv/
 **/.DS_Store
 .env
 .env*
+!.env.example
 .pytest_cache/
-# data/panchangam.db is committed so deployed instances (GCP) start pre-seeded
-# and don't rebuild from the pickle cache on every boot. Only the transient
-# WAL/SHM sidecars stay ignored.
+# The runtime store is now Postgres (Neon), configured via DATABASE_URL. Any
+# local SQLite artifacts (e.g. from tests) are ignored rather than committed.
+data/panchangam.db
 data/panchangam.db-shm
 data/panchangam.db-wal

@@ -10,11 +10,18 @@ listener against the SQLAlchemy ``Engine`` class, so FK enforcement and
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from typing import Callable, List, Optional
 
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
+
+# db.database now requires DATABASE_URL (Postgres/Neon) at import time. The tests
+# build their own in-memory SQLite engines and never touch the module-level
+# engine, so a throwaway value just satisfies the import — no real connection is
+# ever opened against it. Must be set before ``import db.database`` below.
+os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 # Importing db.database registers the shared "connect" pragma listener that
 # turns foreign_keys ON for every SQLite connection, including our test engine.
@@ -159,7 +166,6 @@ def temp_db(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(database, "engine", test_engine)
-    monkeypatch.setattr(database, "DB_PATH", db_path)
     monkeypatch.setattr(migrate, "engine", test_engine)
 
     yield test_engine

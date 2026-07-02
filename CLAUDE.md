@@ -39,8 +39,8 @@ panchangam-api/
 │   └── v1/                     # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
 ├── services/
 │   └── panchangam_service.py   # Reads through db/repository.py; falls back to live computation on a DB miss
-├── db/                         # SQLite persistence layer (SQLModel)
-│   ├── database.py             # Engine, session factory, init_db()
+├── db/                         # Postgres persistence layer (SQLModel)
+│   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
 │   ├── migrate.py              # init_db_from_pickle() — one-shot seed from the pickle cache
 │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location)
@@ -51,14 +51,13 @@ panchangam-api/
 │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
 ├── schemas/                    # Pydantic request/response models
 ├── utils/                      # Enums, cache tooling, event definitions
-│   ├── lifespan.py             # Startup: init_db_from_pickle() ensures the SQLite DB is seeded
+│   ├── lifespan.py             # Startup: init_db_from_pickle() ensures the Postgres DB is seeded
 │   ├── cache_crud.py           # Reads/writes pickle files on disk
 │   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
 │   ├── cache_navapoojitham.py  # Populates Navapoojitham (Guru birthday) into cache
 │   ├── cache_sishya_bday.py    # Populates Shishyapoojitha birthday into cache
 │   ├── cache_chothi_theerthayathra.py  # Populates pilgrimage dates into cache
 │   └── santhigiri_events.py    # Event definitions and matching conditions
-├── data/panchangam.db          # SQLite DB — committed, pre-seeded; the runtime source of truth
 └── data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030), used only to seed the DB
 ```
 
@@ -70,7 +69,7 @@ panchangam-api/
 
 **`services/`** sits between the routes and `db/`. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database.
 
-**`db/`** is the SQLite persistence layer (SQLModel). `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/migrate.py::init_db_from_pickle()` creates the schema and seeds it from the pickle cache the first time the `panchangam` table is empty; it is a no-op once the DB is populated.
+**`db/`** is the Postgres persistence layer (SQLModel). The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/migrate.py::init_db_from_pickle()` creates the schema and seeds it from the pickle cache the first time the `panchangam` table is empty; it is a no-op once the DB is populated.
 
 **`api/routes/`** is the HTTP boundary. Route handlers parse and validate query parameters, obtain a `PanchangamService` via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
@@ -215,6 +214,9 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 | `uvicorn` | ASGI server |
 | `skyfield` | High-precision astronomical calculations (positions, `find_discrete`) |
 | `pyswisseph` | Lahiri Ayanamsa computation via Swiss Ephemeris |
+| `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
+| `psycopg2-binary` | PostgreSQL driver (Neon) |
+| `python-dotenv` | Loads `DATABASE_URL` from a local `.env` during development |
 | `pytz` | Timezone handling |
 | `pandas` | Data manipulation in cache utilities |
 | `de421.bsp` | NASA/JPL ephemeris file (16.8 MB) loaded by Skyfield for Sun/Moon/Earth positions |
@@ -229,10 +231,11 @@ The `de421.bsp` file must be present in the project root at startup. It is a bin
 
 ```bash
 pip install -r requirements.txt
+cp .env.example .env   # then fill in your Neon DATABASE_URL
 uvicorn main:app --reload --port 8000
 ```
 
-On startup, the server loads 10 years of pre-computed data from `data/panchangam_YYYY.pkl` (2021–2030). Startup takes a few seconds. Watch for cache validation output — the server logs any missed Nakshatra or Thithi transitions.
+`DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. On its first boot against an empty database, the server creates the schema and loads 10 years of pre-computed data from `data/panchangam_YYYY.pkl` (2021–2030); subsequent boots are a no-op seed check. Watch for cache validation output — the server logs any missed Nakshatra or Thithi transitions.
 
 ### Docker
 
@@ -274,11 +277,11 @@ When adding new astronomical calculations, add parametrized tests to `tests/` th
 
 This is the most performance-critical aspect of the system. Understand it before making any changes.
 
-### Runtime store (SQLite via `PanchangamRepository`)
+### Runtime store (Postgres via `PanchangamRepository`)
 
-Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against `data/panchangam.db` (committed, pre-seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-running `db/migrate.py` rather than relying on organic backfill.
+Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-running `db/migrate.py` rather than relying on organic backfill.
 
-At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db_from_pickle()`, which creates the schema if absent and seeds it from `data/panchangam_YYYY.pkl` only when the `panchangam` table is empty — a no-op on every normal boot since the DB ships pre-seeded.
+At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db_from_pickle()`, which creates the schema if absent and seeds it from `data/panchangam_YYYY.pkl` only when the `panchangam` table is empty — a no-op on every normal boot once the database has been seeded.
 
 ### Function-level LRU caches
 
@@ -301,13 +304,13 @@ The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `
 4. `cache_sishya_bday.py::cache_sishya_bday()` — same for Shishyapoojitha birthday.
 5. `cache_chothi_theerthayathra.py::cache_chothi_theerthayathra()` — same for Chothi pilgrimage dates.
 
-**When to rebuild:** If you change computation logic in `core/astronomy/` or `core/calendar/`, or add/modify Santhigiri events, regenerate the pickle files offline, commit them, then re-run the DB migration (`python -m db.migrate --year <Y>` or `init_db_from_pickle(force=True)`) and commit the refreshed `data/panchangam.db`. The server never writes pickle files or the DB at runtime beyond the one-time seed-if-empty check.
+**When to rebuild:** If you change computation logic in `core/astronomy/` or `core/calendar/`, or add/modify Santhigiri events, regenerate the pickle files offline, commit them, then re-run the DB migration against the target database (`init_db_from_pickle(force=True)` with `DATABASE_URL` pointed at Neon) to re-seed it from the updated pickle files. The server never writes pickle files or the DB at runtime beyond the one-time seed-if-empty check.
 
 ### Cache rebuild order
 
 1. Run `buildcache(year)` for each affected year.
 2. Run event caching scripts in any order — they are independent of each other.
-3. Re-run the migration to refresh `data/panchangam.db` from the updated pickle files and commit it — this is the step that actually changes what the API serves.
+3. Re-run the migration to re-seed the Neon/Postgres database (`DATABASE_URL`) from the updated pickle files — this is the step that actually changes what the API serves.
 
 ---
 
@@ -332,7 +335,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only (seeded offline from the pickle cache), so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
-- The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to `data/panchangam.db`. A persistent gap must be closed by re-running `db/migrate.py`, not by traffic alone.
+- The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by re-running `db/migrate.py`, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
 
 ---
@@ -342,7 +345,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - Do not put business logic in route handlers. If a route handler is doing anything beyond parsing params and calling `PanchangamService`, move the logic to `services/` or `core/`.
 - Do not call `core/astronomy/`, `core/calendar/`, or `db/repository.py` directly from route handlers — go through `services/panchangam_service.py`.
 - Do not define new Pydantic models inside `core/` or `db/` modules.
-- Do not modify the pickle files by hand. Always use the cache scripts, then re-run `db/migrate.py` to refresh `data/panchangam.db`.
+- Do not modify the pickle files by hand. Always use the cache scripts, then re-run `db/migrate.py` to re-seed the Postgres database.
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
 - Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.
