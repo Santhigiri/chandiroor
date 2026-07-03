@@ -2,26 +2,25 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, Response
 from datetime import datetime
 
-from sqlmodel import Session
-
-from db.database import get_session
-from db.repository import PanchangamRepository
+from api.deps import get_service, require_role
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
 from services.panchangam_service import PanchangamService
+from utils.roles import Role
 
 
-router = APIRouter(prefix='/panchangam')
-
-
-def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
-    return PanchangamService(PanchangamRepository(session))
+# Public data router — validates any supplied bearer token but allows anonymous
+# access (see api/routes/v1/panchangam.py for the rationale).
+router = APIRouter(
+    prefix='/panchangam',
+    dependencies=[Depends(require_role(Role.ANONYMOUS))],
+)
 
 
 @router.get('/')
 def panchangam(
     params: Annotated[GetPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
 ):
     try:
         parsed_date = datetime.strptime(str(params.date_str), "%Y-%m-%d").date()
@@ -34,7 +33,7 @@ def panchangam(
 @router.get('/monthly')
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
 ):
     return service.get_by_month(
         year=params.year,
