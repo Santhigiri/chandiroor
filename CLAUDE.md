@@ -42,8 +42,8 @@ panchangam-api/
 ├── db/                         # Postgres persistence layer (SQLModel)
 │   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
-│   ├── migrate.py              # init_db_from_pickle() — one-shot seed from the pickle cache
 │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location)
+│   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
 │   └── models/                 # SQLModel table definitions
 ├── core/
 │   ├── astronomy/              # Pure astronomical computation (no HTTP, no Pydantic responses)
@@ -51,14 +51,15 @@ panchangam-api/
 │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
 ├── schemas/                    # Pydantic request/response models
 ├── utils/                      # Enums, cache tooling, event definitions
-│   ├── lifespan.py             # Startup: init_db_from_pickle() ensures the Postgres DB is seeded
+│   ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
 │   ├── cache_crud.py           # Reads/writes pickle files on disk
 │   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
 │   ├── cache_navapoojitham.py  # Populates Navapoojitham (Guru birthday) into cache
 │   ├── cache_sishya_bday.py    # Populates Shishyapoojitha birthday into cache
 │   ├── cache_chothi_theerthayathra.py  # Populates pilgrimage dates into cache
 │   └── santhigiri_events.py    # Event definitions and matching conditions
-└── data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030), used only to seed the DB
+├── scripts/gen_seed_sql.py     # Build-time tool: turns the pickle caches into db/sql/*.sql
+└── data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source for the SQL seed files
 ```
 
 ### Why this structure exists
@@ -69,13 +70,13 @@ panchangam-api/
 
 **`services/`** sits between the routes and `db/`. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database.
 
-**`db/`** is the Postgres persistence layer (SQLModel). The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/migrate.py::init_db_from_pickle()` creates the schema and seeds it from the pickle cache the first time the `panchangam` table is empty; it is a no-op once the DB is populated.
+**`db/`** is the Postgres persistence layer (SQLModel). The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
 
 **`api/routes/`** is the HTTP boundary. Route handlers parse and validate query parameters, obtain a `PanchangamService` via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
 **`schemas/`** holds Pydantic models. Request schemas live here (query param validation with defaults). The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
-**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `db/migrate.py` to seed the DB. They are not called at runtime.
+**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
 
 ---
 
@@ -235,7 +236,7 @@ cp .env.example .env   # then fill in your Neon DATABASE_URL
 uvicorn main:app --reload --port 8000
 ```
 
-`DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. On its first boot against an empty database, the server creates the schema and loads 10 years of pre-computed data from `data/panchangam_YYYY.pkl` (2021–2030); subsequent boots are a no-op seed check. Watch for cache validation output — the server logs any missed Nakshatra or Thithi transitions.
+`DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup only ensures the schema exists (`init_db()`); it does not load any data. Seed the database once by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See `db/sql/README.md`.
 
 ### Docker
 
@@ -279,9 +280,9 @@ This is the most performance-critical aspect of the system. Understand it before
 
 ### Runtime store (Postgres via `PanchangamRepository`)
 
-Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-running `db/migrate.py` rather than relying on organic backfill.
+Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-applying the SQL seed files rather than relying on organic backfill.
 
-At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db_from_pickle()`, which creates the schema if absent and seeds it from `data/panchangam_YYYY.pkl` only when the `panchangam` table is empty — a no-op on every normal boot once the database has been seeded.
+At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db()`, which only ensures the schema exists (idempotent). The database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to the Neon/Postgres target with `psql`; the server never seeds itself at runtime.
 
 ### Function-level LRU caches
 
@@ -304,13 +305,13 @@ The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `
 4. `cache_sishya_bday.py::cache_sishya_bday()` — same for Shishyapoojitha birthday.
 5. `cache_chothi_theerthayathra.py::cache_chothi_theerthayathra()` — same for Chothi pilgrimage dates.
 
-**When to rebuild:** If you change computation logic in `core/astronomy/` or `core/calendar/`, or add/modify Santhigiri events, regenerate the pickle files offline, commit them, then re-run the DB migration against the target database (`init_db_from_pickle(force=True)` with `DATABASE_URL` pointed at Neon) to re-seed it from the updated pickle files. The server never writes pickle files or the DB at runtime beyond the one-time seed-if-empty check.
+**When to rebuild:** If you change computation logic in `core/astronomy/` or `core/calendar/`, or add/modify Santhigiri events, regenerate the pickle files offline, commit them, then re-run `scripts/gen_seed_sql.py` to regenerate `db/sql/*.sql` and apply those files to the target Neon/Postgres database with `psql`. The server never writes pickle files or the DB at runtime.
 
 ### Cache rebuild order
 
 1. Run `buildcache(year)` for each affected year.
 2. Run event caching scripts in any order — they are independent of each other.
-3. Re-run the migration to re-seed the Neon/Postgres database (`DATABASE_URL`) from the updated pickle files — this is the step that actually changes what the API serves.
+3. Re-run `scripts/gen_seed_sql.py` and apply the regenerated `db/sql/*.sql` to the Neon/Postgres database (`DATABASE_URL`) — this is the step that actually changes what the API serves.
 
 ---
 
@@ -335,7 +336,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only (seeded offline from the pickle cache), so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
-- The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by re-running `db/migrate.py`, not by traffic alone.
+- The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
 
 ---
@@ -345,7 +346,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - Do not put business logic in route handlers. If a route handler is doing anything beyond parsing params and calling `PanchangamService`, move the logic to `services/` or `core/`.
 - Do not call `core/astronomy/`, `core/calendar/`, or `db/repository.py` directly from route handlers — go through `services/panchangam_service.py`.
 - Do not define new Pydantic models inside `core/` or `db/` modules.
-- Do not modify the pickle files by hand. Always use the cache scripts, then re-run `db/migrate.py` to re-seed the Postgres database.
+- Do not modify the pickle files by hand. Always use the cache scripts, then re-run `scripts/gen_seed_sql.py` and re-apply `db/sql/*.sql` to the Postgres database.
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
 - Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.

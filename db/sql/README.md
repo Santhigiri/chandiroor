@@ -25,7 +25,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/02_seed.sql
 ```
 
 Timestamps are stored as naive local wall-clock in `Asia/Kolkata`, matching the
-tz-naive columns and the behaviour of the existing SQLite mirror.
+tz-naive columns.
 
 ## Regenerating
 

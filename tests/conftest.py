@@ -143,19 +143,14 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
     return _build
 
 
-# ── Temp-file DB for the migrate integration test ─────────────────────────────
+# ── Temp-file DB for the on-disk schema test ──────────────────────────────────
 
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch):
     """
-    Point ``db.database`` and ``db.migrate`` at a throwaway on-disk SQLite file.
-
-    ``db.migrate`` does ``from db.database import engine, init_db`` so it holds
-    its own bound name; both modules must be patched for the redirect to take.
-    Returns the temp engine.
+    Point ``db.database`` at a throwaway on-disk SQLite file and return its engine.
     """
     import db.database as database
-    import db.migrate as migrate
 
     db_path = tmp_path / "panchangam_test.db"
     test_engine = create_engine(
@@ -164,7 +159,6 @@ def temp_db(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(database, "engine", test_engine)
-    monkeypatch.setattr(migrate, "engine", test_engine)
 
     yield test_engine
     test_engine.dispose()

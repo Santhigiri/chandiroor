@@ -70,7 +70,7 @@ def panchangam_yearly(
 ) -> Response:
     # ETag-validated: unchanged years return 304 so the frontend skips the
     # full-year download. The stored ETag is refreshed whenever the data is
-    # reloaded (see db.migrate / services.etag_service).
+    # reloaded (see services.etag_service), or computed lazily on first request.
     return conditional_json_response(
         request,
         session,
