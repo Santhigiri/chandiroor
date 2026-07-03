@@ -1,5 +1,5 @@
 """
-PanchangamRepository — get and set PanchangamData via the SQLite database.
+PanchangamRepository — get and set PanchangamData via the Postgres database.
 
 SQL model classes are imported with a ``Row`` suffix throughout this module to
 avoid name collisions with the identically-named domain types from
@@ -139,7 +139,7 @@ _LOAD_OPTIONS = (
 
 class PanchangamRepository:
     """
-    Getters and setters for PanchangamData backed by SQLite.
+    Getters and setters for PanchangamData backed by Postgres.
 
     Caller is responsible for committing the session.  ``upsert`` and
     ``upsert_many`` deliberately do not commit so that multiple writes can be

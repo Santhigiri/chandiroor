@@ -9,9 +9,9 @@ class DatasetEtag(SQLModel, table=True):
 
     One row per addressable dataset, keyed by a stable string such as
     ``"year:2026"`` or ``"enum:thithi"``. The ETag is recomputed and written
-    whenever the underlying data changes (see ``services.etag_service`` and
-    ``db.migrate``), so it survives process restarts, is shared across instances
-    via the database, and carries over unchanged to a future Postgres backend.
+    whenever the underlying data changes (see ``services.etag_service``), so it
+    survives process restarts and is shared across instances via the Postgres
+    database.
     """
 
     __tablename__ = "dataset_etag" # pyright: ignore[reportAssignmentType]

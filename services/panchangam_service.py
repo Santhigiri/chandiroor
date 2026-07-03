@@ -1,7 +1,7 @@
 """
 PanchangamService — serves PanchangamData for the API routes.
 
-Reads through PanchangamRepository (SQLite). A date missing from the DB falls
+Reads through PanchangamRepository (Postgres). A date missing from the DB falls
 back to live astronomical computation so the API never 404s on an
 un-migrated date; the DB is expected to already cover the seeded range.
 """

@@ -4,7 +4,8 @@ Tests for the ETag change-detection feature.
 Covers the pure helpers (``stable_hash``, ``if_none_match_satisfied``) and the
 end-to-end conditional-request behaviour of the year and enum-reference
 endpoints via ``TestClient``. The API fixture seeds an in-memory DB from the real
-2022 pickle and precomputes ETags exactly as ``db.migrate`` does at startup.
+2022 pickle and precomputes ETags via ``refresh_etags`` the same way the SQL
+seed data is prepared offline.
 """
 import pickle
 
@@ -89,8 +90,8 @@ def api_engine():
 def client(api_engine):
     """TestClient with get_session overridden onto the seeded in-memory engine.
 
-    Not entered as a context manager, so the app lifespan (which would import the
-    real production pickle) never runs.
+    Not entered as a context manager, so the app lifespan (which would ensure the
+    real Postgres schema) never runs.
     """
     def _override():
         with Session(api_engine) as s:

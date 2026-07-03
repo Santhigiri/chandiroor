@@ -5,8 +5,3 @@ venv/
 .env*
 !.env.example
 .pytest_cache/
-# The runtime store is now Postgres (Neon), configured via DATABASE_URL. Any
-# local SQLite artifacts (e.g. from tests) are ignored rather than committed.
-data/panchangam.db
-data/panchangam.db-shm
-data/panchangam.db-wal

@@ -2,10 +2,10 @@
 Canonical payload builders + ETag computation.
 
 This module is the single source of truth shared by the *write* path
-(``db.migrate`` recomputes ETags when data is loaded) and the *read* path (the
-API routes serve the body and its ETag). Because both sides build the payload
-here and hash it the same way, the stored ETag can never disagree with the bytes
-the endpoint actually returns.
+(``refresh_etags`` recomputes ETags when data is loaded) and the *read* path (the
+API routes serve the body and its ETag, computing a missing one lazily). Because
+both sides build the payload here and hash it the same way, the stored ETag can
+never disagree with the bytes the endpoint actually returns.
 """
 from __future__ import annotations
 
@@ -105,8 +105,9 @@ def refresh_etags(session: Session, years: Iterable[int]) -> None:
     """
     Recompute and store the ETag for each given year plus every enum dataset.
 
-    Called from the data-write path so ETags stay in lockstep with the data.
-    Commits once at the end.
+    A convenience for pre-warming ETags after a bulk data load (e.g. offline SQL
+    seeding) so they stay in lockstep with the data; the read path also fills any
+    missing ETag lazily on first request. Commits once at the end.
     """
     etag_repo = EtagRepository(session)
     service = PanchangamService(PanchangamRepository(session))

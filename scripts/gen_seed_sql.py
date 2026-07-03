@@ -56,7 +56,7 @@ def q(v) -> str:
         return repr(v)
     if isinstance(v, datetime):
         # Store naive local wall-clock (Asia/Kolkata) — matches the model's
-        # tz-naive TIMESTAMP columns and how the SQLite mirror stored them.
+        # tz-naive TIMESTAMP columns.
         return "'" + v.replace(tzinfo=None).isoformat(sep=" ") + "'"
     if hasattr(v, "isoformat"):  # date
         return "'" + v.isoformat() + "'"
