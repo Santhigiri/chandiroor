@@ -13,6 +13,7 @@ from db.models.nakshatra_transition import NakshatraTransition
 from db.models.santhigiri_event import SanthigiriEvent
 from db.models.santhigiri_event_date import SanthigiriEventDate
 from db.models.dataset_etag import DatasetEtag
+from db.models.user import User
 
 __all__ = [
     "Paksha",
@@ -28,4 +29,5 @@ __all__ = [
     "SanthigiriEvent",
     "SanthigiriEventDate",
     "DatasetEtag",
+    "User",
 ]
