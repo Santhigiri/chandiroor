@@ -35,22 +35,35 @@ The codebase uses a **feature-based architecture** with a hard separation betwee
 ```
 panchangam-api/
 ├── main.py                     # App factory: wires lifespan, CORS, routers
-├── api/routes/                 # HTTP boundary only — thin, dumb handlers
-│   └── v1/                     # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
+├── api/
+│   ├── deps.py                 # Shared Depends: get_service, get_current_principal, require_role
+│   └── routes/                 # HTTP boundary only — thin, dumb handlers
+│       └── v1/                 # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
+│           ├── panchangam.py           # Compact panchangam + reference (thithi/nakshatra/masa/events) reads
+│           ├── santhigiri_events.py    # Admin CRUD for editable Santhigiri event definitions
+│           └── auth.py                 # login / refresh / me / users (JWT auth)
 ├── services/
-│   └── panchangam_service.py   # Reads through db/repository.py; falls back to live computation on a DB miss
+│   ├── panchangam_service.py       # Reads through db/repository.py; falls back to live computation on a DB miss
+│   ├── santhigiri_event_service.py # Event-definition CRUD; commits with an ETag refresh in one transaction
+│   └── etag_service.py             # Canonical payload builders + ETag compute/refresh
 ├── db/                         # Postgres persistence layer (SQLModel)
 │   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
-│   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location)
+│   ├── reference_repository.py # Reads the enum/reference datasets (thithi, nakshatra, masa, events)
+│   ├── santhigiri_event_repository.py  # Writes to the editable santhigiri_event table
+│   ├── user_repository.py      # Users backing JWT auth
+│   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
 │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
 │   └── models/                 # SQLModel table definitions
 ├── core/
 │   ├── astronomy/              # Pure astronomical computation (no HTTP, no Pydantic responses)
 │   ├── calendar/               # Domain aggregation: combines astronomy into calendar objects
+│   ├── security.py             # Password hashing + JWT mint/decode (no HTTP)
+│   ├── config.py               # Settings (JWT_SECRET_KEY etc.) via pydantic-settings
 │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
 ├── schemas/                    # Pydantic request/response models
 ├── utils/                      # Enums, cache tooling, event definitions
+│   ├── roles.py                # Role enum (anonymous < user < admin) for authorization
 │   ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
 │   ├── cache_crud.py           # Reads/writes pickle files on disk
 │   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
@@ -77,6 +90,20 @@ panchangam-api/
 **`schemas/`** holds Pydantic models. Request schemas live here (query param validation with defaults). The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
 **`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
+
+### Authentication & Authorization
+
+The API uses **JWT bearer authentication** with a three-tier role hierarchy: `anonymous` < `user` < `admin` (`utils/roles.py::Role`). All auth wiring lives in `api/deps.py`; the crypto lives in `core/security.py` (password hashing + access/refresh token mint and decode) and settings in `core/config.py`.
+
+- **`get_current_principal`** resolves the request's bearer token into a `Principal` (`role`, `username`). No token → the `anonymous` principal. A malformed/expired/wrong-type token, or one naming an unknown or deactivated user → `401` (it is **not** downgraded to anonymous).
+- **`require_role(minimum)`** is a dependency factory that gates an endpoint at a minimum role. Anonymous callers to a protected endpoint get `401`; authenticated callers with an insufficient role get `403`. It returns the resolved `Principal` so handlers can read the current user.
+- **Public endpoints still declare a guard** — the panchangam data routers depend on `require_role(Role.ANONYMOUS)`, which permits anonymous access but still validates (and rejects) any bearer token that *is* supplied.
+
+Auth endpoints live in `api/routes/v1/auth.py` (`/api/v1/auth/login`, `/refresh`, `/me`, `/users`). Users are stored via `db/user_repository.py`; an initial admin can be seeded at startup by setting `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`. Route handlers remain thin — credential checking, hashing, and token minting are delegated to `core/security.py`.
+
+### Editable Santhigiri event definitions
+
+The `santhigiri_event` table is the **authoritative, editable** definition store for event types (name, description, matching condition), seeded from `utils/santhigiri_events.py` but authoritative thereafter. It is read for the `GET /panchangam/events` reference list (via `db/reference_repository.py`) and written through `db/santhigiri_event_repository.py`. `services/santhigiri_event_service.py` orchestrates create/update/delete: each mutation commits **atomically with an ETag refresh** (`services/etag_service.py`) — always the `events` reference dataset, plus every `year` dataset whose cascade-deleted occurrences changed on a delete — so cached clients revalidate correctly. Editing a definition does **not** recompute which dates the event falls on; that still comes from the offline cache pipeline (see "Adding a new Santhigiri event").
 
 ---
 
@@ -120,7 +147,8 @@ Follow these rules without exception.
 1. Create a new file under `api/routes/<feature>.py` for unversioned endpoints, or `api/routes/<version>/<feature>.py` (e.g. `api/routes/v1/panchangam.py`) for versioned ones. Do not add endpoints to an existing route file unless they are closely related.
 2. Define request params as a Pydantic `BaseModel` in `schemas/`.
 3. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment.
-4. All domain logic the endpoint needs must be implemented in `core/`.
+4. All domain logic the endpoint needs must be implemented in `core/` or a `services/` orchestrator — never in the handler.
+5. **Choose an authorization level with `require_role`.** Read endpoints that expose public panchangam data use `require_role(Role.ANONYMOUS)` (permits anonymous, still validates any supplied token). Any endpoint that **mutates** state must be gated at the appropriate role — event-definition writes and user management require `require_role(Role.ADMIN)`. Apply the guard per-endpoint via the decorator's `dependencies=[...]` when a router mixes privilege levels, or at the router level when they are uniform.
 
 ### Enum usage
 
@@ -218,6 +246,9 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 | `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
 | `psycopg2-binary` | PostgreSQL driver (Neon) |
 | `python-dotenv` | Loads `DATABASE_URL` from a local `.env` during development |
+| `python-jose[cryptography]` | Mint/verify JWT access & refresh tokens (`core/security.py`) |
+| `bcrypt` | Password hashing for user credentials |
+| `pydantic-settings` | Typed settings (JWT config) in `core/config.py` |
 | `pytz` | Timezone handling |
 | `pandas` | Data manipulation in cache utilities |
 | `de421.bsp` | NASA/JPL ephemeris file (16.8 MB) loaded by Skyfield for Sun/Moon/Earth positions |
@@ -238,6 +269,8 @@ uvicorn main:app --reload --port 8000
 
 `DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup only ensures the schema exists (`init_db()`); it does not load any data. Seed the database once by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See `db/sql/README.md`.
 
+Set `JWT_SECRET_KEY` to a long random secret for auth (the app falls back to an insecure development default and logs a warning if unset). Optionally set `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD` to seed an admin at startup (idempotent). See `.env.example` for all auth variables and their defaults.
+
 ### Docker
 
 ```bash
@@ -249,13 +282,33 @@ The container exposes port 8000 and runs `uvicorn main:app --host 0.0.0.0 --port
 
 ### Endpoints
 
-- `GET /api/v1/panchangam/day?date_str=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
+Panchangam data (public — anonymous allowed, any supplied token still validated):
+
+- `GET /api/v1/panchangam/day?day=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
-- `GET /api/v1/panchangam/year?year=YYYY` — main version; returns the compact Panchangam for every day in the year
+- `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
 - `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
 - `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
 
-All parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
+Reference datasets (public, ETag-validated, read from the DB):
+
+- `GET /api/v1/panchangam/thithi` · `/nakshatra` · `/masa` · `/events`
+
+Santhigiri event definitions (read public; writes require the `admin` role):
+
+- `POST   /api/v1/panchangam/events` — create an event definition (admin)
+- `GET    /api/v1/panchangam/events/{event_id}` — fetch one event's full definition (public)
+- `PUT    /api/v1/panchangam/events/{event_id}` — partial-update an event definition (admin)
+- `DELETE /api/v1/panchangam/events/{event_id}` — delete an event definition (admin)
+
+Authentication:
+
+- `POST /api/v1/auth/login` — form login (`username`, `password`) → access + refresh tokens
+- `POST /api/v1/auth/refresh` — exchange a refresh token for a new token pair (rotation)
+- `GET  /api/v1/auth/me` — the current user (requires `user` or `admin`)
+- `POST /api/v1/auth/users` — create a user (admin only)
+
+Panchangam parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
 
 ---
 
@@ -268,7 +321,13 @@ pytest tests/
 Current coverage:
 
 - `tests/test_is_pournami.py` — 24 parametrized test cases verifying full moon detection against known dates for 2022 and 2026.
+- `tests/test_etag.py` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
+- `tests/test_auth.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
+- `tests/test_santhigiri_event_crud.py` — event-definition CRUD end-to-end, including admin-role enforcement and ETag invalidation.
+- `tests/db/` — repository-layer unit tests (round-trips, cascade deletes, event derivation).
 - `tests/test_panchangam.py` — skeleton (not yet implemented).
+
+Tests use an in-memory SQLite engine (the FK pragma listener in `db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/test_etag.py` for the fixture pattern).
 
 When adding new astronomical calculations, add parametrized tests to `tests/` that verify against known Panchangam dates. Cross-check expected values against published physical Panchangams or the Drik Panchang reference.
 
