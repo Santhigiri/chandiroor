@@ -4,6 +4,7 @@ from api.routes.panchangam import router as panchangam_router
 from api.routes.v1.panchangam import router as panchangam_v1_router
 from api.routes.v1.auth import router as auth_v1_router
 from api.routes.v1.santhigiri_events import router as santhigiri_events_v1_router
+from api.routes.v1.kollavarsham import router as kollavarsham_v1_router
 
 from utils.lifespan import lifespan
 
@@ -21,3 +22,4 @@ app.include_router(panchangam_router)
 app.include_router(panchangam_v1_router, prefix="/api/v1")
 app.include_router(auth_v1_router, prefix="/api/v1")
 app.include_router(santhigiri_events_v1_router, prefix="/api/v1")
+app.include_router(kollavarsham_v1_router, prefix="/api/v1")
