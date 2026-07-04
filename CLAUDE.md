@@ -41,16 +41,19 @@ panchangam-api/
 │       └── v1/                 # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
 │           ├── panchangam.py           # Compact panchangam + reference (thithi/nakshatra/masa/events) reads
 │           ├── santhigiri_events.py    # Admin CRUD for editable Santhigiri event definitions
+│           ├── kollavarsham.py         # Admin CRUD for a date's Kollavarsham (Malayalam-calendar) data
 │           └── auth.py                 # login / refresh / me / users (JWT auth)
 ├── services/
 │   ├── panchangam_service.py       # Reads through db/repository.py; falls back to live computation on a DB miss
 │   ├── santhigiri_event_service.py # Event-definition CRUD; commits with an ETag refresh in one transaction
+│   ├── kollavarsham_service.py     # Kollavarsham CRUD; commits with a year-ETag refresh in one transaction
 │   └── etag_service.py             # Canonical payload builders + ETag compute/refresh
 ├── db/                         # Postgres persistence layer (SQLModel)
 │   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
 │   ├── reference_repository.py # Reads the enum/reference datasets (thithi, nakshatra, masa, events)
 │   ├── santhigiri_event_repository.py  # Writes to the editable santhigiri_event table
+│   ├── kollavarsham_repository.py  # CRUD for the kollavarsham_date table (delete removes the whole day)
 │   ├── user_repository.py      # Users backing JWT auth
 │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
 │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
@@ -301,6 +304,13 @@ Santhigiri event definitions (read public; writes require the `admin` role):
 - `PUT    /api/v1/panchangam/events/{event_id}` — partial-update an event definition (admin)
 - `DELETE /api/v1/panchangam/events/{event_id}` — delete an event definition (admin)
 
+Kollavarsham data (read public; writes require the `admin` role):
+
+- `POST   /api/v1/panchangam/kollavarsham` — create a date's Kollavarsham record (admin)
+- `GET    /api/v1/panchangam/kollavarsham/{date}` — fetch one date's Kollavarsham record (public)
+- `PUT    /api/v1/panchangam/kollavarsham/{date}` — partial-update a date's Kollavarsham record (admin)
+- `DELETE /api/v1/panchangam/kollavarsham/{date}` — delete a date's Kollavarsham record (admin). A panchangam day is invalid without its Kollavarsham child, so this removes the whole panchangam day (children cascade); the date then falls back to live computation.
+
 Authentication:
 
 - `POST /api/v1/auth/login` — form login (`username`, `password`) → access + refresh tokens
@@ -324,6 +334,7 @@ Current coverage:
 - `tests/test_etag.py` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
 - `tests/test_auth.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
 - `tests/test_santhigiri_event_crud.py` — event-definition CRUD end-to-end, including admin-role enforcement and ETag invalidation.
+- `tests/test_kollavarsham_crud.py` — Kollavarsham CRUD end-to-end, including admin-role enforcement, the create-requires-a-panchangam-day rule, whole-day delete, and year-ETag invalidation.
 - `tests/db/` — repository-layer unit tests (round-trips, cascade deletes, event derivation).
 - `tests/test_panchangam.py` — skeleton (not yet implemented).
 
