@@ -1,19 +1,21 @@
 """
-KollavarshamService — orchestrates create/read/update/delete of the editable
-Kollavarsham (Malayalam-calendar) data attached to each panchangam day, keeping
-the affected ``/year`` ETag in lockstep.
+KollavarshamService — orchestrates create/read/update of the editable
+Kollavarsham (Malayalam-calendar) data attached to panchangam days, keeping the
+affected ``/year`` ETags in lockstep.
 
-Kollavarsham values appear in every panchangam payload (day / month / year), so
-each mutation is committed together with a recomputation of the affected year's
-ETag (via :func:`services.etag_service.refresh_etags`) so cached clients always
-revalidate correctly.
+Both mutations are **range-oriented**: they apply to every date in a request's
+``[start_date, end_date]`` span (a single date being the degenerate range). Each
+mutation is committed together with a recomputation of every spanned year's ETag
+(via :func:`services.etag_service.refresh_etags`), all in one transaction, so
+cached clients always revalidate.
 
-A panchangam day is invalid without its Kollavarsham child (see
-``db.repository``), so this service never orphans a day:
+A panchangam day is invalid without its Kollavarsham child (see ``db.repository``),
+so this service is create/update only — there is no delete — and:
 
-* ``create`` requires the parent panchangam day to already exist;
-* ``delete`` removes the whole panchangam day (its children cascade), after
-  which the date falls back to live computation.
+* ``create`` requires every targeted date to already have a panchangam day and to
+  not yet have a Kollavarsham row (atomic: any violation aborts the whole call);
+* ``update`` edits the existing Kollavarsham rows in the range and leaves dates
+  without one untouched.
 
 The route layer stays thin: it maps the domain errors raised here onto HTTP
 status codes.
@@ -21,8 +23,8 @@ status codes.
 from __future__ import annotations
 
 from datetime import date
+from typing import List, Sequence
 
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from db.kollavarsham_repository import KollavarshamRepository
@@ -32,15 +34,29 @@ from services.etag_service import refresh_etags
 
 
 class KollavarshamNotFound(Exception):
-    """Raised when updating/deleting/reading a date that has no Kollavarsham row."""
+    """Raised when an update range contains no existing Kollavarsham rows."""
 
 
 class KollavarshamAlreadyExists(Exception):
-    """Raised when creating a Kollavarsham row for a date that already has one."""
+    """Raised when a create range hits a date that already has a Kollavarsham row.
+
+    Carries the offending dates for the caller to surface.
+    """
+
+    def __init__(self, dates: Sequence[date]) -> None:
+        self.dates = list(dates)
+        super().__init__(f"Kollavarsham data already exists for: {self.dates}")
 
 
 class NoPanchangamDay(Exception):
-    """Raised when creating Kollavarsham data for a date with no panchangam day."""
+    """Raised when a create range hits a date with no panchangam day.
+
+    Carries the offending dates for the caller to surface.
+    """
+
+    def __init__(self, dates: Sequence[date]) -> None:
+        self.dates = list(dates)
+        super().__init__(f"No panchangam day exists for: {self.dates}")
 
 
 class KollavarshamService:
@@ -58,39 +74,46 @@ class KollavarshamService:
 
     # ── Write ───────────────────────────────────────────────────────────────────
 
-    def create(self, payload: KollavarshamCreate) -> KollavarshamDateRow:
-        if self._repo.exists(payload.date):
-            raise KollavarshamAlreadyExists(payload.date)
-        if not self._repo.panchangam_exists(payload.date):
-            raise NoPanchangamDay(payload.date)
-        row = KollavarshamDateRow(**payload.model_dump())
-        try:
-            self._repo.create(row)
-            self._commit_with_etags(payload.date.year)
-        except IntegrityError as exc:
-            self._s.rollback()
-            raise NoPanchangamDay(str(exc.orig)) from exc
-        return row
+    def create(self, payload: KollavarshamCreate) -> List[KollavarshamDateRow]:
+        dates = payload.dates()
 
-    def update(self, dt: date, payload: KollavarshamUpdate) -> KollavarshamDateRow:
-        row = self.get(dt)
-        changes = payload.model_dump(exclude_unset=True)
-        self._repo.update(row, changes)
-        self._commit_with_etags(dt.year)
-        return row
+        # Validate the whole range up front so the call is all-or-nothing.
+        missing_parents = [d for d in dates if not self._repo.panchangam_exists(d)]
+        if missing_parents:
+            raise NoPanchangamDay(missing_parents)
+        already = [d for d in dates if self._repo.exists(d)]
+        if already:
+            raise KollavarshamAlreadyExists(already)
 
-    def delete(self, dt: date) -> None:
-        # Presence of the Kollavarsham row gates the delete; removing it means
-        # removing the whole (now-invalid) panchangam day, which cascades.
-        self.get(dt)
-        self._repo.delete_day(dt)
-        self._commit_with_etags(dt.year)
+        values = payload.values()
+        rows = [
+            self._repo.create(KollavarshamDateRow(date=d, **values)) for d in dates
+        ]
+        self._commit_with_etags(payload.years())
+        return rows
+
+    def update(self, payload: KollavarshamUpdate) -> List[KollavarshamDateRow]:
+        changes = payload.changes()
+        rows: List[KollavarshamDateRow] = []
+        for d in payload.dates():
+            row = self._repo.get(d)
+            if row is None:
+                continue  # leave gaps in the range untouched
+            rows.append(self._repo.update(row, changes))
+
+        if not rows:
+            raise KollavarshamNotFound(
+                f"No Kollavarsham data in range {payload.start_date}..{payload.end_date}"
+            )
+
+        self._commit_with_etags(sorted({r.date.year for r in rows}))
+        return rows
 
     # ── Internal ─────────────────────────────────────────────────────────────────
 
-    def _commit_with_etags(self, year: int) -> None:
+    def _commit_with_etags(self, years: Sequence[int]) -> None:
         # refresh_etags recomputes the payloads from the (still pending) session
         # state and commits once, so the data change and its ETags land in a
-        # single transaction. It always refreshes every enum dataset plus the
-        # year passed here (the year whose payload embeds this date's kv values).
-        refresh_etags(self._s, [year])
+        # single transaction. It refreshes every enum dataset plus the years
+        # passed here (whose payloads embed these dates' kv values).
+        refresh_etags(self._s, years)

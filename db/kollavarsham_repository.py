@@ -1,11 +1,11 @@
 """
-KollavarshamRepository — CRUD for the ``kollavarsham_date`` table.
+KollavarshamRepository — create/read/update for the ``kollavarsham_date`` table.
 
 ``kollavarsham_date`` holds one row per panchangam day (its ``date`` is a
-foreign key into ``panchangam.date`` with ``ON DELETE CASCADE``). A panchangam
-day is invalid without its Kollavarsham child — ``db.repository`` refuses to
-convert such a row — so this repository never leaves a day orphaned: deleting
-Kollavarsham data removes the whole panchangam day, cascading to every child.
+foreign key into ``panchangam.date``). A panchangam day is invalid without its
+Kollavarsham child — ``db.repository`` refuses to convert such a row — so this
+repository is create/update only: there is deliberately no delete, since
+removing a day's Kollavarsham data would break that day.
 
 Following the convention of :class:`db.repository.PanchangamRepository`, the
 mutating methods do NOT commit — the caller owns the transaction so a matching
@@ -16,8 +16,7 @@ from __future__ import annotations
 import datetime
 from typing import Optional
 
-from sqlalchemy import delete
-from sqlmodel import Session, col
+from sqlmodel import Session
 
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from db.models.panchangam import Panchangam as PanchangamRow
@@ -59,19 +58,3 @@ class KollavarshamRepository:
         self._s.add(row)
         self._s.flush()
         return row
-
-    def delete_day(self, dt: datetime.date) -> None:
-        """Delete the panchangam day for *dt*, cascading to its Kollavarsham row.
-
-        A day cannot exist without Kollavarsham data, so removing that data
-        removes the whole day; the ``ON DELETE CASCADE`` foreign keys drop the
-        Kollavarsham row and every other child (sunrise/sunset, transitions,
-        event occurrences). The date then falls back to live computation on read.
-
-        Uses a Core ``DELETE`` (like :meth:`db.repository.PanchangamRepository.
-        _delete_children`) so the database's ``ON DELETE CASCADE`` removes the
-        children, rather than the ORM trying to blank out their (primary-key)
-        foreign keys. Does NOT commit.
-        """
-        self._s.exec(delete(PanchangamRow).where(col(PanchangamRow.date) == dt))
-        self._s.flush()

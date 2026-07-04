@@ -1,27 +1,27 @@
 """
 Admin write endpoints for the editable Kollavarsham (Malayalam-calendar) data of
-a panchangam day, mounted under ``/api/v1``:
+panchangam days, mounted under ``/api/v1``:
 
-* ``POST   /api/v1/panchangam/kollavarsham``          — create a record  (admin)
-* ``GET    /api/v1/panchangam/kollavarsham/{date}``   — fetch one date's record  (public)
-* ``PUT    /api/v1/panchangam/kollavarsham/{date}``   — partial-update a record  (admin)
-* ``DELETE /api/v1/panchangam/kollavarsham/{date}``   — delete a record  (admin)
+* ``POST /api/v1/panchangam/kollavarsham``        — create records over a date range  (admin)
+* ``GET  /api/v1/panchangam/kollavarsham/{date}`` — fetch one date's record  (public)
+* ``PUT  /api/v1/panchangam/kollavarsham``        — partial-update records over a date range  (admin)
 
-Authorization mirrors the rest of the API: reading Kollavarsham data is public
-(the anonymous principal is allowed, any supplied token is still validated),
-while every mutation edits the ashram's authoritative calendar data and so
-requires the ``admin`` role.
+``POST`` and ``PUT`` are range-oriented: the request body carries a
+``start_date`` and an optional ``end_date`` (omit it for a single day) and the
+values apply to every date in the inclusive span. There is deliberately **no
+delete** — a panchangam day is invalid without its Kollavarsham child, so the
+data can be created or edited but never removed here.
 
-Because a panchangam day is invalid without its Kollavarsham child, ``DELETE``
-removes the whole panchangam day for that date (its children cascade); the date
-then falls back to live computation. Handlers stay thin: parse the path/body,
-delegate to ``KollavarshamService``, and translate its domain errors into HTTP
-status codes.
+Authorization mirrors the rest of the API: reading is public (the anonymous
+principal is allowed, any supplied token is still validated), while every
+mutation edits the ashram's authoritative calendar data and so requires the
+``admin`` role. Handlers stay thin: parse the path/body, delegate to
+``KollavarshamService``, and translate its domain errors into HTTP status codes.
 """
 from datetime import date
-from typing import Annotated
+from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from api.deps import require_role
@@ -50,27 +50,29 @@ def _get_service(
 
 @router.post(
     "",
-    response_model=KollavarshamDetail,
+    response_model=List[KollavarshamDetail],
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def create_kollavarsham(
     payload: KollavarshamCreate,
     service: Annotated[KollavarshamService, Depends(_get_service)],
-) -> KollavarshamDetail:
+) -> List[KollavarshamDetail]:
     try:
-        row = service.create(payload)
-    except KollavarshamAlreadyExists:
+        rows = service.create(payload)
+    except KollavarshamAlreadyExists as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            detail=f"Kollavarsham data for '{payload.date}' already exists.",
+            detail=f"Kollavarsham data already exists for: "
+            f"{', '.join(str(d) for d in exc.dates)}.",
         )
-    except NoPanchangamDay:
+    except NoPanchangamDay as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail=f"No panchangam day exists for '{payload.date}'.",
+            detail=f"No panchangam day exists for: "
+            f"{', '.join(str(d) for d in exc.dates)}.",
         )
-    return KollavarshamDetail.from_row(row)
+    return [KollavarshamDetail.from_row(r) for r in rows]
 
 
 @router.get(
@@ -93,39 +95,19 @@ def get_kollavarsham(
 
 
 @router.put(
-    "/{day}",
-    response_model=KollavarshamDetail,
+    "",
+    response_model=List[KollavarshamDetail],
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def update_kollavarsham(
-    day: date,
     payload: KollavarshamUpdate,
     service: Annotated[KollavarshamService, Depends(_get_service)],
-) -> KollavarshamDetail:
+) -> List[KollavarshamDetail]:
     try:
-        row = service.update(day, payload)
+        rows = service.update(payload)
     except KollavarshamNotFound:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            detail=f"Kollavarsham data for '{day}' not found.",
+            detail="No Kollavarsham data found in the given date range.",
         )
-    return KollavarshamDetail.from_row(row)
-
-
-@router.delete(
-    "/{day}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role(Role.ADMIN))],
-)
-def delete_kollavarsham(
-    day: date,
-    service: Annotated[KollavarshamService, Depends(_get_service)],
-) -> Response:
-    try:
-        service.delete(day)
-    except KollavarshamNotFound:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            detail=f"Kollavarsham data for '{day}' not found.",
-        )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return [KollavarshamDetail.from_row(r) for r in rows]
