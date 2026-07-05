@@ -1,17 +1,20 @@
 import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, Date, ForeignKey, Index, String
+from sqlalchemy import Column, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.panchangam import Panchangam
     from db.models.santhigiri_event import SanthigiriEvent
 
 
 class SanthigiriEventDate(SQLModel, table=True):
-    """A significant Santhigiri ashram event that falls on a panchangam date.
+    """A significant Santhigiri ashram event that falls on a calendar date.
+
+    Ashram events are **location-independent** — the same observance calendar is
+    shown for every location — so this table is keyed by date alone and is NOT a
+    child of the ``(date, location_id)`` panchangam row.
 
     ``event_id`` is a foreign key into ``santhigiri_event``: that definition
     table is the single source of truth for the event's name, description, and
@@ -26,13 +29,7 @@ class SanthigiriEventDate(SQLModel, table=True):
     )
 
     id:             Optional[int]  = Field(default=None, primary_key=True)
-    panchangam_date: datetime.date = Field(
-        sa_column=Column(
-            Date,
-            ForeignKey("panchangam.date", ondelete="CASCADE"),
-            nullable=False,
-        )
-    )
+    panchangam_date: datetime.date = Field(nullable=False)
     event_id: str = Field(
         sa_column=Column(
             String,
@@ -42,5 +39,4 @@ class SanthigiriEventDate(SQLModel, table=True):
         )
     )
 
-    panchangam: Optional["Panchangam"]              = Relationship(back_populates="santhigiri_events")
     event:      Mapped[Optional["SanthigiriEvent"]] = Relationship()

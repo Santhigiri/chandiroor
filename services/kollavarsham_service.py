@@ -28,7 +28,6 @@ from typing import List
 from sqlmodel import Session
 
 from core.calendar.kollavarsham import get_kollavarsham_date
-from core.constants import Coordinates, DEFAULT_TIMEZONE
 from db.kollavarsham_repository import KollavarshamRepository
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from schemas.kollavarsham import (
@@ -37,6 +36,7 @@ from schemas.kollavarsham import (
     KollavarshamGenerateResult,
 )
 from services.etag_service import refresh_etags
+from utils.location import DEFAULT_LOCATION, Location
 
 
 class KollavarshamDateNotFound(Exception):
@@ -63,8 +63,10 @@ class KollavarshamService:
 
     # ── Read ────────────────────────────────────────────────────────────────────
 
-    def get(self, day: date) -> KollavarshamDateRow:
-        row = self._repo.get(day)
+    def get(
+        self, day: date, location: Location = DEFAULT_LOCATION
+    ) -> KollavarshamDateRow:
+        row = self._repo.get(day, location)
         if row is None:
             raise KollavarshamDateNotFound(day)
         return row
@@ -72,26 +74,28 @@ class KollavarshamService:
     # ── Write ───────────────────────────────────────────────────────────────────
 
     def generate(
-        self, req: KollavarshamGenerateRequest
+        self,
+        req: KollavarshamGenerateRequest,
+        location: Location = DEFAULT_LOCATION,
     ) -> KollavarshamGenerateResult:
         span = (req.end_date - req.start_date).days + 1
         dates = [req.start_date + timedelta(days=offset) for offset in range(span)]
 
-        missing = self._repo.missing_panchangam_dates(dates)
+        missing = self._repo.missing_panchangam_dates(dates, location)
         if missing:
             raise UngeneratableDates(missing)
 
         for day in dates:
             kv = get_kollavarsham_date(
                 dt=day,
-                latitude=Coordinates.SG_LATITUDE,
-                longitude=Coordinates.SG_LONGITUDE,
-                timezone=DEFAULT_TIMEZONE,
+                latitude=location.latitude,
+                longitude=location.longitude,
+                timezone=location.timezone,
             )
-            self._repo.upsert(day, kv.kv_day, kv.kv_month, kv.kv_year)
+            self._repo.upsert(day, location, kv.kv_day, kv.kv_month, kv.kv_year)
 
         years = sorted({d.year for d in dates})
-        refresh_etags(self._s, years)  # commits
+        refresh_etags(self._s, years, [location])  # commits
 
         return KollavarshamGenerateResult(
             start_date=req.start_date,
@@ -101,10 +105,13 @@ class KollavarshamService:
         )
 
     def update(
-        self, day: date, payload: KollavarshamDateUpdate
+        self,
+        day: date,
+        payload: KollavarshamDateUpdate,
+        location: Location = DEFAULT_LOCATION,
     ) -> KollavarshamDateRow:
-        row = self.get(day)
+        row = self.get(day, location)
         changes = payload.model_dump(exclude_unset=True)
         self._repo.update(row, changes)
-        refresh_etags(self._s, [day.year])  # commits
+        refresh_etags(self._s, [day.year], [location])  # commits
         return row

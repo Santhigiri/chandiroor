@@ -27,6 +27,7 @@ from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
 from main import app
 from services.etag_service import refresh_etags, year_key
+from utils.location import Location
 from utils.roles import Role
 
 PICKLE_2022 = "data/panchangam_2022.pkl"
@@ -48,7 +49,7 @@ def api_engine():
         seed_lookup_tables(s)
         with open(PICKLE_2022, "rb") as f:
             cache = pickle.load(f)
-        PanchangamRepository(s).upsert_many(cache.values())
+        PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
         refresh_etags(s, [YEAR])
         repo = UserRepository(s)
         repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
@@ -90,7 +91,7 @@ def admin_auth(client) -> dict:
 
 def _stored_year_etag(api_engine) -> str:
     with Session(api_engine) as s:
-        return EtagRepository(s).get(year_key(YEAR))
+        return EtagRepository(s).get(year_key(YEAR, Location.TVM.code))
 
 
 # ── Authorization ────────────────────────────────────────────────────────────────

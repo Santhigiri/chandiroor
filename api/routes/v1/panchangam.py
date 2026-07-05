@@ -4,11 +4,12 @@ from datetime import date, datetime
 
 from sqlmodel import Session
 
-from api.deps import get_service, require_role
+from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
+from schemas.location import LocationInfo
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -17,6 +18,7 @@ from services.etag_service import (
     year_key,
 )
 from services.panchangam_service import PanchangamService
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.roles import Role
@@ -40,9 +42,10 @@ router = APIRouter(
 def panchangam(
     day: Annotated[date, Query()],
     service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ):
 
-    data = service.get_by_date(day)
+    data = service.get_by_date(day, location)
     return CompactPanchangamData.from_panchangam_data(data)
 
 
@@ -53,10 +56,12 @@ def panchangam(
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ):
     data = service.get_by_month(
         year=params.year,
         month=params.month,
+        location=location,
     )
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
@@ -69,16 +74,18 @@ def panchangam_yearly(
     request: Request,
     params: Annotated[GetYearlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
     # ETag-validated: unchanged years return 304 so the frontend skips the
-    # full-year download. The stored ETag is refreshed whenever the data is
+    # full-year download. The ETag key includes the location code so different
+    # locations don't collide. The stored ETag is refreshed whenever the data is
     # reloaded (see services.etag_service), or computed lazily on first request.
     return conditional_json_response(
         request,
         session,
-        year_key(params.year),
-        lambda: build_year_payload(service, params.year),
+        year_key(params.year, location.code),
+        lambda: build_year_payload(service, params.year, location),
     )
 
 
@@ -136,4 +143,16 @@ def events_reference(
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
     return _reference_response(request, session, "events")
+
+
+@router.get(
+    '/locations',
+    response_model= List[LocationInfo]
+)
+def locations_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    # The list of locations a client can request via ?location=<code>.
+    return _reference_response(request, session, "locations")
 

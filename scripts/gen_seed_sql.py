@@ -159,13 +159,16 @@ def build_data_seed(cache) -> str:
 
     for d in dates:
         p = cache[d]
-        panchangam_rows.append((p.date, p.thithi.id, p.nakshatra.id, p.nazhika_from_sunrise))
-        kollavarsham_rows.append((p.date, p.kv.kv_day, p.kv.kv_month, p.kv.kv_year))
+        # All pre-computed data is for TVM (location_id = 1). The panchangam row
+        # and its location-dependent children are keyed by (date, location_id);
+        # santhigiri_event_dates is location-independent (date only).
+        panchangam_rows.append((p.date, TVM_ID, p.thithi.id, p.nakshatra.id, p.nazhika_from_sunrise))
+        kollavarsham_rows.append((p.date, TVM_ID, p.kv.kv_day, p.kv.kv_month, p.kv.kv_year))
         sunrise_rows.append((p.date, TVM_ID, p.sunrise, p.sunset))
         for t in p.thithi_transitions:
-            thithi_trans_rows.append((p.date, t.thithi.id, t.start_time, t.end_time))
+            thithi_trans_rows.append((p.date, TVM_ID, t.thithi.id, t.start_time, t.end_time))
         for n in p.nakshatra_transitions:
-            nak_trans_rows.append((p.date, n.nakshatra.id, n.start_time, n.end_time))
+            nak_trans_rows.append((p.date, TVM_ID, n.nakshatra.id, n.start_time, n.end_time))
         for e in p.santhigiri_significant_dates:
             event_date_rows.append((p.date, e.id.value))
 
@@ -173,11 +176,11 @@ def build_data_seed(cache) -> str:
         f"-- ---------- Panchangam data ({dates[0]} .. {dates[-1]}, {len(dates)} days) ----------",
         "",
         # id omitted on child tables -> SERIAL auto-assigns
-        insert_block("panchangam", ["date", "thithi_id", "nakshatra_id", "nazhika_from_sunrise"], panchangam_rows),
-        insert_block("kollavarsham_date", ["date", "kv_day", "kv_month", "kv_year"], kollavarsham_rows),
+        insert_block("panchangam", ["date", "location_id", "thithi_id", "nakshatra_id", "nazhika_from_sunrise"], panchangam_rows),
+        insert_block("kollavarsham_date", ["date", "location_id", "kv_day", "kv_month", "kv_year"], kollavarsham_rows),
         insert_block("sunrise_sunset", ["date", "location_id", "sunrise", "sunset"], sunrise_rows),
-        insert_block("thithi_transitions", ["panchangam_date", "thithi_id", "start_time", "end_time"], thithi_trans_rows),
-        insert_block("nakshatra_transitions", ["panchangam_date", "nakshatra_id", "start_time", "end_time"], nak_trans_rows),
+        insert_block("thithi_transitions", ["panchangam_date", "location_id", "thithi_id", "start_time", "end_time"], thithi_trans_rows),
+        insert_block("nakshatra_transitions", ["panchangam_date", "location_id", "nakshatra_id", "start_time", "end_time"], nak_trans_rows),
         insert_block("santhigiri_event_dates", ["panchangam_date", "event_id"], event_date_rows),
     ])
 

@@ -32,7 +32,9 @@ from db.seed import seed_lookup_tables
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
 from core.calendar.kollavarsham import KollavarshamDate
+from schemas.location import LocationInfo
 from schemas.panchangam_data import PanchangamData
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import SanthigiriEvent
@@ -94,6 +96,7 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         thithi_transitions: Optional[List[ThithiTransition]] = None,
         nakshatra_transitions: Optional[List[NakshatraTransition]] = None,
         santhigiri_significant_dates: Optional[List[SanthigiriEvent]] = None,
+        location: Location = Location.TVM,
     ) -> PanchangamData:
         sunrise = _dt.datetime.combine(date, _dt.time(6, 15))
         sunset = _dt.datetime.combine(date, _dt.time(18, 30))
@@ -138,6 +141,7 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
             sunset=sunset,
             nazhika_from_sunrise=nazhika_from_sunrise,
             santhigiri_significant_dates=santhigiri_significant_dates or [],
+            location=LocationInfo.from_location(location),
         )
 
     return _build

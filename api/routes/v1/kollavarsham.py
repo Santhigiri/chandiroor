@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from api.deps import require_role
+from api.deps import get_location, require_role
 from db.database import get_session
 from schemas.kollavarsham import (
     KollavarshamDateRead,
@@ -31,6 +31,7 @@ from services.kollavarsham_service import (
     KollavarshamService,
     UngeneratableDates,
 )
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.roles import Role
 
@@ -63,9 +64,10 @@ def _to_read(row) -> KollavarshamDateRead:
 def generate_kollavarsham(
     payload: KollavarshamGenerateRequest,
     service: Annotated[KollavarshamService, Depends(_get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ) -> KollavarshamGenerateResult:
     try:
-        return service.generate(payload)
+        return service.generate(payload, location)
     except UngeneratableDates as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -85,9 +87,10 @@ def generate_kollavarsham(
 def get_kollavarsham(
     date: date,
     service: Annotated[KollavarshamService, Depends(_get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ) -> KollavarshamDateRead:
     try:
-        row = service.get(date)
+        row = service.get(date, location)
     except KollavarshamDateNotFound:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -105,9 +108,10 @@ def update_kollavarsham(
     date: date,
     payload: KollavarshamDateUpdate,
     service: Annotated[KollavarshamService, Depends(_get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ) -> KollavarshamDateRead:
     try:
-        row = service.update(date, payload)
+        row = service.update(date, payload, location)
     except KollavarshamDateNotFound:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,

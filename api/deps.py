@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Callable, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
@@ -29,6 +29,7 @@ from db.database import get_session
 from db.repository import PanchangamRepository
 from db.user_repository import UserRepository
 from services.panchangam_service import PanchangamService
+from utils.location import DEFAULT_LOCATION_CODE, Location
 from utils.roles import Role
 
 
@@ -38,6 +39,25 @@ def get_service(
     session: Annotated[Session, Depends(get_session)],
 ) -> PanchangamService:
     return PanchangamService(PanchangamRepository(session))
+
+
+# ── Location selection ────────────────────────────────────────────────────────
+
+def get_location(
+    location: Annotated[str, Query(description="Location code, e.g. 'tvm'")] = DEFAULT_LOCATION_CODE,
+) -> Location:
+    """Resolve the ``?location=`` query param (a location code) to a ``Location``.
+
+    Defaults to the ashram (``tvm``). An unknown code is a 404 — the caller asked
+    for a location the API does not serve.
+    """
+    try:
+        return Location.from_code(location)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown location code: {location!r}",
+        )
 
 
 # ── Principal ─────────────────────────────────────────────────────────────────
