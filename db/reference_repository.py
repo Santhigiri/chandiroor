@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from db.models.location import Location as LocationRow
 from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
@@ -60,6 +61,24 @@ class ReferenceRepository:
         rows = self._s.exec(select(MalayalamMasaRow).order_by(MalayalamMasaRow.id)).all()
         return [
             {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
+        ]
+
+    def list_locations(self) -> List[Dict[str, Any]]:
+        """Every location the API can serve panchangam data for.
+
+        ``name`` is the stable short code clients pass as ``?location=``.
+        Location-independent, so its ETag carries no location component.
+        """
+        rows = self._s.exec(select(LocationRow).order_by(LocationRow.id)).all()
+        return [
+            {
+                "code": l.name,
+                "label": l.label,
+                "latitude": l.latitude,
+                "longitude": l.longitude,
+                "timezone": l.timezone,
+            }
+            for l in rows
         ]
 
     def list_events(self) -> List[CompactSanthigiriEvent]:

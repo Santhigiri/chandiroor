@@ -8,7 +8,7 @@ core/astronomy and utils.
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional, Sequence
 
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
@@ -29,6 +29,7 @@ from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
 from core.calendar.kollavarsham import KollavarshamDate
+from schemas.location import LocationInfo
 from schemas.panchangam_data import PanchangamData
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
@@ -39,7 +40,11 @@ from utils.thithi import Thithi
 
 # ── SQL row → domain type conversions ────────────────────────────────────────
 
-def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
+def _row_to_panchangam_data(
+    row: PanchangamRow,
+    location: Location,
+    santhigiri_events: List[SanthigiriEvent],
+) -> PanchangamData:
     kv_row = row.kollavarsham
     if kv_row is None:
         raise ValueError("kv_row is None")
@@ -53,10 +58,8 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         kv_month_name_ml=masa.ml,
     )
 
-    ss_row = next(
-        (s for s in row.sunrise_sunsets if s.location_id == Location.TVM.id),
-        row.sunrise_sunsets[0] if row.sunrise_sunsets else None,
-    )
+    # One-to-one now that panchangam is keyed by (date, location_id).
+    ss_row = row.sunrise_sunset
 
     thithi_transitions = [
         ThithiTransition(
@@ -78,8 +81,6 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         for n in sorted(row.nakshatra_transitions, key=lambda n: n.start_time)
     ]
 
-    santhigiri_events = [_ssd_row_to_event(e) for e in row.santhigiri_events]
-
     if ss_row is None:
         raise ValueError("ss_row cannot be None")
 
@@ -94,6 +95,7 @@ def _row_to_panchangam_data(row: PanchangamRow) -> PanchangamData:
         sunset=ss_row.sunset,
         nazhika_from_sunrise=row.nazhika_from_sunrise,
         santhigiri_significant_dates=santhigiri_events,
+        location=LocationInfo.from_location(location),
     )
 
 
@@ -126,12 +128,9 @@ def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
 
 _LOAD_OPTIONS = (
     selectinload(PanchangamRow.kollavarsham),
-    selectinload(PanchangamRow.sunrise_sunsets),
+    selectinload(PanchangamRow.sunrise_sunset),
     selectinload(PanchangamRow.thithi_transitions),
     selectinload(PanchangamRow.nakshatra_transitions),
-    selectinload(PanchangamRow.santhigiri_events).selectinload(
-        SanthigiriEventDateRow.event
-    ),
 )
 
 
@@ -152,52 +151,77 @@ class PanchangamRepository:
 
     # ── Getters ──────────────────────────────────────────────────────────────
 
-    def get_by_date(self, date: datetime.date) -> Optional[PanchangamData]:
-        """Return PanchangamData for *date*, or None if the date is not in the DB."""
+    def get_by_date(
+        self, date: datetime.date, location: Location
+    ) -> Optional[PanchangamData]:
+        """Return PanchangamData for *date* at *location*, or None if not in the DB."""
         stmt = (
             select(PanchangamRow)
-            .where(PanchangamRow.date == date)
+            .where(
+                PanchangamRow.date == date,
+                PanchangamRow.location_id == location.id,
+            )
             .options(*_LOAD_OPTIONS)
         )
         row = self._s.exec(stmt).first()
-        return _row_to_panchangam_data(row) if row else None
+        if row is None:
+            return None
+        events = self._events_by_dates([date]).get(date, [])
+        return _row_to_panchangam_data(row, location, events)
 
     def get_by_date_range(
         self,
         start: datetime.date,
         end: datetime.date,
+        location: Location,
     ) -> Dict[datetime.date, PanchangamData]:
-        """Return a date-keyed dict for all dates in [start, end] inclusive."""
+        """Return a date-keyed dict for all dates in [start, end] inclusive at *location*."""
         stmt = (
             select(PanchangamRow)
-            .where(PanchangamRow.date >= start, PanchangamRow.date <= end)
+            .where(
+                PanchangamRow.date >= start,
+                PanchangamRow.date <= end,
+                PanchangamRow.location_id == location.id,
+            )
             .order_by(PanchangamRow.date)
             .options(*_LOAD_OPTIONS)
         )
         rows = self._s.exec(stmt).all()
-        return {row.date: _row_to_panchangam_data(row) for row in rows}
+        # Ashram events are location-independent — fetch once by date and attach
+        # the same list to each location's day.
+        events_by_date = self._events_by_dates([row.date for row in rows])
+        return {
+            row.date: _row_to_panchangam_data(
+                row, location, events_by_date.get(row.date, [])
+            )
+            for row in rows
+        }
 
-    def get_by_month(self, year: int, month: int) -> Dict[datetime.date, PanchangamData]:
-        """Return a date-keyed dict for every day in the given calendar month."""
+    def get_by_month(
+        self, year: int, month: int, location: Location
+    ) -> Dict[datetime.date, PanchangamData]:
+        """Return a date-keyed dict for every day in the given calendar month at *location*."""
         start = datetime.date(year, month, 1)
         if month == 12:
             end = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
         else:
             end = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
-        return self.get_by_date_range(start, end)
+        return self.get_by_date_range(start, end, location)
 
     # ── Setters ──────────────────────────────────────────────────────────────
 
-    def upsert(self, data: PanchangamData) -> None:
+    def upsert(self, data: PanchangamData, location: Location) -> None:
         """
-        Write one PanchangamData to the DB, replacing any existing row for
-        that date.  Does NOT commit — caller must call session.commit().
+        Write one PanchangamData for *location* to the DB, replacing any existing
+        row for that ``(date, location)``.  Does NOT commit — caller must call
+        session.commit().
         """
-        self._delete_children(data.date)
+        self._delete_children(data.date, location)
 
         self._s.merge(
             PanchangamRow(
                 date=data.date,
+                location_id=location.id,
                 thithi_id=data.thithi.id,
                 nakshatra_id=data.nakshatra.id,
                 nazhika_from_sunrise=data.nazhika_from_sunrise,
@@ -208,6 +232,7 @@ class PanchangamRepository:
         self._s.add(
             KollavarshamDateRow(
                 date=data.date,
+                location_id=location.id,
                 kv_day=data.kv.kv_day,
                 kv_month=data.kv.kv_month,
                 kv_year=data.kv.kv_year,
@@ -216,7 +241,7 @@ class PanchangamRepository:
         self._s.add(
             SunriseSunsetRow(
                 date=data.date,
-                location_id=Location.TVM.id,
+                location_id=location.id,
                 sunrise=data.sunrise,
                 sunset=data.sunset,
             )
@@ -225,6 +250,7 @@ class PanchangamRepository:
             self._s.add(
                 ThithiTransitionRow(
                     panchangam_date=data.date,
+                    location_id=location.id,
                     thithi_id=t.thithi.id,
                     start_time=t.start_time,
                     end_time=t.end_time,
@@ -234,43 +260,100 @@ class PanchangamRepository:
             self._s.add(
                 NakshatraTransitionRow(
                     panchangam_date=data.date,
+                    location_id=location.id,
                     nakshatra_id=n.nakshatra.id,
                     start_time=n.start_time,
                     end_time=n.end_time,
                 )
             )
-        for event in data.santhigiri_significant_dates:
-            self._s.add(
-                SanthigiriEventDateRow(
-                    panchangam_date=data.date,
-                    event_id=event.id.value,
-                )
+        # Ashram events are location-independent: keyed by date only and shown
+        # for every location. Only (re)write them when this record actually
+        # carries events, so upserting a *different* location for the same date
+        # with an empty list does not wipe the shared events another location
+        # (or the ashram record) already established. Events are otherwise
+        # cleared via the event-definition CRUD cascade or a full SQL reseed.
+        if data.santhigiri_significant_dates:
+            self._replace_santhigiri_events(
+                data.date, data.santhigiri_significant_dates
             )
 
-    def upsert_many(self, data: Iterable[PanchangamData]) -> None:
-        """Write multiple PanchangamData objects and commit in one transaction."""
+    def upsert_many(
+        self, data: Iterable[PanchangamData], location: Location
+    ) -> None:
+        """Write multiple PanchangamData objects for *location* and commit once."""
         for item in data:
-            self.upsert(item)
+            self.upsert(item, location)
         self._s.commit()
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
-    def _delete_children(self, date: datetime.date) -> None:
-        """Delete all child rows for *date* so upsert can re-insert them cleanly."""
+    def _events_by_dates(
+        self, dates: Sequence[datetime.date]
+    ) -> Dict[datetime.date, List[SanthigiriEvent]]:
+        """Return location-independent ashram events grouped by date.
+
+        Events live in ``santhigiri_event_dates`` (keyed by date alone) and are
+        shown identically for every location, so getters fetch them once and
+        attach the same list to each location's day.
+        """
+        if not dates:
+            return {}
+        rows = self._s.exec(
+            select(SanthigiriEventDateRow)
+            .where(col(SanthigiriEventDateRow.panchangam_date).in_(set(dates)))
+            .options(selectinload(SanthigiriEventDateRow.event))
+        ).all()
+        grouped: Dict[datetime.date, List[SanthigiriEvent]] = {}
+        for row in rows:
+            grouped.setdefault(row.panchangam_date, []).append(
+                _ssd_row_to_event(row)
+            )
+        return grouped
+
+    def _replace_santhigiri_events(
+        self, date: datetime.date, events: Iterable[SanthigiriEvent]
+    ) -> None:
+        """Replace the location-independent ashram events for *date*."""
         self._s.exec(
             delete(SanthigiriEventDateRow).where(
                 col(SanthigiriEventDateRow.panchangam_date) == date
             )
         )
+        for event in events:
+            self._s.add(
+                SanthigiriEventDateRow(
+                    panchangam_date=date,
+                    event_id=event.id.value,
+                )
+            )
+
+    def _delete_children(self, date: datetime.date, location: Location) -> None:
+        """Delete the *location*'s child rows for *date* so upsert can re-insert cleanly.
+
+        Santhigiri events are location-independent and handled separately by
+        :meth:`_replace_santhigiri_events`.
+        """
         self._s.exec(
-            delete(ThithiTransitionRow).where( col(ThithiTransitionRow.panchangam_date) == date)
+            delete(ThithiTransitionRow).where(
+                col(ThithiTransitionRow.panchangam_date) == date,
+                col(ThithiTransitionRow.location_id) == location.id,
+            )
         )
         self._s.exec(
-            delete(NakshatraTransitionRow).where( col(NakshatraTransitionRow.panchangam_date) == date)
+            delete(NakshatraTransitionRow).where(
+                col(NakshatraTransitionRow.panchangam_date) == date,
+                col(NakshatraTransitionRow.location_id) == location.id,
+            )
         )
         self._s.exec(
-            delete(KollavarshamDateRow).where( col(KollavarshamDateRow.date) == date)
+            delete(KollavarshamDateRow).where(
+                col(KollavarshamDateRow.date) == date,
+                col(KollavarshamDateRow.location_id) == location.id,
+            )
         )
         self._s.exec(
-            delete(SunriseSunsetRow).where( col(SunriseSunsetRow.date) == date)
+            delete(SunriseSunsetRow).where(
+                col(SunriseSunsetRow.date) == date,
+                col(SunriseSunsetRow.location_id) == location.id,
+            )
         )

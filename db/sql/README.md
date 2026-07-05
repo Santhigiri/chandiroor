@@ -17,6 +17,24 @@ Python pickle-import path. Apply them in order:
 `INSERT`s are ordered to satisfy every foreign key. `dataset_etag` is left empty
 on purpose — those values are derived and recomputed by the app.
 
+## Multi-location keying
+
+`panchangam` is keyed by the composite `(date, location_id)`, and its
+location-dependent children — `kollavarsham_date`, `sunrise_sunset`,
+`thithi_transitions`, `nakshatra_transitions` — all carry a `location_id` and
+reference that composite key with `ON DELETE CASCADE`. This lets the same
+calendar date hold independent panchangam values for multiple locations
+(sunrise/sunset, the thithi/nakshatra active at sunrise, the nazhika, and the
+Malayalam date all depend on the observer's coordinates).
+
+`santhigiri_event_dates` is **location-independent** — the ashram observance
+calendar is the same for every location — so it is keyed by date alone and is
+not a child of the panchangam row.
+
+All seeded data is for the ashram, `location_id = 1` (`tvm`). Additional
+locations are added by inserting a `location` row and generating that location's
+data.
+
 ## Applying
 
 ```bash

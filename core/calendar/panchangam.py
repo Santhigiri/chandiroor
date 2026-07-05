@@ -12,7 +12,9 @@ from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, 
 from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
 from core.constants import DEFAULT_TIMEZONE, Coordinates
+from schemas.location import LocationInfo
 from schemas.panchangam_data import PanchangamData
+from utils.location import Location
 
 def _active_at(transitions, instant):
     """Return the transition whose [start_time, end_time) interval contains `instant`.
@@ -56,6 +58,12 @@ def get_panchangam_data(
         nakshatra_transitions=nakshatra_transitions,
         sunrise=sunrise
     )
+    # Resolve which known location these coordinates belong to so the response is
+    # self-describing. Unknown coordinates (an ad-hoc lat/long) leave it unset.
+    try:
+        location = LocationInfo.from_location(Location.from_coords(latitude, longitude))
+    except KeyError:
+        location = None
     panchangam_data = PanchangamData(
         date= localdt,
         kv=kv,
@@ -65,7 +73,8 @@ def get_panchangam_data(
         nakshatra = nakshatra,
         nazhika_from_sunrise=nazhika_from_sunrise,
         sunrise = sunrise,
-        sunset = sunset
+        sunset = sunset,
+        location = location,
     )
 
     #santhigiri_significant_dates = get_santhigiri_significant_dates_without_occurances(panchangam_data)

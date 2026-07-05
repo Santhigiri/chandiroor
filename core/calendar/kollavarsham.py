@@ -62,6 +62,9 @@ def get_sunset_raasi(
 
     _, sunset = get_sunrise_sunset(
         date=dt,
+        latitude=latitude,
+        longitude=longitude,
+        timezone=timezone,
     )
 
 

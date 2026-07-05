@@ -21,9 +21,10 @@ from db.etag_repository import EtagRepository
 from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from main import app
-from services.etag_service import refresh_etags
+from services.etag_service import refresh_etags, year_key
 from utils.content_hash import stable_hash
 from utils.etag import if_none_match_satisfied
+from utils.location import Location
 
 PICKLE_2022 = "data/panchangam_2022.pkl"
 YEAR = 2022
@@ -77,7 +78,7 @@ def api_engine():
         seed_lookup_tables(s)
         with open(PICKLE_2022, "rb") as f:
             cache = pickle.load(f)
-        PanchangamRepository(s).upsert_many(cache.values())
+        PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
         refresh_etags(s, [YEAR])
     try:
         yield engine
@@ -140,13 +141,43 @@ def test_year_200_when_if_none_match_is_stale(client):
 def test_year_served_etag_matches_stored(client, api_engine):
     served = client.get("/api/v1/panchangam/year", params={"year": YEAR}).headers["etag"]
     with Session(api_engine) as s:
-        stored = EtagRepository(s).get("year:2022")
+        stored = EtagRepository(s).get(year_key(YEAR, Location.TVM.code))
     assert served == stored
+
+
+def test_year_etag_key_is_location_scoped(client, api_engine):
+    """The year ETag is stored under a location-scoped key, not a bare year key."""
+    client.get("/api/v1/panchangam/year", params={"year": YEAR})
+    with Session(api_engine) as s:
+        repo = EtagRepository(s)
+        assert repo.get(f"year:tvm:{YEAR}") is not None
+        assert repo.get(f"year:{YEAR}") is None  # old un-scoped key must not be used
+
+
+def test_year_defaults_to_tvm_when_location_omitted(client):
+    """Omitting ?location resolves to the ashram (tvm) and serves data."""
+    r = client.get("/api/v1/panchangam/year", params={"year": YEAR})
+    assert r.status_code == 200
+    assert len(r.json()) > 300
+
+
+def test_unknown_location_is_404(client):
+    r = client.get(
+        "/api/v1/panchangam/day",
+        params={"day": f"{YEAR}-03-20", "location": "atlantis"},
+    )
+    assert r.status_code == 404
+
+
+def test_day_response_carries_location_descriptor(client):
+    r = client.get("/api/v1/panchangam/day", params={"day": f"{YEAR}-03-20"})
+    assert r.status_code == 200
+    assert r.json()["location"] == {"code": "tvm", "label": "Trivandrum, Kerala, India"}
 
 
 # ── Enum reference endpoints ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "events"])
+@pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "events", "locations"])
 def test_reference_etag_round_trip(client, name):
     first = client.get(f"/api/v1/panchangam/{name}")
     assert first.status_code == 200
@@ -156,3 +187,10 @@ def test_reference_etag_round_trip(client, name):
     second = client.get(f"/api/v1/panchangam/{name}", headers={"If-None-Match": etag})
     assert second.status_code == 304
     assert second.content == b""
+
+
+def test_locations_reference_lists_tvm(client):
+    r = client.get("/api/v1/panchangam/locations")
+    assert r.status_code == 200
+    codes = {loc["code"] for loc in r.json()}
+    assert "tvm" in codes

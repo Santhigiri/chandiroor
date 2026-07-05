@@ -54,12 +54,26 @@ class Location(Enum):
         return {(round(item.latitude, 3), round(item.longitude, 3)): item for item in cls}
 
     @classmethod
+    @lru_cache()
+    def _by_code(cls) -> Dict[str, "Location"]:
+        return {item.code: item for item in cls}
+
+    @classmethod
     def from_id(cls, id: int) -> "Location":
         return cls._by_id()[id]
 
     @classmethod
     def from_coords(cls, latitude: float, longitude: float) -> "Location":
         return cls._by_coords()[(round(latitude, 3), round(longitude, 3))]
+
+    @classmethod
+    def from_code(cls, code: str) -> "Location":
+        """Resolve a location by its short code (``location.name`` in the DB).
+
+        Raises ``KeyError`` for an unknown code — callers at the HTTP boundary
+        translate that into a 404.
+        """
+        return cls._by_code()[code]
 
     def to_dict(self) -> Dict:
         return {
@@ -70,3 +84,8 @@ class Location(Enum):
             "longitude": self.longitude,
             "timezone": self.timezone,
         }
+
+
+# The default location served when a request omits ``?location=`` — the ashram.
+DEFAULT_LOCATION_CODE = Location.TVM.code
+DEFAULT_LOCATION = Location.TVM
