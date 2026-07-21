@@ -199,14 +199,14 @@ The Lahiri Ayanamsa (the standard for Indian Jyotisha) is computed using `pyswis
 
 ### Kollavarsham (Malayalam Calendar)
 
-The Kollam Era calendar used in Kerala. The Malayalam month is determined by the Sun's sidereal raasi (zodiac sign) at sunset. The month changes when the Sun moves into a new raasi.
+The Kollam Era calendar used in Kerala. The Malayalam month is determined by the Sun's sidereal raasi (zodiac sign) at **madhyahnam** (midday — the midpoint between sunrise and sunset). The month changes on the day of the Sankramanam (the Sun's entry into a new raasi) if that entry occurs at or before madhyahnam, otherwise the next day. Sampling the raasi at madhyahnam is the exact realization of this rule.
 
 ```
 kollam_year = english_year - 824   # if current raasi >= Chingam (index 4)
 kollam_year = english_year - 825   # otherwise
 ```
 
-The Malayalam day is computed by walking backwards through sunsets to find when the current raasi began. Implemented in `core/calendar/kollavarsham.py`.
+The Malayalam day is computed by walking backwards through days' madhyahnams to find when the current raasi began. Implemented in `core/calendar/kollavarsham.py`.
 
 ### Nazhika (Traditional Time Unit)
 
@@ -349,7 +349,7 @@ Several functions in `core/astronomy/` and `core/calendar/` are decorated with `
 
 - `get_sunrise_sunset()` in `core/astronomy/sunrise_sunset.py`
 - `get_thithi_transition_by_date()` in `core/astronomy/thithi_transition.py`
-- `get_kollavarsham_date()` and `get_sunset_raasi()` in `core/calendar/kollavarsham.py`
+- `get_kollavarsham_date()` and `get_madhyahnam_raasi()` in `core/calendar/kollavarsham.py`
 - `get_sun_sidereal_longitude()` in `core/astronomy/calculations.py`
 
 These are critical for the transition-detection logic, which calls the same function for the previous day, current day, and next day. Without LRU caching these would be redundantly recalculated.
