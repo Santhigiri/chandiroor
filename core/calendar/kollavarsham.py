@@ -124,8 +124,13 @@ def get_kollavarsham_date(
     malayalam_day = lo + 1
 
 
-    # Kollam Era year starts at Chingam
-    if today_raasi >= 4:
+    # Kollam Era year starts at Chingam (raasi index 4), which falls in mid-August.
+    # A Kollam year spans Chingam..Karkidakam and straddles two Gregorian years:
+    # its Chingam..Dhanu months fall in Aug-Dec of Gregorian year `Y` (`Y - 824`)
+    # and its Makaram..Karkidakam months fall in Jan-Aug of `Y + 1` (`Y - 825`).
+    # Dhanu straddles the Dec/Jan boundary, so the Gregorian month disambiguates
+    # its December (`-824`) from its January tail (`-825`).
+    if 4 <= today_raasi <= 8 and dt.month >= 8:
         kollam_year = dt.year - 824
     else:
         kollam_year = dt.year - 825

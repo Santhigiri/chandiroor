@@ -201,8 +201,16 @@ The Lahiri Ayanamsa (the standard for Indian Jyotisha) is computed using `pyswis
 
 The Kollam Era calendar used in Kerala. The Malayalam month is determined by the Sun's sidereal raasi (zodiac sign) at **madhyahnam** (midday — the midpoint between sunrise and sunset). The month changes on the day of the Sankramanam (the Sun's entry into a new raasi) if that entry occurs at or before madhyahnam, otherwise the next day. Sampling the raasi at madhyahnam is the exact realization of this rule.
 
+A Kollam year runs Chingam..Karkidakam and straddles two Gregorian years: its
+Chingam..Dhanu months fall in Aug–Dec of Gregorian year `Y`, and its
+Makaram..Karkidakam months fall in Jan–Aug of `Y + 1`. The year number therefore
+only increments at Chingam (mid-August), and is constant across every masa within
+the year — including the Meenam→Medam step and Dhanu's Dec/Jan straddle (the
+Gregorian month disambiguates Dhanu's December from its January tail):
+
 ```
-kollam_year = english_year - 824   # if current raasi >= Chingam (index 4)
+# raasi index: 0=Medam … 4=Chingam … 8=Dhanu … 11=Meenam
+kollam_year = english_year - 824   # if 4 <= raasi <= 8 (Chingam..Dhanu) and month >= 8 (Aug..Dec)
 kollam_year = english_year - 825   # otherwise
 ```
 
