@@ -12,6 +12,9 @@ from db.models.panchangam import Panchangam as PanchangamRow
 from db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
 from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from db.repository import PanchangamRepository
+from utils.location import Location
+
+TVM = Location.TVM
 
 EXPECTED_TABLES = {
     "paksha",
@@ -49,7 +52,7 @@ def test_invalid_foreign_key_rejected(seeded_session):
     seeded_session.add(
         PanchangamRow(
             date=datetime.date(2026, 1, 2),
-            is_pournami=True,
+            location_id=TVM.id,
             thithi_id=999,        # no such thithi
             nakshatra_id=1,
             nazhika_from_sunrise=0.0,
@@ -62,11 +65,13 @@ def test_invalid_foreign_key_rejected(seeded_session):
 def test_delete_panchangam_cascades_to_children(seeded_session, make_panchangam_data):
     """Deleting a panchangam row cascades to its child rows (ON DELETE CASCADE)."""
     date = datetime.date(2026, 1, 2)
-    PanchangamRepository(seeded_session).upsert(make_panchangam_data(date))
+    PanchangamRepository(seeded_session).upsert(make_panchangam_data(date), TVM)
     seeded_session.commit()
 
+    kv_key = {"date": date, "location_id": TVM.id}
+
     # Children exist before the delete.
-    assert seeded_session.get(KollavarshamDateRow, date) is not None
+    assert seeded_session.get(KollavarshamDateRow, kv_key) is not None
     assert seeded_session.exec(
         select(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
     ).all()
@@ -76,11 +81,16 @@ def test_delete_panchangam_cascades_to_children(seeded_session, make_panchangam_
 
     # Issue a Core DELETE so SQLite's ON DELETE CASCADE (not SQLAlchemy's
     # ORM-level cascade) removes the children — that is what production relies on.
-    seeded_session.exec(delete(PanchangamRow).where(PanchangamRow.date == date))
+    # The composite (date, location_id) FK is what must cascade.
+    seeded_session.exec(
+        delete(PanchangamRow).where(
+            PanchangamRow.date == date, PanchangamRow.location_id == TVM.id
+        )
+    )
     seeded_session.commit()
 
     # ... and are gone afterwards.
-    assert seeded_session.get(KollavarshamDateRow, date) is None
+    assert seeded_session.get(KollavarshamDateRow, kv_key) is None
     assert not seeded_session.exec(
         select(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
     ).all()

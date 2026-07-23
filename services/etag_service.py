@@ -2,14 +2,14 @@
 Canonical payload builders + ETag computation.
 
 This module is the single source of truth shared by the *write* path
-(``db.migrate`` recomputes ETags when data is loaded) and the *read* path (the
-API routes serve the body and its ETag). Because both sides build the payload
-here and hash it the same way, the stored ETag can never disagree with the bytes
-the endpoint actually returns.
+(``refresh_etags`` recomputes ETags when data is loaded) and the *read* path (the
+API routes serve the body and its ETag, computing a missing one lazily). Because
+both sides build the payload here and hash it the same way, the stored ETag can
+never disagree with the bytes the endpoint actually returns.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from fastapi import Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -23,22 +23,26 @@ from schemas.compact_panchangam_data import CompactPanchangamData
 from services.panchangam_service import PanchangamService
 from utils.content_hash import stable_hash
 from utils.etag import if_none_match_satisfied
+from utils.location import DEFAULT_LOCATION, Location
 
 # Enum reference datasets exposed by the API, keyed by route name → the
-# ReferenceRepository method that reads each one from the database.
+# ReferenceRepository method that reads each one from the database. These are all
+# location-independent (the reference/lookup datasets, including the list of
+# available locations itself).
 _ENUM_READERS = {
     "thithi": "list_thithis",
     "nakshatra": "list_nakshatras",
     "masa": "list_masas",
     "events": "list_events",
+    "locations": "list_locations",
 }
 ENUM_NAMES = tuple(_ENUM_READERS)
 
 
 # ── Keys ──────────────────────────────────────────────────────────────────────
 
-def year_key(year: int) -> str:
-    return f"year:{year}"
+def year_key(year: int, location_code: str) -> str:
+    return f"year:{location_code}:{year}"
 
 
 def enum_key(name: str) -> str:
@@ -48,10 +52,10 @@ def enum_key(name: str) -> str:
 # ── Payload builders ──────────────────────────────────────────────────────────
 
 def build_year_payload(
-    service: PanchangamService, year: int
+    service: PanchangamService, year: int, location: Location = DEFAULT_LOCATION
 ) -> Dict[str, CompactPanchangamData]:
     """Return the compact ``{date-str: CompactPanchangamData}`` map the /year route serves."""
-    data = service.get_by_year(year=year)
+    data = service.get_by_year(year=year, location=location)
     return {
         str(day): CompactPanchangamData.from_panchangam_data(value)
         for day, value in data.items()
@@ -101,18 +105,30 @@ def conditional_json_response(
     return JSONResponse(content=encoded, headers={"ETag": etag})
 
 
-def refresh_etags(session: Session, years: Iterable[int]) -> None:
+def refresh_etags(
+    session: Session,
+    years: Iterable[int],
+    locations: Optional[Iterable[Location]] = None,
+) -> None:
     """
-    Recompute and store the ETag for each given year plus every enum dataset.
+    Recompute and store the ETag for each (location, year) pair plus every enum dataset.
 
-    Called from the data-write path so ETags stay in lockstep with the data.
-    Commits once at the end.
+    A convenience for pre-warming ETags after a bulk data load (e.g. offline SQL
+    seeding) so they stay in lockstep with the data; the read path also fills any
+    missing ETag lazily on first request. ``locations`` defaults to every known
+    location. Commits once at the end.
     """
     etag_repo = EtagRepository(session)
     service = PanchangamService(PanchangamRepository(session))
 
-    for year in years:
-        etag_repo.set(year_key(year), compute_etag(build_year_payload(service, year)))
+    years = list(years)
+    locs = list(locations) if locations is not None else list(Location)
+    for location in locs:
+        for year in years:
+            etag_repo.set(
+                year_key(year, location.code),
+                compute_etag(build_year_payload(service, year, location)),
+            )
 
     for name in ENUM_NAMES:
         etag_repo.set(enum_key(name), compute_etag(build_enum_payload(session, name)))

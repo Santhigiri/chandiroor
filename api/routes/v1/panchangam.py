@@ -4,11 +4,12 @@ from datetime import date, datetime
 
 from sqlmodel import Session
 
+from api.deps import get_location, get_service, require_role
 from db.database import get_session
-from db.repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
+from schemas.location import LocationInfo
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -17,17 +18,21 @@ from services.etag_service import (
     year_key,
 )
 from services.panchangam_service import PanchangamService
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
+from utils.roles import Role
 from utils.santhigiri_events import SanthigiriEvent
 from utils.thithi import Thithi
 
 
-router = APIRouter(prefix='/panchangam')
-
-
-def _get_service(session: Annotated[Session, Depends(get_session)]) -> PanchangamService:
-    return PanchangamService(PanchangamRepository(session))
+# Panchangam data is public: every endpoint on this router validates any bearer
+# token that is supplied (rejecting malformed/expired ones) but still permits
+# the anonymous principal, satisfying the per-endpoint privilege check.
+router = APIRouter(
+    prefix='/panchangam',
+    dependencies=[Depends(require_role(Role.ANONYMOUS))],
+)
 
 
 @router.get(
@@ -36,10 +41,11 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> Panchanga
 )
 def panchangam(
     day: Annotated[date, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ):
 
-    data = service.get_by_date(day)
+    data = service.get_by_date(day, location)
     return CompactPanchangamData.from_panchangam_data(data)
 
 
@@ -49,11 +55,13 @@ def panchangam(
 )
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
 ):
     data = service.get_by_month(
         year=params.year,
         month=params.month,
+        location=location,
     )
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
@@ -65,17 +73,19 @@ def panchangam_monthly(
 def panchangam_yearly(
     request: Request,
     params: Annotated[GetYearlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(_get_service)],
+    service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
     # ETag-validated: unchanged years return 304 so the frontend skips the
-    # full-year download. The stored ETag is refreshed whenever the data is
-    # reloaded (see db.migrate / services.etag_service).
+    # full-year download. The ETag key includes the location code so different
+    # locations don't collide. The stored ETag is refreshed whenever the data is
+    # reloaded (see services.etag_service), or computed lazily on first request.
     return conditional_json_response(
         request,
         session,
-        year_key(params.year),
-        lambda: build_year_payload(service, params.year),
+        year_key(params.year, location.code),
+        lambda: build_year_payload(service, params.year, location),
     )
 
 
@@ -133,4 +143,16 @@ def events_reference(
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
     return _reference_response(request, session, "events")
+
+
+@router.get(
+    '/locations',
+    response_model= List[LocationInfo]
+)
+def locations_reference(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    # The list of locations a client can request via ?location=<code>.
+    return _reference_response(request, session, "locations")
 

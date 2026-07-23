@@ -5,5 +5,10 @@ pytz
 pandas
 pyswisseph
 sqlmodel
+psycopg2-binary
+python-dotenv
+python-jose[cryptography]
+bcrypt
+pydantic-settings
 pytest
 

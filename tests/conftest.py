@@ -10,11 +10,18 @@ listener against the SQLAlchemy ``Engine`` class, so FK enforcement and
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from typing import Callable, List, Optional
 
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
+
+# db.database now requires DATABASE_URL (Postgres/Neon) at import time. The tests
+# build their own in-memory SQLite engines and never touch the module-level
+# engine, so a throwaway value just satisfies the import — no real connection is
+# ever opened against it. Must be set before ``import db.database`` below.
+os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 # Importing db.database registers the shared "connect" pragma listener that
 # turns foreign_keys ON for every SQLite connection, including our test engine.
@@ -25,7 +32,9 @@ from db.seed import seed_lookup_tables
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
 from core.calendar.kollavarsham import KollavarshamDate
+from schemas.location import LocationInfo
 from schemas.panchangam_data import PanchangamData
+from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import SanthigiriEvent
@@ -80,7 +89,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         *,
         thithi: Thithi = Thithi.POORNIMA,
         nakshatra: Nakshatra = Nakshatra.CHOTHI,
-        is_pournami: bool = True,
         nazhika_from_sunrise: float = 12.5,
         kv_month: MalayalamMasa = MalayalamMasa.MEENAM,
         kv_day: int = 5,
@@ -88,6 +96,7 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         thithi_transitions: Optional[List[ThithiTransition]] = None,
         nakshatra_transitions: Optional[List[NakshatraTransition]] = None,
         santhigiri_significant_dates: Optional[List[SanthigiriEvent]] = None,
+        location: Location = Location.TVM,
     ) -> PanchangamData:
         sunrise = _dt.datetime.combine(date, _dt.time(6, 15))
         sunset = _dt.datetime.combine(date, _dt.time(18, 30))
@@ -126,31 +135,26 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
             kv=kv,
             thithi_transitions=thithi_transitions,
             nakshatra_transitions=nakshatra_transitions,
-            is_pournami=is_pournami,
             thithi=thithi,
             nakshatra=nakshatra,
             sunrise=sunrise,
             sunset=sunset,
             nazhika_from_sunrise=nazhika_from_sunrise,
             santhigiri_significant_dates=santhigiri_significant_dates or [],
+            location=LocationInfo.from_location(location),
         )
 
     return _build
 
 
-# ── Temp-file DB for the migrate integration test ─────────────────────────────
+# ── Temp-file DB for the on-disk schema test ──────────────────────────────────
 
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch):
     """
-    Point ``db.database`` and ``db.migrate`` at a throwaway on-disk SQLite file.
-
-    ``db.migrate`` does ``from db.database import engine, init_db`` so it holds
-    its own bound name; both modules must be patched for the redirect to take.
-    Returns the temp engine.
+    Point ``db.database`` at a throwaway on-disk SQLite file and return its engine.
     """
     import db.database as database
-    import db.migrate as migrate
 
     db_path = tmp_path / "panchangam_test.db"
     test_engine = create_engine(
@@ -159,8 +163,6 @@ def temp_db(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(database, "engine", test_engine)
-    monkeypatch.setattr(database, "DB_PATH", db_path)
-    monkeypatch.setattr(migrate, "engine", test_engine)
 
     yield test_engine
     test_engine.dispose()

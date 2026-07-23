@@ -31,6 +31,11 @@ class CompactSanthigiriEvent(BaseModel):
     description: str
 
 
+class CompactLocation(BaseModel):
+    code: str
+    label: str
+
+
 class CompactPanchangamData(BaseModel):
     date: date
     kv: CompactKollavarshamDate
@@ -42,11 +47,17 @@ class CompactPanchangamData(BaseModel):
     sunset: datetime
     nazhika_from_sunrise: float
     santhigiri_significant_dates: List[str] = []
+    location: Optional[CompactLocation] = None
 
     @classmethod
     def from_panchangam_data(cls, data: PanchangamData) -> "CompactPanchangamData":
         return cls(
             date=data.date,
+            location=(
+                CompactLocation(code=data.location.code, label=data.location.label)
+                if data.location
+                else None
+            ),
             kv=CompactKollavarshamDate(
                 kv_day=data.kv.kv_day,
                 kv_year=data.kv.kv_year,

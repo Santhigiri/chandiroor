@@ -50,23 +50,34 @@ def get_raasi(longitude: float) -> int:
 
 
 @lru_cache(maxsize=1000)
-def get_sunset_raasi(
+def get_madhyahnam_raasi(
     dt: date,
     latitude: float,
     longitude: float,
     timezone: str = DEFAULT_TIMEZONE
 ) -> int:
     """
-    Get Sun's raasi at local sunset.
+    Get Sun's raasi at local madhyahnam (midday).
+
+    Madhyahnam is the midpoint between sunrise and sunset. Sampling the Sun's
+    raasi at that instant is the exact realization of the Kerala month-transition
+    rule "the Malayalam month begins on the day of the Sankramanam if the Sun
+    enters the new raasi at or before midday, otherwise the next day": the raasi
+    at madhyahnam(dt) is the new raasi iff the Sankramanam occurred at or before
+    madhyahnam(dt).
     """
 
-    _, sunset = get_sunrise_sunset(
+    sunrise, sunset = get_sunrise_sunset(
         date=dt,
+        latitude=latitude,
+        longitude=longitude,
+        timezone=timezone,
     )
 
+    madhyahnam = sunrise + (sunset - sunrise) / 2
 
     longitude = get_sun_sidereal_longitude(
-        localdt=sunset.replace(tzinfo=None),
+        localdt=madhyahnam.replace(tzinfo=None),
         timezone=timezone
     )
 
@@ -82,23 +93,24 @@ def get_kollavarsham_date(
 ) -> KollavarshamDate:
 
 
-    # Today's raasi at sunset
-    today_raasi = get_sunset_raasi(
+    # Today's raasi at madhyahnam (midday)
+    today_raasi = get_madhyahnam_raasi(
         dt=dt,
         timezone=timezone,
         latitude=latitude,
         longitude=longitude
     )
 
-    # The Malayalam day is the count of sunsets since the Sun entered the current
-    # raasi (the Sankranti). The sunset-raasi is constant within a month and changes
-    # exactly at the month boundary, so instead of walking backwards one day at a time
-    # we binary-search for the largest offset `k` (a Malayalam month is < 32 days) whose
-    # sunset-raasi still equals today's. `malayalam_day` is then `k + 1`.
+    # The Malayalam day is the count of days since the Sun entered the current
+    # raasi (the Sankranti) as decided at madhyahnam. The madhyahnam-raasi is
+    # constant within a month and changes exactly at the month boundary, so
+    # instead of walking backwards one day at a time we binary-search for the
+    # largest offset `k` (a Malayalam month is < 32 days) whose madhyahnam-raasi
+    # still equals today's. `malayalam_day` is then `k + 1`.
     lo, hi = 0, 32
     while lo < hi:
         mid = (lo + hi + 1) // 2
-        mid_raasi = get_sunset_raasi(
+        mid_raasi = get_madhyahnam_raasi(
             dt=dt - timedelta(days=mid),
             latitude=latitude,
             longitude=longitude,
@@ -112,8 +124,13 @@ def get_kollavarsham_date(
     malayalam_day = lo + 1
 
 
-    # Kollam Era year starts at Chingam
-    if today_raasi >= 4:
+    # Kollam Era year starts at Chingam (raasi index 4), which falls in mid-August.
+    # A Kollam year spans Chingam..Karkidakam and straddles two Gregorian years:
+    # its Chingam..Dhanu months fall in Aug-Dec of Gregorian year `Y` (`Y - 824`)
+    # and its Makaram..Karkidakam months fall in Jan-Aug of `Y + 1` (`Y - 825`).
+    # Dhanu straddles the Dec/Jan boundary, so the Gregorian month disambiguates
+    # its December (`-824`) from its January tail (`-825`).
+    if 4 <= today_raasi <= 8 and dt.month >= 8:
         kollam_year = dt.year - 824
     else:
         kollam_year = dt.year - 825

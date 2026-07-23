@@ -48,12 +48,12 @@ def test_list_events_returns_every_defined_event(seeded_session):
     events = ReferenceRepository(seeded_session).list_events()
 
     assert len(events) == len(EVENT_DEFINITIONS_BY_ID)
-    assert {e["id"] for e in events} == {
+    assert {e.id for e in events} == {
         e.id.value for e in EVENT_DEFINITIONS_BY_ID.values()
     }
     # Ordered by the seeded display order (sort_order).
     first = next(iter(EVENT_DEFINITIONS_BY_ID.values()))
-    assert events[0]["id"] == first.id.value
+    assert events[0].id == first.id.value
 
 
 def test_list_events_reflects_db_edit(seeded_session):
@@ -65,5 +65,5 @@ def test_list_events_reflects_db_edit(seeded_session):
     seeded_session.commit()
 
     events = ReferenceRepository(seeded_session).list_events()
-    pournami = next(e for e in events if e["id"] == SanthigiriEventId.POURNAMI.value)
-    assert pournami["name"] == "Poornima (corrected)"
+    pournami = next(e for e in events if e.id == SanthigiriEventId.POURNAMI.value)
+    assert pournami.name == "Poornima (corrected)"
