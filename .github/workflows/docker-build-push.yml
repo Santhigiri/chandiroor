@@ -21,6 +21,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Compute date-based tag
+        id: datetag
+        run: |
+          DATE="$(date -u +'%Y.%m.%d')"
+          RUN="${{ github.run_number }}"
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            echo "tag=dev-${DATE}.${RUN}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${DATE}.${RUN}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -36,6 +47,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=${{ steps.datetag.outputs.tag }}
             type=ref,event=branch
             type=ref,event=tag
             type=sha,format=short
