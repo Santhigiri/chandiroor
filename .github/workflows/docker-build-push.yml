@@ -1,12 +1,10 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image to Docker Hub
 
 on:
   push:
     branches:
       - develop
       - main
-    tags:
-      - "v*"
   workflow_dispatch:
 
 env:
@@ -15,56 +13,73 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+
     steps:
-      - name: Checkout repository
+      # Step 1: Checkout code (full history for the daily tag counter)
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Compute date-based tag
-        id: datetag
+      # Step 2: Generate versioned tag
+      #   main    -> yyyy.mm.dd.{push_num}
+      #   develop -> dev-yyyy.mm.dd.{push_num}
+      # push_num = commits on the triggering commit made today (resets daily)
+      - name: Generate version tag
+        id: version
         run: |
-          DATE="$(date -u +'%Y.%m.%d')"
-          # Count commits on the triggering branch made today (resets daily)
+          DATE=$(date -u +%Y.%m.%d)
           PUSH_NUM=$(git log --oneline \
             --since="${DATE} 00:00:00" --until="${DATE} 23:59:59" \
             "${{ github.sha }}" | wc -l | tr -d ' ')
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-            echo "tag=dev-${DATE}.${PUSH_NUM}" >> "$GITHUB_OUTPUT"
+            TAG="dev-${DATE}.${PUSH_NUM}"
           else
-            echo "tag=${DATE}.${PUSH_NUM}" >> "$GITHUB_OUTPUT"
+            TAG="${DATE}.${PUSH_NUM}"
           fi
-          echo "Generated tag for ${DATE}: push #${PUSH_NUM}"
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # Step 3: Build Docker image
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }} \
+            -f Dockerfile .
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          # Tag :latest only on main
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker tag \
+              ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }} \
+              ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          fi
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ steps.datetag.outputs.tag }}
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+          echo "✓ Docker image built successfully"
+          docker images | grep ${{ env.IMAGE_NAME }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # Step 4: Login to Docker Hub
+      - name: Login to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | \
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "✓ Logged in to Docker Hub"
+
+      # Step 5: Push images to Docker Hub
+      - name: Push images to Docker Hub
+        run: |
+          echo "Pushing images to Docker Hub..."
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}
+          echo "✓ Pushed: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
+
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            echo "✓ Pushed: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+
+          echo "✓ All images pushed successfully"
+
+      # Step 6: Logout from Docker Hub (security)
+      - name: Logout from Docker Hub
+        if: always()
+        run: docker logout
