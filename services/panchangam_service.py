@@ -9,7 +9,6 @@ import calendar
 from datetime import date, timedelta
 from typing import Dict
 
-from core.calendar.panchangam import get_panchangam_data
 from db.repository import PanchangamRepository
 from schemas.panchangam_data import PanchangamData
 from utils.location import DEFAULT_LOCATION, Location
@@ -22,7 +21,13 @@ class PanchangamService:
         self._repo = repository
 
     def _compute(self, day: date, location: Location) -> PanchangamData:
-        """Live-computation fallback using the location's coordinates/timezone."""
+        """Live-computation fallback using the location's coordinates/timezone.
+
+        The astronomy stack (Skyfield + ephemeris) is imported lazily here so that
+        DB-served requests never pay its import cost — only a DB miss triggers it.
+        """
+        from core.calendar.panchangam import get_panchangam_data
+
         return get_panchangam_data(
             day, location.latitude, location.longitude, location.timezone
         )

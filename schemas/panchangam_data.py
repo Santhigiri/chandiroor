@@ -2,9 +2,8 @@ from typing import List, Optional
 from pydantic import BaseModel, field_serializer
 from datetime import date, datetime
 
-from core.astronomy.nakshatra_transition import NakshatraTransition
-from core.astronomy.thithi_transition import ThithiTransition
-from core.calendar.kollavarsham import KollavarshamDate
+from core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from core.calendar.kollavarsham_models import KollavarshamDate
 from schemas.location import LocationInfo
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import SanthigiriEvent

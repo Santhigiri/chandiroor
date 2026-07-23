@@ -3,26 +3,15 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from numpy import ndarray
-from pydantic import BaseModel, field_serializer
 from skyfield.searchlib import find_discrete
 from skyfield.api import Time
 from core.astronomy.calculations import get_time
 
 from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
+from core.astronomy.transitions import NakshatraTransition
 from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 from utils.nakshatra import Nakshatra
 from utils.utils import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
-
-
-class NakshatraTransition(BaseModel):
-    name: str
-    nakshatra: Nakshatra
-    start_time: datetime
-    end_time: Optional[datetime]
-
-    @field_serializer('nakshatra')
-    def ser_nakshatra(self, n: Nakshatra):
-        return n.to_dict()
 
 
 def get_nakshatra_id(t: Time)-> int:

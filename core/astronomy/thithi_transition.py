@@ -1,7 +1,6 @@
 from datetime import date, datetime, timezone, timedelta, time
 from functools import lru_cache
 from typing import List, Tuple
-from pydantic import BaseModel, field_serializer
 from pytz.exceptions import Error
 from skyfield.almanac import ecliptic_frame, find_discrete
 from skyfield.api import Time
@@ -13,17 +12,9 @@ import numpy as np
 import math
 from core.constants import  THITHI_NAMES  # Python 3.9+
 from core.astronomy.ephemeris import earth, sun, moon
+from core.astronomy.transitions import ThithiTransition
 from utils.thithi import Thithi
 
-class ThithiTransition(BaseModel):
-    name: str
-    thithi: Thithi
-    start_time: datetime
-    end_time: datetime | None
-
-    @field_serializer("thithi")
-    def ser_thithi(self, t: Thithi):
-        return t.to_dict()
 
 def get_tropical_longitude( t: Time, body: str):
     pos = None
