@@ -20,17 +20,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Compute date-based tag
         id: datetag
         run: |
           DATE="$(date -u +'%Y.%m.%d')"
-          RUN="${{ github.run_number }}"
+          # Count commits on the triggering branch made today (resets daily)
+          PUSH_NUM=$(git log --oneline \
+            --since="${DATE} 00:00:00" --until="${DATE} 23:59:59" \
+            "${{ github.sha }}" | wc -l | tr -d ' ')
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-            echo "tag=dev-${DATE}.${RUN}" >> "$GITHUB_OUTPUT"
+            echo "tag=dev-${DATE}.${PUSH_NUM}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=${DATE}.${RUN}" >> "$GITHUB_OUTPUT"
+            echo "tag=${DATE}.${PUSH_NUM}" >> "$GITHUB_OUTPUT"
           fi
+          echo "Generated tag for ${DATE}: push #${PUSH_NUM}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
