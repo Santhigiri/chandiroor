@@ -1,8 +1,8 @@
-fastapi[standard]
-uvicorn
+fastapi
+uvicorn[standard]
+python-multipart
 skyfield
 pytz
-pandas
 pyswisseph
 sqlmodel
 psycopg2-binary
@@ -10,5 +10,3 @@ python-dotenv
 python-jose[cryptography]
 bcrypt
 pydantic-settings
-pytest
-

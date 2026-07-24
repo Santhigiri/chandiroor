@@ -71,4 +71,4 @@ pytest tests/
 
 ## Tech stack
 
-FastAPI · Uvicorn · Skyfield · pyswisseph · pytz · pandas · SQLModel
+FastAPI · Uvicorn · Skyfield · pyswisseph · pytz · SQLModel
