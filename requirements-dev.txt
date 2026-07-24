@@ -1,0 +1,7 @@
+# Development / CI dependencies. The runtime image installs requirements.txt only.
+-r requirements.txt
+
+# Test framework and the HTTP client Starlette's TestClient needs (previously
+# provided transitively by fastapi[standard]).
+pytest
+httpx

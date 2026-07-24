@@ -31,5 +31,11 @@ env/
 tests/
 docs/
 
+# Offline/build-only artifacts not needed at runtime (the app reads from Postgres,
+# not these). Keep de421.bsp — it IS loaded at runtime.
+data/
+db/sql/
+scripts/
+
 # Caches not needed in the runtime image
 *.log

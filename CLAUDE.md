@@ -247,8 +247,9 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 
 | Dependency | Purpose |
 |---|---|
-| `fastapi[standard]` | HTTP framework and request validation |
-| `uvicorn` | ASGI server |
+| `fastapi` | HTTP framework and request validation |
+| `uvicorn[standard]` | ASGI server (uvloop/httptools for production) |
+| `python-multipart` | Parses the OAuth2 form login (`api/routes/v1/auth.py`) |
 | `skyfield` | High-precision astronomical calculations (positions, `find_discrete`) |
 | `pyswisseph` | Lahiri Ayanamsa computation via Swiss Ephemeris |
 | `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
@@ -258,8 +259,10 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 | `bcrypt` | Password hashing for user credentials |
 | `pydantic-settings` | Typed settings (JWT config) in `core/config.py` |
 | `pytz` | Timezone handling |
-| `pandas` | Data manipulation in cache utilities |
 | `de421.bsp` | NASA/JPL ephemeris file (16.8 MB) loaded by Skyfield for Sun/Moon/Earth positions |
+
+`pytest` and `httpx` (test-only) live in `requirements-dev.txt`; the runtime image
+installs `requirements.txt` alone.
 
 The `de421.bsp` file must be present in the project root at startup. It is a binary data file — do not delete it or add it to `.gitignore`.
 
@@ -270,7 +273,7 @@ The `de421.bsp` file must be present in the project root at startup. It is a bin
 ### Local development
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime deps + pytest/httpx (use requirements.txt for runtime only)
 cp .env.example .env   # then fill in your Neon DATABASE_URL
 uvicorn main:app --reload --port 8000
 ```
