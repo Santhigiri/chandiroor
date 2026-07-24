@@ -1,21 +1,23 @@
 """
-Tests for the madhyahnam (Sankranti-vs-midday) Malayalam month-transition rule.
+Tests for the Modyana Malayalam month-transition rule.
 
-The Malayalam month begins on the day of the Sankramanam (the Sun's entry into a
-new raasi) if that entry occurs at or before madhyahnam (midday — the midpoint
-between sunrise and sunset), otherwise the next day. This is implemented by
-sampling the Sun's raasi at madhyahnam in
+The daytime (sunrise -> sunset) is split into five equal parts; Modyana is the
+third part (40%-60% of the daytime). The Malayalam month begins on the day of the
+Sankramanam (the Sun's entry into a new raasi) if that entry happens *before or
+during* Modyana, otherwise the next day. This is implemented by sampling the Sun's
+raasi at the *end* of Modyana (sunrise + 3/5 of the daytime) in
 ``core.calendar.kollavarsham.get_kollavarsham_date``.
 
-The boundary dates below are cases where the Sankramanam falls in the *afternoon*
-(after madhyahnam, before sunset), so the madhyahnam rule yields a month-start
-one day later than the retired sunset rule would have.
-
-Makaram 1, 1201 ME is published as 2026-01-15 in the Kerala Malayalam calendar
-(the Makara Sankramanam is 2026-01-14 — the one-day offset is exactly this rule).
-Medam 1, 1202 ME (Vishu) is published as 2027-04-15 (the Medam Sankramanam falls
-2027-04-14 afternoon). See e.g. https://hindupad.com/makara-masam-makaram-month/,
-https://www.prokerala.com/calendar/malayalamcalendar-2026.html and
+The boundaries below are cross-checked against published Kerala calendars:
+* Makaram 1, 1201 ME = 2026-01-15 (Makara Sankramanam 2026-01-14 afternoon,
+  after that day's Modyana -> next day).
+* Mithunam 1, 1201 ME = 2026-06-15 (Mithuna Sankramanam ~12:49 PM 2026-06-15 is
+  before the end of Modyana ~1:36 PM -> same day). Note the 50% midpoint rule
+  wrongly gave 2026-06-16; the end-of-Modyana (60%) cutoff matches the calendar.
+* Medam 1, 1202 ME (Vishu) = 2027-04-15 (Medam Sankramanam 2027-04-14 afternoon,
+  after that day's Modyana -> next day).
+See e.g. https://www.prokerala.com/calendar/malayalamcalendar-2026.html,
+https://www.prokerala.com/astrology/mithuna-sankranti-15-june-2026-timings.htm and
 https://www.prokerala.com/festivals/vishu.html
 """
 from datetime import date, timedelta
@@ -37,15 +39,15 @@ def _kv(day: date):
 @pytest.mark.parametrize(
     "first_day, masa_id, masa_en, kv_year",
     [
-        # Makara Sankramanam on 2026-01-14 afternoon -> Makaram 1 on 2026-01-15.
+        # Makara Sankramanam 2026-01-14, after that day's Modyana -> Makaram 1 = 01-15.
         (date(2026, 1, 15), 10, "Makaram", 1201),
-        # Mithuna Sankramanam on 2026-06-15 afternoon -> Mithunam 1 on 2026-06-16.
-        (date(2026, 6, 16), 3, "Mithunam", 1201),
-        # Medam Sankramanam on 2027-04-14 afternoon -> Medam 1 (Vishu) on 2027-04-15.
+        # Mithuna Sankramanam ~12:49 PM 2026-06-15, before end of Modyana -> same day.
+        (date(2026, 6, 15), 3, "Mithunam", 1201),
+        # Medam Sankramanam 2027-04-14, after that day's Modyana -> Medam 1 = 04-15.
         (date(2027, 4, 15), 1, "Medam", 1202),
     ],
 )
-def test_month_starts_on_madhyahnam_day(first_day, masa_id, masa_en, kv_year):
+def test_month_starts_on_modyana_day(first_day, masa_id, masa_en, kv_year):
     """The first day of the new masa has kv_day == 1 and the new masa's id."""
     kv = _kv(first_day)
     assert kv.kv_day == 1
@@ -56,12 +58,11 @@ def test_month_starts_on_madhyahnam_day(first_day, masa_id, masa_en, kv_year):
 
 @pytest.mark.parametrize(
     "first_day, masa_id",
-    [(date(2026, 1, 15), 10), (date(2026, 6, 16), 3), (date(2027, 4, 15), 1)],
+    [(date(2026, 1, 15), 10), (date(2026, 6, 15), 3), (date(2027, 4, 15), 1)],
 )
 def test_day_before_is_still_previous_month(first_day, masa_id):
-    """The day before the boundary (Sankramanam day) is the last day of the
-    previous masa — proving the transition is deferred past midday, one day later
-    than the sunset rule (which would have flipped the month on this day)."""
+    """The day before a month-start is the last day of the previous masa: at the
+    end of Modyana on that earlier day the Sun had not yet entered the new raasi."""
     prev = _kv(first_day - timedelta(days=1))
     assert prev.kv_month != masa_id
     assert prev.kv_day > 1

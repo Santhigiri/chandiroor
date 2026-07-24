@@ -199,7 +199,7 @@ The Lahiri Ayanamsa (the standard for Indian Jyotisha) is computed using `pyswis
 
 ### Kollavarsham (Malayalam Calendar)
 
-The Kollam Era calendar used in Kerala. The Malayalam month is determined by the Sun's sidereal raasi (zodiac sign) at **madhyahnam** (midday — the midpoint between sunrise and sunset). The month changes on the day of the Sankramanam (the Sun's entry into a new raasi) if that entry occurs at or before madhyahnam, otherwise the next day. Sampling the raasi at madhyahnam is the exact realization of this rule.
+The Kollam Era calendar used in Kerala. The Malayalam month is determined by the Sun's sidereal raasi (zodiac sign) relative to **Modyana**. The daytime (sunrise → sunset) is split into five equal parts; Modyana is the **third part** (spanning 40%–60% of the daytime). The month changes on the day of the Sankramanam (the Sun's entry into a new raasi) if that entry occurs **before or during** Modyana, otherwise the next day. Sampling the raasi at the **end of Modyana** (`sunrise + 3·(sunset − sunrise)/5`, the 60% point) is the exact realization of this rule.
 
 A Kollam year runs Chingam..Karkidakam and straddles two Gregorian years: its
 Chingam..Dhanu months fall in Aug–Dec of Gregorian year `Y`, and its
@@ -214,7 +214,7 @@ kollam_year = english_year - 824   # if 4 <= raasi <= 8 (Chingam..Dhanu) and mon
 kollam_year = english_year - 825   # otherwise
 ```
 
-The Malayalam day is computed by walking backwards through days' madhyahnams to find when the current raasi began. Implemented in `core/calendar/kollavarsham.py`.
+The Malayalam day is computed by walking backwards through days' end-of-Modyana samples to find when the current raasi began. Implemented in `core/calendar/kollavarsham.py`.
 
 ### Nazhika (Traditional Time Unit)
 
