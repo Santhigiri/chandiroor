@@ -48,14 +48,15 @@ def get_madhyahnam_raasi(
     timezone: str = DEFAULT_TIMEZONE
 ) -> int:
     """
-    Get Sun's raasi at local madhyahnam (midday).
+    Get Sun's raasi at the end of Modyana (madhyahnam).
 
-    Madhyahnam is the midpoint between sunrise and sunset. Sampling the Sun's
-    raasi at that instant is the exact realization of the Kerala month-transition
-    rule "the Malayalam month begins on the day of the Sankramanam if the Sun
-    enters the new raasi at or before midday, otherwise the next day": the raasi
-    at madhyahnam(dt) is the new raasi iff the Sankramanam occurred at or before
-    madhyahnam(dt).
+    The daytime (sunrise -> sunset) is split into five equal parts; Modyana is the
+    third part, spanning 40%-60% of the daytime. The Kerala month-transition rule
+    is: the Malayalam month begins on the day of the Sankramanam if the Sun enters
+    the new raasi *before or during* Modyana, otherwise the next day. Sampling the
+    Sun's raasi at the *end* of Modyana (sunrise + 3/5 of the daytime) is the exact
+    realization of that rule: the raasi at that instant is the new raasi iff the
+    Sankramanam occurred at or before the end of Modyana.
     """
 
     sunrise, sunset = get_sunrise_sunset(
@@ -65,7 +66,8 @@ def get_madhyahnam_raasi(
         timezone=timezone,
     )
 
-    madhyahnam = sunrise + (sunset - sunrise) / 2
+    # End of Modyana = end of the third of five equal daytime parts (the 60% point).
+    madhyahnam = sunrise + (sunset - sunrise) * 3 / 5
 
     longitude = get_sun_sidereal_longitude(
         localdt=madhyahnam.replace(tzinfo=None),
