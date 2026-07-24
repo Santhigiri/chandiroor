@@ -2,8 +2,6 @@ from datetime import date, timedelta
 from functools import lru_cache
 from typing import Dict, Any
 
-from pydantic import BaseModel
-
 from core.astronomy.calculations import (
     get_sun_sidereal_longitude,
 )
@@ -14,6 +12,7 @@ from core.constants import (
 )
 
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
+from core.calendar.kollavarsham_models import KollavarshamDate
 from utils.malayalam_masa import MalayalamMasa
 
 MALAYALAM_MONTHS = [
@@ -30,14 +29,6 @@ MALAYALAM_MONTHS = [
     "Kumbham",
     "Meenam"
 ]
-
-class KollavarshamDate(BaseModel):
-    date: date
-    kv_day: int
-    kv_month: int
-    kv_year: int
-    kv_month_name_en: str
-    kv_month_name_ml: str
 
 
 def get_raasi(longitude: float) -> int:

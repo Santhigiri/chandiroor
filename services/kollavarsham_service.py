@@ -27,7 +27,6 @@ from typing import List
 
 from sqlmodel import Session
 
-from core.calendar.kollavarsham import get_kollavarsham_date
 from db.kollavarsham_repository import KollavarshamRepository
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from schemas.kollavarsham import (
@@ -84,6 +83,10 @@ class KollavarshamService:
         missing = self._repo.missing_panchangam_dates(dates, location)
         if missing:
             raise UngeneratableDates(missing)
+
+        # Imported lazily: pulls in the Skyfield/ephemeris stack only when a
+        # generate actually runs, keeping app startup free of it.
+        from core.calendar.kollavarsham import get_kollavarsham_date
 
         for day in dates:
             kv = get_kollavarsham_date(
