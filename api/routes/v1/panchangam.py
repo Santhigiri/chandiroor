@@ -1,5 +1,5 @@
 from typing import Annotated, Dict, List
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Body, Depends, Query, Request, Response
 from datetime import date, datetime
 
 from sqlmodel import Session
@@ -70,12 +70,12 @@ def panchangam_monthly(
     }
 
 
-@router.get(
+@router.post(
     '/range',
     response_model=Dict[date, CompactPanchangamData]
 )
 def panchangam_range(
-    params: Annotated[GetRangePanchangamParams, Query()],
+    params: Annotated[GetRangePanchangamParams, Body()],
     service: Annotated[PanchangamService, Depends(get_service)],
     location: Annotated[Location, Depends(get_location)],
 ):

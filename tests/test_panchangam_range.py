@@ -1,6 +1,6 @@
 """
 End-to-end tests for the date-range panchangam endpoint
-(``GET /api/v1/panchangam/range``).
+(``POST /api/v1/panchangam/range``).
 
 Seeds an in-memory DB from the real 2022 pickle (the same fixture shape as
 ``test_etag.py``) and drives the app with ``TestClient``.
@@ -58,9 +58,9 @@ def client(api_engine):
 
 
 def test_range_returns_every_day_inclusive(client):
-    r = client.get(
+    r = client.post(
         "/api/v1/panchangam/range",
-        params={"start": "2022-03-01", "end": "2022-03-10"},
+        json={"start": "2022-03-01", "end": "2022-03-10"},
     )
     assert r.status_code == 200
     body = r.json()
@@ -75,18 +75,18 @@ def test_range_returns_every_day_inclusive(client):
 
 
 def test_range_single_day(client):
-    r = client.get(
+    r = client.post(
         "/api/v1/panchangam/range",
-        params={"start": "2022-03-05", "end": "2022-03-05"},
+        json={"start": "2022-03-05", "end": "2022-03-05"},
     )
     assert r.status_code == 200
     assert list(r.json().keys()) == ["2022-03-05"]
 
 
 def test_range_end_before_start_is_422(client):
-    r = client.get(
+    r = client.post(
         "/api/v1/panchangam/range",
-        params={"start": "2022-03-10", "end": "2022-03-01"},
+        json={"start": "2022-03-10", "end": "2022-03-01"},
     )
     assert r.status_code == 422
 
@@ -96,16 +96,17 @@ def test_range_exceeding_max_span_is_422(client):
 
     start = date(2022, 1, 1)
     end = start + timedelta(days=MAX_RANGE_DAYS)  # one day past the limit
-    r = client.get(
+    r = client.post(
         "/api/v1/panchangam/range",
-        params={"start": start.isoformat(), "end": end.isoformat()},
+        json={"start": start.isoformat(), "end": end.isoformat()},
     )
     assert r.status_code == 422
 
 
 def test_range_unknown_location_is_404(client):
-    r = client.get(
+    r = client.post(
         "/api/v1/panchangam/range",
-        params={"start": "2022-03-01", "end": "2022-03-02", "location": "atlantis"},
+        params={"location": "atlantis"},
+        json={"start": "2022-03-01", "end": "2022-03-02"},
     )
     assert r.status_code == 404
