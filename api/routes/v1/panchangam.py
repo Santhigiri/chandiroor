@@ -22,7 +22,6 @@ from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.roles import Role
-from utils.santhigiri_events import SanthigiriEvent
 from utils.thithi import Thithi
 
 

@@ -12,7 +12,7 @@ class SanthigiriEvent(SQLModel, table=True):
     """
     Editable definition of a Santhigiri ashram event type.
 
-    One row per defined event (keyed by the ``SanthigiriEventId`` value), so the
+    One row per defined event (keyed by its string ``id``), so the
     ``/panchangam/events`` reference endpoint can list *every* event regardless
     of whether it occurs in the loaded date range. Seeded from
     ``utils.santhigiri_events`` but authoritative thereafter: a correction to a
@@ -27,7 +27,7 @@ class SanthigiriEvent(SQLModel, table=True):
 
     __tablename__ = "santhigiri_event" # pyright: ignore[reportAssignmentType]
 
-    id:          str = Field(primary_key=True)   # SanthigiriEventId value, e.g. 'POURNAMI'
+    id:          str = Field(primary_key=True)   # event id, e.g. 'POURNAMI'
     name:        str
     description: str
     sort_order:  int = Field(index=True)

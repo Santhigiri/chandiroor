@@ -132,7 +132,7 @@ def build_lookup_seed() -> str:
     for order, event in enumerate(EVENT_DEFINITIONS_BY_ID.values()):
         c = event.event_condition
         event_rows.append((
-            event.id.value, event.name, event.description, order,
+            event.id, event.name, event.description, order,
             c.nakshatra.id if c.nakshatra else None,
             c.thithi.id if c.thithi else None,
             c.ml_day, c.ml_month.id if c.ml_month else None, c.ml_year,
@@ -170,7 +170,7 @@ def build_data_seed(cache) -> str:
         for n in p.nakshatra_transitions:
             nak_trans_rows.append((p.date, TVM_ID, n.nakshatra.id, n.start_time, n.end_time))
         for e in p.santhigiri_significant_dates:
-            event_date_rows.append((p.date, e.id.value))
+            event_date_rows.append((p.date, e.id))
 
     return "\n".join([
         f"-- ---------- Panchangam data ({dates[0]} .. {dates[-1]}, {len(dates)} days) ----------",

@@ -33,7 +33,7 @@ from schemas.panchangam_data import PanchangamData
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EventCondition, SanthigiriEvent, SanthigiriEventId
+from utils.santhigiri_events import EventCondition, SanthigiriEvent
 from utils.thithi import Thithi
 
 
@@ -98,10 +98,8 @@ def _row_to_panchangam_data(
     )
 
 
-def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
-    ev = row.event
-    if ev is None:
-        raise ValueError(f"No santhigiri_event definition for {row.event_id!r}")
+def _event_row_to_event(ev: SanthigiriEventRow) -> SanthigiriEvent:
+    """Map an editable ``santhigiri_event`` row to its domain ``SanthigiriEvent``."""
     cond = EventCondition(
         nakshatra=Nakshatra.from_id(ev.nakshatra_id) if ev.nakshatra_id else None,
         thithi=Thithi.from_id(ev.thithi_id) if ev.thithi_id else None,
@@ -116,11 +114,18 @@ def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
         last_occurance=ev.last_occurance,
     )
     return SanthigiriEvent(
-        id=SanthigiriEventId(row.event_id),
+        id=ev.id,
         name=ev.name,
         description=ev.description,
         event_condition=cond,
     )
+
+
+def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
+    ev = row.event
+    if ev is None:
+        raise ValueError(f"No santhigiri_event definition for {row.event_id!r}")
+    return _event_row_to_event(ev)
 
 
 # ── Eager-load strategy used by all getters ───────────────────────────────────
@@ -206,6 +211,17 @@ class PanchangamRepository:
         else:
             end = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
         return self.get_by_date_range(start, end, location)
+
+    def list_event_definitions(self) -> List[SanthigiriEvent]:
+        """Return every editable Santhigiri event definition, ordered by sort_order.
+
+        Used by the live-computation fallback to overlay condition-based events
+        onto a day the DB does not have a pre-computed occurrence row for.
+        """
+        rows = self._s.exec(
+            select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
+        ).all()
+        return [_event_row_to_event(row) for row in rows]
 
     # ── Setters ──────────────────────────────────────────────────────────────
 
@@ -322,7 +338,7 @@ class PanchangamRepository:
             self._s.add(
                 SanthigiriEventDateRow(
                     panchangam_date=date,
-                    event_id=event.id.value,
+                    event_id=event.id,
                 )
             )
 

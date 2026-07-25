@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from schemas.panchangam_data import PanchangamData
 from utils.malayalam_masa import MalayalamMasa
-from utils.santhigiri_events import SanthigiriEventId
 
 
 class CompactKollavarshamDate(BaseModel):

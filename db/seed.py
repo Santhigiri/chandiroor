@@ -30,7 +30,7 @@ def seed_santhigiri_events(session: Session) -> None:
         c = event.event_condition
         session.merge(
             SanthigiriEventRow(
-                id=event.id.value,
+                id=event.id,
                 name=event.name,
                 description=event.description,
                 sort_order=order,
