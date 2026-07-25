@@ -7,7 +7,7 @@ from core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
 from core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.astronomy.thithi import get_thithi
-from core.astronomy.pournami import is_poornima
+from core.astronomy.pournami import is_poornima_live
 from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id, get_thithi_transition
 from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
@@ -101,7 +101,7 @@ def get_panchangam(
 
     nakshatra_transition = calc_nakshatra_transition_for_date(localdt.date(),timezone)
 
-    is_pournami: bool = is_poornima(localdt=localdt, timezone=timezone)
+    is_pournami: bool = is_poornima_live(localdt=localdt, timezone=timezone)
     kv = get_kollavarsham_date(dt=localdt.date(), latitude=latitude, longitude=longitude, timezone=timezone)
     end = perf_counter()
     print(f"Took {end - start:.4f} seconds")

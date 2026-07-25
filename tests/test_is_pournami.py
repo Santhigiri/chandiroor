@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime
-from core.astronomy.pournami import is_poornima
+from core.astronomy.pournami import is_poornima_live
 from core.constants import DEFAULT_TIMEZONE
 
 
@@ -38,4 +38,4 @@ TEST_CASES = [
     ids=lambda x: str(x)
 )
 def test_is_pournami(input_date, timezone, expected):
-    assert is_poornima(input_date, timezone) == expected
+    assert is_poornima_live(input_date, timezone) == expected
