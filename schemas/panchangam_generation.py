@@ -1,0 +1,48 @@
+"""
+Request/response schemas for the Panchangam generation endpoint under
+``/api/v1/panchangam/generate``.
+
+``generate`` recomputes the full :class:`schemas.panchangam_data.PanchangamData`
+(thithi, nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) for every
+day in an inclusive date range from the astronomy code and overwrites the stored
+rows. These models mirror ``schemas.kollavarsham`` — the request carries the
+range (validated here) and the result summarizes what was written.
+"""
+from __future__ import annotations
+
+from datetime import date
+from typing import List
+
+from pydantic import BaseModel, Field, model_validator
+
+# Guard against an accidental multi-year range triggering a huge number of
+# Skyfield computations in one request. A generous ceiling — a full year plus a
+# leap day — that still covers any realistic single call.
+MAX_GENERATE_SPAN_DAYS = 366
+
+
+class PanchangamGenerateRequest(BaseModel):
+    """Inclusive ``[start_date, end_date]`` range to (re)compute and overwrite."""
+
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "PanchangamGenerateRequest":
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        span = (self.end_date - self.start_date).days + 1
+        if span > MAX_GENERATE_SPAN_DAYS:
+            raise ValueError(
+                f"date range too large: {span} days (max {MAX_GENERATE_SPAN_DAYS})"
+            )
+        return self
+
+
+class PanchangamGenerateResult(BaseModel):
+    """Summary returned by the generate endpoint."""
+
+    start_date: date
+    end_date: date
+    count: int = Field(description="Number of dates (re)computed and written.")
+    years: List[int]
