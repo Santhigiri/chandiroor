@@ -17,13 +17,11 @@ def test_list_thithis_matches_enum_with_nested_paksha(seeded_session):
     # Ordered by id, and each carries the same shape the endpoint always returned.
     poornima = next(t for t in thithis if t["id"] == Thithi.POORNIMA.id)
     assert poornima["name"] == Thithi.POORNIMA.name
-    assert poornima["ml"] == Thithi.POORNIMA.ml
-    assert poornima["en"] == Thithi.POORNIMA.en
+    assert poornima["label"] == {"en": Thithi.POORNIMA.en, "ml": Thithi.POORNIMA.ml}
     assert poornima["paksha"] == {
         "name": Paksha.SHUKLA.name,
         "id": Paksha.SHUKLA.id,
-        "ml": Paksha.SHUKLA.ml,
-        "en": Paksha.SHUKLA.en,
+        "label": {"en": Paksha.SHUKLA.en, "ml": Paksha.SHUKLA.ml},
     }
 
 
@@ -32,7 +30,7 @@ def test_list_nakshatras_and_masas(seeded_session):
     assert len(repo.list_nakshatras()) == 27
     assert len(repo.list_masas()) == 12
     chothi = next(n for n in repo.list_nakshatras() if n["id"] == Nakshatra.CHOTHI.id)
-    assert (chothi["name"], chothi["ml"], chothi["en"]) == (
+    assert (chothi["name"], chothi["label"]["ml"], chothi["label"]["en"]) == (
         Nakshatra.CHOTHI.name,
         Nakshatra.CHOTHI.ml,
         Nakshatra.CHOTHI.en,

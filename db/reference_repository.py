@@ -40,13 +40,11 @@ class ReferenceRepository:
                 "paksha": {
                     "name": t.paksha.name,
                     "id": t.paksha.id,
-                    "ml": t.paksha.ml,
-                    "en": t.paksha.en,
+                    "label": {"en": t.paksha.en, "ml": t.paksha.ml},
                 }
                 if t.paksha
                 else None,
-                "ml": t.ml,
-                "en": t.en,
+                "label": {"en": t.en, "ml": t.ml},
             }
             for t in rows
         ]
@@ -54,13 +52,15 @@ class ReferenceRepository:
     def list_nakshatras(self) -> List[Dict[str, Any]]:
         rows = self._s.exec(select(NakshatraRow).order_by(NakshatraRow.id)).all()
         return [
-            {"name": n.name, "id": n.id, "ml": n.ml, "en": n.en} for n in rows
+            {"name": n.name, "id": n.id, "label": {"en": n.en, "ml": n.ml}}
+            for n in rows
         ]
 
     def list_masas(self) -> List[Dict[str, Any]]:
         rows = self._s.exec(select(MalayalamMasaRow).order_by(MalayalamMasaRow.id)).all()
         return [
-            {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
+            {"name": m.name, "id": m.id, "label": {"en": m.en, "ml": m.ml}}
+            for m in rows
         ]
 
     def list_locations(self) -> List[Dict[str, Any]]:
