@@ -23,7 +23,6 @@ from utils.santhigiri_events import (
     EVENT_DEFINITIONS_BY_ID,
     EventCondition,
     SanthigiriEvent,
-    SanthigiriEventId,
 )
 from utils.thithi import Thithi
 
@@ -33,12 +32,12 @@ TVM = Location.TVM
 def _pournami_event() -> SanthigiriEvent:
     # name/description now come from the seeded definition, so build from it to
     # keep the get→domain round-trip equal.
-    return EVENT_DEFINITIONS_BY_ID[SanthigiriEventId.POURNAMI].model_copy(deep=True)
+    return EVENT_DEFINITIONS_BY_ID["POURNAMI"].model_copy(deep=True)
 
 
 def _chothi_event() -> SanthigiriEvent:
     return EVENT_DEFINITIONS_BY_ID[
-        SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA
+        "JANMAGRIHA_THEERTHA_YATHRA"
     ].model_copy(deep=True)
 
 
@@ -173,9 +172,9 @@ def test_santhigiri_events_shared_across_locations(two_location_session, make_pa
     got_tvm = repo.get_by_date(date, TVM)
     got_other = repo.get_by_date(date, SECOND_LOCATION)
 
-    assert [e.id for e in got_tvm.santhigiri_significant_dates] == [SanthigiriEventId.POURNAMI]
+    assert [e.id for e in got_tvm.santhigiri_significant_dates] == ["POURNAMI"]
     # Same shared event calendar appears for the other location too.
-    assert [e.id for e in got_other.santhigiri_significant_dates] == [SanthigiriEventId.POURNAMI]
+    assert [e.id for e in got_other.santhigiri_significant_dates] == ["POURNAMI"]
     # Only one underlying (date-keyed) event row despite two locations.
     assert _count(two_location_session, SsdRow) == 1
 
@@ -292,7 +291,7 @@ def test_event_name_description_derive_from_definition(seeded_session, make_panc
     repo.upsert(make_panchangam_data(date, santhigiri_significant_dates=[_pournami_event()]), TVM)
     seeded_session.commit()
 
-    definition = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    definition = seeded_session.get(SanthigiriEventRow, "POURNAMI")
     definition.name = "Poornima (edited)"
     definition.description = "edited description"
     seeded_session.add(definition)
@@ -310,7 +309,7 @@ def test_deleting_definition_cascades_to_occurrences(seeded_session, make_pancha
     seeded_session.commit()
     assert _count(seeded_session, SsdRow) == 1
 
-    definition = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    definition = seeded_session.get(SanthigiriEventRow, "POURNAMI")
     seeded_session.delete(definition)
     seeded_session.commit()
 

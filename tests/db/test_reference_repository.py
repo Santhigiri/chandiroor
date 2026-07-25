@@ -4,7 +4,7 @@ from db.reference_repository import ReferenceRepository
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID, SanthigiriEventId
+from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from utils.thithi import Thithi
 
 
@@ -49,21 +49,21 @@ def test_list_events_returns_every_defined_event(seeded_session):
 
     assert len(events) == len(EVENT_DEFINITIONS_BY_ID)
     assert {e.id for e in events} == {
-        e.id.value for e in EVENT_DEFINITIONS_BY_ID.values()
+        e.id for e in EVENT_DEFINITIONS_BY_ID.values()
     }
     # Ordered by the seeded display order (sort_order).
     first = next(iter(EVENT_DEFINITIONS_BY_ID.values()))
-    assert events[0].id == first.id.value
+    assert events[0].id == first.id
 
 
 def test_list_events_reflects_db_edit(seeded_session):
     """Editing the name in the DB changes the endpoint output — the whole point."""
-    row = seeded_session.get(SanthigiriEventRow, SanthigiriEventId.POURNAMI.value)
+    row = seeded_session.get(SanthigiriEventRow, "POURNAMI")
     assert row is not None
     row.name = "Poornima (corrected)"
     seeded_session.add(row)
     seeded_session.commit()
 
     events = ReferenceRepository(seeded_session).list_events()
-    pournami = next(e for e in events if e.id == SanthigiriEventId.POURNAMI.value)
+    pournami = next(e for e in events if e.id == "POURNAMI")
     assert pournami.name == "Poornima (corrected)"

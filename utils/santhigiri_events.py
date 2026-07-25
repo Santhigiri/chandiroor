@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -6,23 +5,6 @@ from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.thithi import Thithi
 
-
-class SanthigiriEventId(str, Enum):
-    NAVOLI_JYOTHIR_DINAM = "NAVOLI_JYOTHIR_DINAM"
-    JANMAGRIHA_THEERTHA_YATHRA = "JANMAGRIHA_THEERTHA_YATHRA"
-    POOJITHA_PEEDA_SAMARPANAM = "POOJITHA_PEEDA_SAMARPANAM"
-    POOJITHA_PEEDA_VRITHARAMBAM = "POOJITHA_PEEDA_VRITHARAMBAM"
-    SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM = "SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM"
-    PRATHISTA_VARSHIKAM = "PRATHISTA_VARSHIKAM"
-    PRATHISTA_POORTHIKARANA_VARSHIKAM = "PRATHISTA_POORTHIKARANA_VARSHIKAM"
-    DIVYA_POOJA_SAMARPANA_VARSHIKAM = "DIVYA_POOJA_SAMARPANA_VARSHIKAM"
-    NAVAPOOJITHAM_VRITHARAMBAM = "NAVAPOOJITHAM_VRITHARAMBAM"
-    NAVAPOOJITHAM = "NAVAPOOJITHAM"
-    POORNA_KUMBAMELA = "POORNA_KUMBAMELA"
-    SANYASADHEEKSHA_VARSHIKAM = "SANYASADHEEKSHA_VARSHIKAM"
-    SAMSKARIKA_DINAM = "SAMSKARIKA_DINAM"
-    SISHYAPOOJITHA_BDAY = "SHISHYAPOOJITHA_BDAY"
-    POURNAMI = "POURNAMI"
 
 class EventCondition(BaseModel):
     nakshatra: Optional[Nakshatra] = None
@@ -38,7 +20,7 @@ class EventCondition(BaseModel):
     last_occurance: Optional[bool] = None
 
 class SanthigiriEvent(BaseModel):
-    id: SanthigiriEventId
+    id: str
     name: str
     description: str
     event_condition: EventCondition
@@ -51,7 +33,7 @@ SANTHIGIRI_EVENTS: List[SanthigiriEvent] = []
 
 
 POURNAMI = SanthigiriEvent(
-    id=SanthigiriEventId.POURNAMI,
+    id="POURNAMI",
     name="Pournami",
     description="""
     The full moon day (Pournami) is observed as a day of fasting and prayers at the Ashram. This day is considered very auspicious for spiritual and material wellbeing. It is also an apt time to pray for one’s ancestral lineage (pithrus) and a change in our capability and propensity for action (‘karmagati’). Devotees in large numbers pray through the day and night at the Ashram on ‘Pournami’, with Deepa and Kumbha Pradakshina. Pournami prayers are held at the Ashram Branches also.
@@ -63,7 +45,7 @@ POURNAMI = SanthigiriEvent(
 
 
 NAVOLI_JYOTHIR_DINAM = SanthigiriEvent(
-        id=SanthigiriEventId.NAVOLI_JYOTHIR_DINAM,
+        id="NAVOLI_JYOTHIR_DINAM",
         name="Navoli Jyothir Dinam",
         description="""
 This is the day on which Guru left His physical body and merged in the ‘Adisankalpam’ (The Plane of Primordial Consciousness), on May 6th, 1999. The Guru’s ‘Prakasham’ (Light) is now present in the world as ‘Nava Oli’ (A New Light). The day is observed as ‘Navaolijyothirdinam – Sarvamangala Sudinam’ (the Day of the New Light, Auspicious for All). Devotees observe ‘vratam’ (austerities) for 72 days prior to ‘Navaolijyothirdinam’, commemorating the 72 years that Guru lived, enduring great sacrifices and hardships. A Deepa Pradakshina is held in the evening, followed by a special ‘pushpanjali’ (floral offering) by the sanyasi sangh. A spectacular fireworks and percussion display is held after the 9 p.m. prayers to mark the time of the Guru’s physical departure.
@@ -76,7 +58,7 @@ This is the day on which Guru left His physical body and merged in the ‘Adisan
 SANTHIGIRI_EVENTS.append(NAVOLI_JYOTHIR_DINAM)
 
 JANMAGRIHA_THEERTHA_YATHRA = SanthigiriEvent(
-        id=SanthigiriEventId.JANMAGRIHA_THEERTHA_YATHRA,
+        id="JANMAGRIHA_THEERTHA_YATHRA",
         name="Janmagriha Theertha Yaathra",
         description="Janmagriha Theertha Yaathra",
         event_condition= EventCondition(
@@ -86,7 +68,7 @@ JANMAGRIHA_THEERTHA_YATHRA = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(JANMAGRIHA_THEERTHA_YATHRA)
 
 POOJITHA_PEEDA_SAMARPANAM = SanthigiriEvent(
-    id=SanthigiriEventId.POOJITHA_PEEDA_SAMARPANAM,
+    id="POOJITHA_PEEDA_SAMARPANAM",
     name="Poojitha Peeda Samarppanam Varshikam",
     description="Poojitha Peeda Samarppanam Varshikam Ardhavarshika kumba mela",
     event_condition= EventCondition(
@@ -98,7 +80,7 @@ POOJITHA_PEEDA_SAMARPANAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(POOJITHA_PEEDA_SAMARPANAM)
 
 POOJITHA_PEEDA_VRITHARAMBAM = SanthigiriEvent(
-    id= SanthigiriEventId.POOJITHA_PEEDA_VRITHARAMBAM,
+    id="POOJITHA_PEEDA_VRITHARAMBAM",
     name="Poojitha Peeda Vritharambam",
     description="Poojitha Peeda Vritharambam",
     event_condition= EventCondition(
@@ -109,7 +91,7 @@ POOJITHA_PEEDA_VRITHARAMBAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(POOJITHA_PEEDA_VRITHARAMBAM)
 
 PRATHISTA_VARSHIKAM = SanthigiriEvent(
-    id=SanthigiriEventId.PRATHISTA_VARSHIKAM,
+    id="PRATHISTA_VARSHIKAM",
     name="Prathista Varshikam",
     description="Prathista Varshikam",
     event_condition= EventCondition(
@@ -122,7 +104,7 @@ SANTHIGIRI_EVENTS.append(PRATHISTA_VARSHIKAM)
 
 
 NAVOLI_JYOTHIR_DINAM_VRITARAMBAM = SanthigiriEvent(
-    id=SanthigiriEventId.NAVOLI_JYOTHIR_DINAM,
+    id="NAVOLI_JYOTHIR_DINAM_VRITHARAMBAM",
     name="Navoli Jyothir Dinam Vritharambam",
     description="Navoli Jyothir Dinam Vritharambam",
     event_condition= EventCondition(
@@ -133,7 +115,7 @@ NAVOLI_JYOTHIR_DINAM_VRITARAMBAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(NAVOLI_JYOTHIR_DINAM_VRITARAMBAM)
 
 SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM = SanthigiriEvent(
-    id=SanthigiriEventId.SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM,
+    id="SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM",
     name="Sahakarana Mandiram Samarpana Varshikam",
     description="""
         On this day the ‘Sahakarana Mandiram’ (Shrine of Togetherness) was dedicated to Guru. The day falls on Kumbham 17 (February-March). It is marked by special prayers at the Ashram.
@@ -146,7 +128,7 @@ SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM)
 
 PRATHISTA_POORTHIKARANA_VARSHIKAM = SanthigiriEvent(
-    id=SanthigiriEventId.PRATHISTA_POORTHIKARANA_VARSHIKAM,
+    id="PRATHISTA_POORTHIKARANA_VARSHIKAM",
     name="Prathista Poorthikarana Varshikam",
     description="Prathista Poorthikarana Varshikam",
     event_condition= EventCondition(
@@ -157,7 +139,7 @@ PRATHISTA_POORTHIKARANA_VARSHIKAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(PRATHISTA_POORTHIKARANA_VARSHIKAM)
 
 DIVYA_POOJA_SAMARPANA_VARSHIKAM = SanthigiriEvent(
-    id=SanthigiriEventId.DIVYA_POOJA_SAMARPANA_VARSHIKAM,
+    id="DIVYA_POOJA_SAMARPANA_VARSHIKAM",
     name="Divya pooja samarpana varshikam",
     description="Divya pooja samarpana varshikam",
     event_condition= EventCondition(
@@ -168,7 +150,7 @@ DIVYA_POOJA_SAMARPANA_VARSHIKAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(DIVYA_POOJA_SAMARPANA_VARSHIKAM)
 
 NAVAPOOJITHAM_VRITHARAMBAM = SanthigiriEvent(
-    id=SanthigiriEventId.NAVAPOOJITHAM_VRITHARAMBAM,
+    id="NAVAPOOJITHAM_VRITHARAMBAM",
     name="Navapoojitham vritharambam",
     description="Navapoojitham vritharambam",
     event_condition= EventCondition(
@@ -178,7 +160,7 @@ NAVAPOOJITHAM_VRITHARAMBAM = SanthigiriEvent(
 #SANTHIGIRI_EVENTS.append(NAVAPOOJITHAM_VRITHARAMBAM)
 
 NAVAPOOJITHAM = SanthigiriEvent(
-    id=SanthigiriEventId.NAVAPOOJITHAM,
+    id="NAVAPOOJITHAM",
     name="Navapoojitham",
     description="""
         Guru was born on September 1, 1927. The birthday celebrations are held as per the Malayalam Calendar, according to which Guru was born under the ‘Chothi’ star in the month of ‘Chingam’ (falling in August-September). The day is celebrated as ‘Navapoojitham - Janmadina Poojitha Samarpanam’. It is a day of special prayers, including Deepa Pradakshina (procession with lit lamps), at the Ashram.
@@ -192,7 +174,7 @@ NAVAPOOJITHAM = SanthigiriEvent(
 #SANTHIGIRI_EVENTS.append(NAVAPOOJITHAM)
 
 POORNA_KUMBAMELA = SanthigiriEvent(
-    id=SanthigiriEventId.POORNA_KUMBAMELA,
+    id="POORNA_KUMBAMELA",
     name="Poornakumba mela",
     description="""
 The ‘Poorna Kumbhamela’ commemorates the day of the Guru’s spiritual attainment, falling on the 4th of the Malayalam month of ‘Kanni’ (September). The highlight of the celebrations is a colorful procession by devotees, carrying ceremonial parasols and decorated ‘kumbhams’ (earthen pots filled with holy water – theertham), around the Ashram. Taking the ‘kumbham’ for 12 successive times helps to remove the ‘karmadoshas’ (karmic errors) of the self and the family.
@@ -207,7 +189,7 @@ SANTHIGIRI_EVENTS.append(POORNA_KUMBAMELA)
 
 #TODO: need to be verified
 SANYASADEEKSHA_VARSHIKAM = SanthigiriEvent(
-    id=SanthigiriEventId.SANYASADHEEKSHA_VARSHIKAM,
+    id="SANYASADHEEKSHA_VARSHIKAM",
     name="Sanyasadheeksha varshikam",
     description="""
         Falling on the Vijayadashami day (mostly in October), this marks the anniversary of the day that Guru first conferred ‘sanyasam’ (vow of renunciation of householder life) on disciples in 1984. Every year on this day, devotees gather to pray for the wellbeing of ‘sanyasis’ (renunciates). This paves the way for greater mutual understanding and spiritual bonding between the renunciate and the householder.
@@ -220,7 +202,7 @@ SANYASADEEKSHA_VARSHIKAM = SanthigiriEvent(
 SANTHIGIRI_EVENTS.append(SANYASADEEKSHA_VARSHIKAM)
 
 SAMSKARIKA_DINAM = SanthigiriEvent(
-    id=SanthigiriEventId.SAMSKARIKA_DINAM,
+    id="SAMSKARIKA_DINAM",
     name="Samskarika Dinam",
     description="""
         The formation of a National Centre for Cultural Renaissance (NCCR) on February 17, 1983, marked the beginning of an organized movement for cultural activities in the Ashram. The ‘Santhigiri Vishwa Samskarika Navodhana Kendram’ was registered as a charitable society on June 20, 1984. The organization is engaged in various cultural and voluntary activities to propagate the teachings of Guru for a spiritual and cultural renaissance in the world. The Santhigiri Vishwa Samskarika Navodhana Kendram has more than 200 units in Kerala and elsewhere. The Samskarika Dinam is marked by awareness meetings, seminars and cultural programmes to spread the Guru’s ideology.
@@ -232,7 +214,7 @@ SAMSKARIKA_DINAM = SanthigiriEvent(
 )
 
 SISHYAPOOJITHA_BDAY = SanthigiriEvent(
-    id=SanthigiriEventId.SISHYAPOOJITHA_BDAY,
+    id="SHISHYAPOOJITHA_BDAY",
     name="Shishyapoojitha's Birthday",
     description="Shishyapoojitha's Birthday",
     event_condition= EventCondition(
@@ -255,9 +237,10 @@ ALL_SANTHIGIRI_EVENTS: List[SanthigiriEvent] = [
     SANYASADEEKSHA_VARSHIKAM, SAMSKARIKA_DINAM, SISHYAPOOJITHA_BDAY,
 ]
 
-# NAVOLI_JYOTHIR_DINAM_VRITARAMBAM shares its id with NAVOLI_JYOTHIR_DINAM, so
-# setdefault keeps whichever is listed first (NAVOLI_JYOTHIR_DINAM).
-EVENT_DEFINITIONS_BY_ID: Dict[SanthigiriEventId, SanthigiriEvent] = {}
+# Every event has a distinct string id, so this is a straight id -> definition
+# map. ``setdefault`` still guards against an accidental future duplicate (first
+# listed wins) rather than silently overwriting.
+EVENT_DEFINITIONS_BY_ID: Dict[str, SanthigiriEvent] = {}
 for _event in ALL_SANTHIGIRI_EVENTS:
     EVENT_DEFINITIONS_BY_ID.setdefault(_event.id, _event)
 

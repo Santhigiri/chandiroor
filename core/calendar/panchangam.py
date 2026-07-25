@@ -77,10 +77,9 @@ def get_panchangam_data(
         location = location,
     )
 
-    #santhigiri_significant_dates = get_santhigiri_significant_dates_without_occurances(panchangam_data)
-
-    #panchangam_data.santhigiri_significant_dates = santhigiri_significant_dates
-
+    # santhigiri_significant_dates are overlaid by PanchangamService from the
+    # editable DB event definitions (see core/calendar/santhigiri_significant_dates.py);
+    # get_panchangam_data stays pure and returns an empty list here.
     return panchangam_data
 
 
