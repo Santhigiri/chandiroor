@@ -44,6 +44,16 @@ class PanchangamService:
         found = self._repo.get_by_date_range(days[0], days[-1], location)
         return {day: found.get(day) or self._compute(day, location) for day in days}
 
+    def get_by_range(
+        self,
+        start: date,
+        end: date,
+        location: Location = DEFAULT_LOCATION,
+    ) -> Dict[date, PanchangamData]:
+        days = [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
+        found = self._repo.get_by_date_range(start, end, location)
+        return {day: found.get(day) or self._compute(day, location) for day in days}
+
     def get_by_year(
         self, year: int, location: Location = DEFAULT_LOCATION
     ) -> Dict[date, PanchangamData]:

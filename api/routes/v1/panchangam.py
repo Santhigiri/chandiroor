@@ -8,6 +8,7 @@ from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from schemas.GetRangePanchangamParams import GetRangePanchangamParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.location import LocationInfo
 from services.etag_service import (
@@ -61,6 +62,26 @@ def panchangam_monthly(
     data = service.get_by_month(
         year=params.year,
         month=params.month,
+        location=location,
+    )
+    return {
+        day: CompactPanchangamData.from_panchangam_data(value)
+        for day, value in data.items()
+    }
+
+
+@router.get(
+    '/range',
+    response_model=Dict[date, CompactPanchangamData]
+)
+def panchangam_range(
+    params: Annotated[GetRangePanchangamParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_service)],
+    location: Annotated[Location, Depends(get_location)],
+):
+    data = service.get_by_range(
+        start=params.start,
+        end=params.end,
         location=location,
     )
     return {

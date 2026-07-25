@@ -297,6 +297,7 @@ Panchangam data (public — anonymous allowed, any supplied token still validate
 
 - `GET /api/v1/panchangam/day?day=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
+- `GET /api/v1/panchangam/range?start=YYYY-MM-DD&end=YYYY-MM-DD` — main version; returns the compact Panchangam for every day in the inclusive date range (capped at 366 days)
 - `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
 - `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
 - `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
