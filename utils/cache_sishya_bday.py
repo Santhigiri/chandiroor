@@ -98,6 +98,6 @@ def cache_sishya_bday():
 
 
 #remove_sishya_bday()
-cache_sishya_bday()
+#cache_sishya_bday()
 
 
