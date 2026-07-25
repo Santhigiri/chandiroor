@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import datetime, time
 from typing import List
 
-from core.astronomy.pournami import is_poornima
+from core.astronomy.pournami import is_poornima_live
 from core.constants import DEFAULT_TIMEZONE
 from schemas.panchangam_data import PanchangamData
 from utils.santhigiri_events import EventCondition, SanthigiriEvent
@@ -78,7 +78,7 @@ def event_matches(
         return False
     if condition.en_year is not None and condition.en_year != data.date.year:
         return False
-    if condition.is_poornima is not None and condition.is_poornima != is_poornima(
+    if condition.is_poornima is not None and condition.is_poornima != is_poornima_live(
         datetime.combine(data.date, time.min), timezone
     ):
         return False

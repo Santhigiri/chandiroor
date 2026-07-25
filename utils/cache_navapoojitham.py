@@ -1,7 +1,6 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 from typing import Dict, List, Tuple
 from core.astronomy.pournami import is_poornima
-from core.constants import DEFAULT_TIMEZONE
 from utils.cache_crud import load_cache, write_cache
 from utils.cache_utils import remove_events_from_cache
 from utils.malayalam_masa import MalayalamMasa
@@ -31,6 +30,11 @@ def calculate_navapoojitham(yearly_cache: PanchangamCache, year: int)-> date:
 
 
 def get_matching_dates(data: PanchangamCache, event_condition: EventCondition) -> List[Tuple[date, PanchangamData]]:
+    # Reuse the sunrise/sunset and thithi transitions already populated on each
+    # PanchangamData (from the cache/DB) so Pournami is derived without recomputing
+    # them via the ephemeris.
+    thithi_transitions_by_date = {d: pd.thithi_transitions for d, pd in data.items()}
+    sunrise_sunset_by_date = {d: (pd.sunrise, pd.sunset) for d, pd in data.items()}
     occurances = []
     for d, panchangam_data in data.items():
         if event_condition.nakshatra is not None and event_condition.nakshatra != panchangam_data.nakshatra:
@@ -49,7 +53,7 @@ def get_matching_dates(data: PanchangamCache, event_condition: EventCondition) -
             continue
         if event_condition.en_year is not None and event_condition.en_year != panchangam_data.date.year:
             continue
-        if event_condition.is_poornima is not None and event_condition.is_poornima != is_poornima(datetime.combine(panchangam_data.date, time.min), DEFAULT_TIMEZONE):
+        if event_condition.is_poornima is not None and event_condition.is_poornima != is_poornima(panchangam_data.date, thithi_transitions_by_date, sunrise_sunset_by_date):
             continue
 
         occurances.append((d, panchangam_data))
