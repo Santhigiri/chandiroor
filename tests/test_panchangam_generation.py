@@ -10,9 +10,16 @@ seeded rows come from the same ``get_panchangam_data`` the endpoint calls,
 regenerating a date reproduces its authoritative values, which we exploit to
 assert that a corrupted row is repaired and that the ``/year`` ETag stays in
 lockstep with what the read endpoint serves.
+
+The response is streamed as newline-delimited JSON (NDJSON): one ``"progress"``
+line per day, then a final ``"complete"`` line. ``TestClient`` (httpx-based)
+drives the ASGI app to completion and buffers the whole body in ``.text``
+regardless, so tests read it back by splitting on newlines and parsing each
+line — see ``_lines`` below.
 """
 from __future__ import annotations
 
+import json
 import pickle
 from datetime import date
 
@@ -115,6 +122,11 @@ def _stored_nazhika(api_engine, day: str) -> float:
         ).nazhika_from_sunrise
 
 
+def _lines(response) -> list[dict]:
+    """Parse an NDJSON response body into a list of line objects."""
+    return [json.loads(line) for line in response.text.strip().split("\n") if line]
+
+
 # ── Authorization ────────────────────────────────────────────────────────────────
 
 def test_generate_requires_authentication(client):
@@ -143,11 +155,30 @@ def test_generate_over_range_reports_summary(client, admin_auth):
         json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
     )
     assert r.status_code == 200
-    data = r.json()
+    lines = _lines(r)
+    data = lines[-1]
+    assert data["type"] == "complete"
     assert data["count"] == 3
     assert data["years"] == [2022]
     assert data["start_date"] == "2022-03-01"
     assert data["end_date"] == "2022-03-03"
+
+
+def test_generate_streams_progress_per_day(client, admin_auth):
+    r = client.post(
+        BASE,
+        headers=admin_auth,
+        json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
+    )
+    lines = _lines(r)
+    progress = [line for line in lines if line["type"] == "progress"]
+    assert [p["completed"] for p in progress] == [1, 2, 3]
+    assert [p["total"] for p in progress] == [3, 3, 3]
+    assert [p["percent"] for p in progress] == [pytest.approx(33.3), pytest.approx(66.7), 100.0]
+    assert [p["current_date"] for p in progress] == [
+        "2022-03-01", "2022-03-02", "2022-03-03",
+    ]
+    assert lines[-1]["type"] == "complete"
 
 
 def test_generate_overwrites_existing_row(client, admin_auth, api_engine):
@@ -160,6 +191,7 @@ def test_generate_overwrites_existing_row(client, admin_auth, api_engine):
         BASE, headers=admin_auth, json={"start_date": day, "end_date": day}
     )
     assert r.status_code == 200
+    assert _lines(r)[-1]["type"] == "complete"
     # The recomputed value replaced the corrupted one.
     assert _stored_nazhika(api_engine, day) != -999.0
     assert _stored_nazhika(api_engine, day) == pytest.approx(original)

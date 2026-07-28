@@ -7,19 +7,31 @@ Write endpoint for (re)generating Panchangam data, mounted under ``/api/v1``:
 Authorization mirrors the rest of the API: generating overwrites the ashram's
 authoritative calendar data, so it requires the ``admin`` role. The handler stays
 thin: parse, delegate to ``PanchangamGenerationService``. Invalid ranges are
-rejected by the request schema (422); there are no domain errors to translate,
-since the panchangam table is the parent — any date is generatable.
+rejected by the request schema (422) before the stream ever starts; there are no
+other domain errors to translate, since the panchangam table is the parent — any
+date is generatable.
+
+The response is streamed as newline-delimited JSON (NDJSON) rather than a single
+JSON object, since a large range can take a while: one ``PanchangamGenerateProgress``
+line per day, then a final ``PanchangamGenerateResult`` line (or a
+``PanchangamGenerateError`` line if something fails partway through — see
+``schemas/panchangam_generation.py`` for the line shapes). The request-scoped
+session from ``Depends(get_session)`` is captured into the closure and used for
+the whole stream — FastAPI keeps a ``yield``-based dependency open until the
+response finishes sending (including a streamed one), so it's still valid for
+the duration of the generator.
 """
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
+from starlette.responses import StreamingResponse
 
 from api.deps import get_location, require_role
 from db.database import get_session
 from schemas.panchangam_generation import (
+    PanchangamGenerateError,
     PanchangamGenerateRequest,
-    PanchangamGenerateResult,
 )
 from services.panchangam_generation_service import PanchangamGenerationService
 from utils.location import Location
@@ -28,20 +40,22 @@ from utils.roles import Role
 router = APIRouter(prefix="/panchangam", tags=["panchangam-generation"])
 
 
-def _get_service(
-    session: Annotated[Session, Depends(get_session)],
-) -> PanchangamGenerationService:
-    return PanchangamGenerationService(session)
-
-
 @router.post(
     "/generate",
-    response_model=PanchangamGenerateResult,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
-def generate_panchangam(
+async def generate_panchangam(
     payload: PanchangamGenerateRequest,
-    service: Annotated[PanchangamGenerationService, Depends(_get_service)],
+    session: Annotated[Session, Depends(get_session)],
     location: Annotated[Location, Depends(get_location)],
-) -> PanchangamGenerateResult:
-    return service.generate(payload, location)
+) -> StreamingResponse:
+    async def _stream():
+        service = PanchangamGenerationService(session)
+        try:
+            async for event in service.generate_streaming(payload, location):
+                yield event.model_dump_json() + "\n"
+        except Exception as exc:
+            session.rollback()
+            yield PanchangamGenerateError(detail=str(exc)).model_dump_json() + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")

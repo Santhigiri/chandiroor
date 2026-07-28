@@ -9,7 +9,10 @@ compact ``/year`` payload, so every write commits together with a recomputation
 of the affected years' ETags via :func:`services.etag_service.refresh_etags` —
 exactly as :class:`services.kollavarsham_service.KollavarshamService` and
 :class:`services.santhigiri_event_service.SanthigiriEventService` do — so cached
-clients revalidate correctly.
+clients revalidate correctly. Nothing commits until that single call at the end,
+so the whole range is still one atomic transaction — ``generate_streaming``
+yielding progress after each day is purely a visibility improvement, it does not
+change when the write becomes durable.
 
 This is a dedicated write-path service (constructed from a ``Session``) kept
 separate from the read-only :class:`services.panchangam_service.PanchangamService`
@@ -24,12 +27,16 @@ from the offline cache pipeline, matching the current architecture.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
+from time import perf_counter
+from typing import AsyncIterator, Union
 
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from db.repository import PanchangamRepository
 from schemas.panchangam_generation import (
+    PanchangamGenerateProgress,
     PanchangamGenerateRequest,
     PanchangamGenerateResult,
 )
@@ -42,11 +49,22 @@ class PanchangamGenerationService:
         self._s = session
         self._repo = PanchangamRepository(session)
 
-    def generate(
+    async def generate_streaming(
         self,
         req: PanchangamGenerateRequest,
         location: Location = DEFAULT_LOCATION,
-    ) -> PanchangamGenerateResult:
+    ) -> AsyncIterator[Union[PanchangamGenerateProgress, PanchangamGenerateResult]]:
+        """Yield a :class:`PanchangamGenerateProgress` after each day is
+        computed and written, then a final :class:`PanchangamGenerateResult`.
+
+        Each day's Skyfield-backed computation runs via ``run_in_threadpool``
+        so that CPU-bound work doesn't block the event loop — other requests
+        stay responsive while a large range streams. The DB write itself stays
+        on the calling thread/coroutine: a SQLAlchemy ``Session`` is not safe
+        to use from a different thread than the one it was opened on, even
+        sequentially across awaits, so ``self._repo.upsert`` is never
+        offloaded — it's cheap relative to the Skyfield computation anyway.
+        """
         span = (req.end_date - req.start_date).days + 1
         dates = [req.start_date + timedelta(days=offset) for offset in range(span)]
 
@@ -54,19 +72,28 @@ class PanchangamGenerationService:
         # generate actually runs, keeping app startup free of it.
         from core.calendar.panchangam import get_panchangam_data
 
-        for day in dates:
-            data = get_panchangam_data(
+        start = perf_counter()
+        for i, day in enumerate(dates, start=1):
+            data = await run_in_threadpool(
+                get_panchangam_data,
                 day,
                 location.latitude,
                 location.longitude,
                 location.timezone,
             )
-            self._repo.upsert(data, location)  # overwrites; does NOT commit
+            self._repo.upsert(data, location)  # does NOT commit
+            yield PanchangamGenerateProgress(
+                completed=i,
+                total=span,
+                percent=round(i / span * 100, 1),
+                current_date=day,
+                elapsed_seconds=round(perf_counter() - start, 1),
+            )
 
         years = sorted({d.year for d in dates})
-        refresh_etags(self._s, years, [location])  # recompute ETags + commit
+        refresh_etags(self._s, years, [location])  # commits
 
-        return PanchangamGenerateResult(
+        yield PanchangamGenerateResult(
             start_date=req.start_date,
             end_date=req.end_date,
             count=len(dates),

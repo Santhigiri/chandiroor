@@ -7,11 +7,18 @@ Request/response schemas for the Panchangam generation endpoint under
 day in an inclusive date range from the astronomy code and overwrites the stored
 rows. These models mirror ``schemas.kollavarsham`` — the request carries the
 range (validated here) and the result summarizes what was written.
+
+The endpoint streams one JSON object per line (NDJSON) as it works through the
+range: a :class:`PanchangamGenerateProgress` line after each day, then a single
+:class:`PanchangamGenerateResult` line once everything is written and the
+affected years' ETags are refreshed — or a :class:`PanchangamGenerateError` line
+if something fails partway through. Each line's ``type`` field discriminates
+which of the three it is.
 """
 from __future__ import annotations
 
 from datetime import date
-from typing import List
+from typing import List, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -40,9 +47,32 @@ class PanchangamGenerateRequest(BaseModel):
 
 
 class PanchangamGenerateResult(BaseModel):
-    """Summary returned by the generate endpoint."""
+    """Final line of the stream: summary of what was written."""
 
+    type: Literal["complete"] = "complete"
     start_date: date
     end_date: date
     count: int = Field(description="Number of dates (re)computed and written.")
     years: List[int]
+
+
+class PanchangamGenerateProgress(BaseModel):
+    """One line of the stream, emitted after each day is computed and written."""
+
+    type: Literal["progress"] = "progress"
+    completed: int = Field(description="Dates written so far, including this one.")
+    total: int
+    percent: float
+    current_date: date
+    elapsed_seconds: float
+
+
+class PanchangamGenerateError(BaseModel):
+    """Emitted instead of the final result line if generation fails partway
+    through. The DB write is rolled back (nothing commits until the very end),
+    but the HTTP status is already 200 by this point since progress lines were
+    already streamed — clients must check ``type`` on the last line rather than
+    relying on the status code alone."""
+
+    type: Literal["error"] = "error"
+    detail: str
