@@ -5,10 +5,11 @@ Co-located with the read-only ``GET /panchangam/events`` list (defined in
 ``api/routes/v1/panchangam.py``) on the same collection URI, mounted under
 ``/api/v1``:
 
-* ``POST   /api/v1/panchangam/events``            — create an event  (admin)
-* ``GET    /api/v1/panchangam/events/{event_id}`` — fetch one event's full definition  (public)
-* ``PUT    /api/v1/panchangam/events/{event_id}`` — partial-update an event  (admin)
-* ``DELETE /api/v1/panchangam/events/{event_id}`` — delete an event  (admin)
+* ``POST   /api/v1/panchangam/events``                        — create an event  (admin)
+* ``GET    /api/v1/panchangam/events/{event_id}``              — fetch one event's full definition  (public)
+* ``PUT    /api/v1/panchangam/events/{event_id}``              — partial-update an event  (admin)
+* ``DELETE /api/v1/panchangam/events/{event_id}``              — delete an event  (admin)
+* ``POST   /api/v1/panchangam/events/{event_id}/occurrences``  — (re)generate an event's occurrence dates for a year  (admin)
 
 Authorization mirrors the rest of the API: reading an event definition is
 public (the anonymous principal is allowed, any supplied token is still
@@ -19,7 +20,7 @@ codes.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlmodel import Session
 
 from api.deps import require_role
@@ -27,13 +28,17 @@ from db.database import get_session
 from schemas.santhigiri_event import (
     SanthigiriEventCreate,
     SanthigiriEventDetail,
+    SanthigiriEventOccurrences,
     SanthigiriEventUpdate,
 )
 from services.santhigiri_event_service import (
     EventAlreadyExists,
     EventNotFound,
+    IncompleteYearData,
     InvalidEventReference,
+    OccurrenceComputationError,
     SanthigiriEventService,
+    UnsupportedEventCondition,
 )
 from utils.roles import Role
 
@@ -123,3 +128,31 @@ def delete_event(
             status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{event_id}/occurrences",
+    response_model=SanthigiriEventOccurrences,
+    dependencies=[Depends(require_role(Role.ADMIN))],
+)
+def generate_event_occurrences(
+    event_id: str,
+    year: Annotated[int, Query(ge=2000, le=2100)],
+    service: Annotated[SanthigiriEventService, Depends(_get_service)],
+) -> SanthigiriEventOccurrences:
+    """(Re)compute *event_id*'s occurrence dates for *year* from the DB's
+    panchangam data and replace whatever was stored for that event/year."""
+    try:
+        dates = service.generate_occurrences(event_id, year)
+    except EventNotFound:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
+        )
+    except IncompleteYearData:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Panchangam data for {year} is not fully seeded.",
+        )
+    except (UnsupportedEventCondition, OccurrenceComputationError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return SanthigiriEventOccurrences(event_id=event_id, year=year, dates=dates)

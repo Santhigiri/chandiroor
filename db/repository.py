@@ -98,7 +98,7 @@ def _row_to_panchangam_data(
     )
 
 
-def _event_row_to_event(ev: SanthigiriEventRow) -> SanthigiriEvent:
+def event_row_to_event(ev: SanthigiriEventRow) -> SanthigiriEvent:
     """Map an editable ``santhigiri_event`` row to its domain ``SanthigiriEvent``."""
     cond = EventCondition(
         nakshatra=Nakshatra.from_id(ev.nakshatra_id) if ev.nakshatra_id else None,
@@ -125,7 +125,7 @@ def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
     ev = row.event
     if ev is None:
         raise ValueError(f"No santhigiri_event definition for {row.event_id!r}")
-    return _event_row_to_event(ev)
+    return event_row_to_event(ev)
 
 
 # ── Eager-load strategy used by all getters ───────────────────────────────────
@@ -221,7 +221,7 @@ class PanchangamRepository:
         rows = self._s.exec(
             select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
         ).all()
-        return [_event_row_to_event(row) for row in rows]
+        return [event_row_to_event(row) for row in rows]
 
     # ── Setters ──────────────────────────────────────────────────────────────
 
@@ -299,6 +299,29 @@ class PanchangamRepository:
         for item in data:
             self.upsert(item, location)
         self._s.commit()
+
+    def set_event_occurrences_for_year(
+        self, event_id: str, year: int, dates: Iterable[datetime.date]
+    ) -> None:
+        """Replace *event_id*'s occurrences within *year* with *dates*.
+
+        Unlike :meth:`_replace_santhigiri_events` (which replaces every
+        event's occurrences for one date), this replaces one event's
+        occurrences across an entire year — the shape needed to regenerate a
+        single event's dates without disturbing any other event's dates that
+        happen to fall on the same days. Does NOT commit.
+        """
+        start = datetime.date(year, 1, 1)
+        end = datetime.date(year, 12, 31)
+        self._s.exec(
+            delete(SanthigiriEventDateRow).where(
+                col(SanthigiriEventDateRow.event_id) == event_id,
+                col(SanthigiriEventDateRow.panchangam_date) >= start,
+                col(SanthigiriEventDateRow.panchangam_date) <= end,
+            )
+        )
+        for d in dates:
+            self._s.add(SanthigiriEventDateRow(panchangam_date=d, event_id=event_id))
 
     # ── Private helpers ───────────────────────────────────────────────────────
 

@@ -1,0 +1,3182 @@
+{
+  "info": {
+    "_postman_id": "f94400ee-e31a-4ce8-976d-f37b6b60e453",
+    "name": "panchangam-api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "panchangam",
+      "item": [
+        {
+          "name": "monthly",
+          "item": [
+            {
+              "name": "Panchangam Monthly",
+              "id": "37871a0a-485d-4702-8b24-f50e1157a044",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bearerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/panchangam/monthly?year=2026&month=11&location=tvm",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "panchangam",
+                    "monthly"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "2026"
+                    },
+                    {
+                      "key": "month",
+                      "value": "11"
+                    },
+                    {
+                      "description": "Location code, e.g. 'tvm'",
+                      "key": "location",
+                      "value": "tvm"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "d319bb79-0f56-453e-a825-0c62072690c3",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "description": "Added as a part of security scheme: bearer",
+                        "key": "Authorization",
+                        "value": "Bearer <token>"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/panchangam/monthly?year=2026&month=11&location=tvm",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "panchangam",
+                        "monthly"
+                      ],
+                      "query": [
+                        {
+                          "key": "year",
+                          "value": "2026"
+                        },
+                        {
+                          "key": "month",
+                          "value": "11"
+                        },
+                        {
+                          "description": "Location code, e.g. 'tvm'",
+                          "key": "location",
+                          "value": "tvm"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": ""
+                },
+                {
+                  "id": "dd50c713-9036-4ccf-aa95-9e064f297e01",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "description": "Added as a part of security scheme: bearer",
+                        "key": "Authorization",
+                        "value": "Bearer <token>"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/panchangam/monthly?year=2026&month=11&location=tvm",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "panchangam",
+                        "monthly"
+                      ],
+                      "query": [
+                        {
+                          "key": "year",
+                          "value": "2026"
+                        },
+                        {
+                          "key": "month",
+                          "value": "11"
+                        },
+                        {
+                          "description": "Location code, e.g. 'tvm'",
+                          "key": "location",
+                          "value": "tvm"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                }
+              ]
+            }
+          ],
+          "id": "4cd32308-e2b5-4b3d-bbd2-6e57fccee398"
+        },
+        {
+          "name": "Panchangam",
+          "id": "8a3c084f-2a99-41c7-819f-d3b107fee801",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/panchangam/?date_str=2026-07-23&time_str=00:00:00&latitude=8.645&longitude=76.938&timezone=Asia/Kolkata&location=tvm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "panchangam",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "date_str",
+                  "value": "2026-07-23"
+                },
+                {
+                  "key": "time_str",
+                  "value": "00:00:00"
+                },
+                {
+                  "key": "latitude",
+                  "value": "8.645"
+                },
+                {
+                  "key": "longitude",
+                  "value": "76.938"
+                },
+                {
+                  "key": "timezone",
+                  "value": "Asia/Kolkata"
+                },
+                {
+                  "description": "Location code, e.g. 'tvm'",
+                  "key": "location",
+                  "value": "tvm"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "26895339-b221-408b-a655-a3cfb4cda746",
+              "name": "Successful Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "description": "Added as a part of security scheme: bearer",
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/panchangam/?date_str=2026-07-23&time_str=00:00:00&latitude=8.645&longitude=76.938&timezone=Asia/Kolkata&location=tvm",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "panchangam",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "date_str",
+                      "value": "2026-07-23"
+                    },
+                    {
+                      "key": "time_str",
+                      "value": "00:00:00"
+                    },
+                    {
+                      "key": "latitude",
+                      "value": "8.645"
+                    },
+                    {
+                      "key": "longitude",
+                      "value": "76.938"
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "Asia/Kolkata"
+                    },
+                    {
+                      "description": "Location code, e.g. 'tvm'",
+                      "key": "location",
+                      "value": "tvm"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": ""
+            },
+            {
+              "id": "b2d20267-c80f-4316-aaaf-bb727450be2f",
+              "name": "Validation Error",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "description": "Added as a part of security scheme: bearer",
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/panchangam/?date_str=2026-07-23&time_str=00:00:00&latitude=8.645&longitude=76.938&timezone=Asia/Kolkata&location=tvm",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "panchangam",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "date_str",
+                      "value": "2026-07-23"
+                    },
+                    {
+                      "key": "time_str",
+                      "value": "00:00:00"
+                    },
+                    {
+                      "key": "latitude",
+                      "value": "8.645"
+                    },
+                    {
+                      "key": "longitude",
+                      "value": "76.938"
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "Asia/Kolkata"
+                    },
+                    {
+                      "description": "Location code, e.g. 'tvm'",
+                      "key": "location",
+                      "value": "tvm"
+                    }
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ],
+      "id": "d393ca6d-6a74-4aee-8aab-97aaea684ef0"
+    },
+    {
+      "name": "api",
+      "item": [
+        {
+          "name": "v1",
+          "item": [
+            {
+              "name": "panchangam",
+              "item": [
+                {
+                  "name": "day",
+                  "item": [
+                    {
+                      "name": "Panchangam",
+                      "id": "11d7cae0-8783-45d4-9342-11a02f0b9a48",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/day?day=2022-12-15&location=tvm",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "day"
+                          ],
+                          "query": [
+                            {
+                              "key": "day",
+                              "value": "2022-12-15",
+                              "uuid": "1c7e691f-e3af-456a-bc7c-fcc2e5f7604f"
+                            },
+                            {
+                              "key": "location",
+                              "value": "tvm",
+                              "description": "Location code, e.g. 'tvm'",
+                              "uuid": "080ce91d-5d74-41b4-8f43-86b68923faeb"
+                            }
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "3f16dba3-1911-43e4-b250-51a72fa1e9e7",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/day?day=1981-12-15&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "day"
+                              ],
+                              "query": [
+                                {
+                                  "key": "day",
+                                  "value": "1981-12-15"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"date\": \"1986-01-29\",\n  \"kv\": {\n    \"kv_day\": 2975,\n    \"kv_year\": 7723,\n    \"masa\": \"string\"\n  },\n  \"thithi_transitions\": [\n    {\n      \"thithi\": \"string\",\n      \"start_time\": \"2001-02-27T17:55:33.120Z\",\n      \"end_time\": null\n    },\n    {\n      \"thithi\": \"string\",\n      \"start_time\": \"2016-05-15T19:14:26.454Z\",\n      \"end_time\": null\n    }\n  ],\n  \"nakshatra_transitions\": [\n    {\n      \"nakshatra\": \"string\",\n      \"start_time\": \"1954-04-13T09:45:39.683Z\",\n      \"end_time\": null\n    },\n    {\n      \"nakshatra\": \"string\",\n      \"start_time\": \"1976-01-20T10:28:22.672Z\",\n      \"end_time\": null\n    }\n  ],\n  \"thithi\": \"string\",\n  \"nakshatra\": \"string\",\n  \"sunrise\": \"1954-01-22T16:20:57.983Z\",\n  \"sunset\": \"1963-06-27T20:10:30.576Z\",\n  \"nazhika_from_sunrise\": 3342.952766106182,\n  \"location\": null\n}"
+                        },
+                        {
+                          "id": "fd3b1c38-2e50-42c5-ba8f-45cc7350e91b",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/day?day=1981-12-15&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "day"
+                              ],
+                              "query": [
+                                {
+                                  "key": "day",
+                                  "value": "1981-12-15"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "5de5c4c3-ca98-45a9-bab4-08ce5752a717"
+                },
+                {
+                  "name": "month",
+                  "item": [
+                    {
+                      "name": "Panchangam Monthly",
+                      "id": "66d08288-760a-4f27-9a2d-eb20845db99e",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/month?year=2026&month=11&location=tvm",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "month"
+                          ],
+                          "query": [
+                            {
+                              "key": "year",
+                              "value": "2026"
+                            },
+                            {
+                              "key": "month",
+                              "value": "11"
+                            },
+                            {
+                              "description": "Location code, e.g. 'tvm'",
+                              "key": "location",
+                              "value": "tvm"
+                            }
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "91e65075-355c-4467-af1c-e438d5f82b83",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/month?year=2026&month=11&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "month"
+                              ],
+                              "query": [
+                                {
+                                  "key": "year",
+                                  "value": "2026"
+                                },
+                                {
+                                  "key": "month",
+                                  "value": "11"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"key_0\": {\n    \"date\": \"1958-11-15\",\n    \"kv\": {\n      \"kv_day\": 3519,\n      \"kv_year\": 2474,\n      \"masa\": \"string\"\n    },\n    \"thithi_transitions\": [\n      {\n        \"thithi\": \"string\",\n        \"start_time\": \"2021-04-25T08:31:51.331Z\",\n        \"end_time\": \"2021-04-16T11:17:22.554Z\"\n      },\n      {\n        \"thithi\": \"string\",\n        \"start_time\": \"1973-07-10T01:12:57.009Z\",\n        \"end_time\": \"1954-05-07T04:41:17.482Z\"\n      }\n    ],\n    \"nakshatra_transitions\": [\n      {\n        \"nakshatra\": \"string\",\n        \"start_time\": \"2022-09-04T19:30:59.377Z\",\n        \"end_time\": \"2019-11-18T23:03:14.050Z\"\n      },\n      {\n        \"nakshatra\": \"string\",\n        \"start_time\": \"2014-06-27T19:38:00.682Z\",\n        \"end_time\": \"1964-04-01T15:18:22.477Z\"\n      }\n    ],\n    \"thithi\": \"string\",\n    \"nakshatra\": \"string\",\n    \"sunrise\": \"1965-06-11T12:05:57.691Z\",\n    \"sunset\": \"1962-10-21T11:08:38.780Z\",\n    \"nazhika_from_sunrise\": 5757.751290826148,\n    \"location\": {\n      \"code\": \"string\",\n      \"label\": \"string\"\n    }\n  }\n}"
+                        },
+                        {
+                          "id": "86b8bd9d-4bda-42f5-b12d-a19c1cf2d922",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/month?year=2026&month=11&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "month"
+                              ],
+                              "query": [
+                                {
+                                  "key": "year",
+                                  "value": "2026"
+                                },
+                                {
+                                  "key": "month",
+                                  "value": "11"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "8706de52-a36a-4eb7-8a97-375db5a61685"
+                },
+                {
+                  "name": "year",
+                  "item": [
+                    {
+                      "name": "Panchangam Yearly",
+                      "id": "73a726d0-7665-4058-82f7-8a309077e544",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "If-None-Match",
+                            "value": "\"bcec25b387d3ef14c58d32a3b10baef255dfa04b430377d7c63588b40ce599c0\"",
+                            "type": "text",
+                            "uuid": "5393272f-edd0-4817-97fa-7775bc17c6ae"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/year?year=2044&location=tvm",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "year"
+                          ],
+                          "query": [
+                            {
+                              "key": "year",
+                              "value": "2044",
+                              "uuid": "2754379c-37d8-47e5-bc5b-4acbae4b896b"
+                            },
+                            {
+                              "key": "location",
+                              "value": "tvm",
+                              "description": "Location code, e.g. 'tvm'",
+                              "uuid": "e288d30a-2416-434f-8a07-929ff231fcc7"
+                            }
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "92a060a1-72f8-4772-8977-eef4684b4595",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/year?year=2026&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "year"
+                              ],
+                              "query": [
+                                {
+                                  "key": "year",
+                                  "value": "2026"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": ""
+                        },
+                        {
+                          "id": "f9be3d5d-f17c-4a58-8e99-53f8f33cdb80",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/year?year=2026&location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "year"
+                              ],
+                              "query": [
+                                {
+                                  "key": "year",
+                                  "value": "2026"
+                                },
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "d517f2ac-fb62-4d6f-b94c-26d6e57a7d2c"
+                },
+                {
+                  "name": "thithi",
+                  "item": [
+                    {
+                      "name": "Thithi Reference",
+                      "id": "355c5137-896d-4e16-be9c-b6e80c809fa3",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/thithi",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "thithi"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "cde164da-6744-4013-8ae2-e02cb17b585f",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/thithi",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "thithi"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "[\n  [\n    20,\n    [\n      2,\n      \"കൃഷ്ണപക്ഷം\",\n      \"Krishna Paksha\"\n    ],\n    5,\n    \"പഞ്ചമി\",\n    \"Panchami\"\n  ],\n  [\n    28,\n    [\n      2,\n      \"കൃഷ്ണപക്ഷം\",\n      \"Krishna Paksha\"\n    ],\n    13,\n    \"ത്രയോദശി\",\n    \"Trayodashi\"\n  ]\n]"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "4eb4f972-d43c-4ae3-ba8d-cd3ff8f4f794"
+                },
+                {
+                  "name": "nakshatra",
+                  "item": [
+                    {
+                      "name": "Nakshatra Reference",
+                      "id": "4ee13933-5137-4e15-8419-3e2f86bfd9af",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/nakshatra",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "nakshatra"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "ae0656ab-fdc4-4cf9-bee1-fc523d297caf",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/nakshatra",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "nakshatra"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "[\n  [\n    21,\n    \"ഉത്രാടം\",\n    \"Uthradam\"\n  ],\n  [\n    25,\n    \"പൂരുരുട്ടാതി\",\n    \"Pooruruttathi\"\n  ]\n]"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "bf2bd60e-a692-45db-8217-edcbbe77d1b5"
+                },
+                {
+                  "name": "masa",
+                  "item": [
+                    {
+                      "name": "Masa Reference",
+                      "id": "813db198-a324-44eb-bd78-5b7effd7f611",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/masa",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "masa"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "82d329ca-3d46-4866-85f3-ed95454e297d",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/masa",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "masa"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "[\n  [\n    4,\n    \"കർക്കിടകം\",\n    \"Karkidakam\"\n  ],\n  [\n    6,\n    \"കന്നി\",\n    \"Kanni\"\n  ]\n]"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "f647b15e-52d9-45d4-b7cb-8b6e3a67db38"
+                },
+                {
+                  "name": "events",
+                  "item": [
+                    {
+                      "name": "{event_id}",
+                      "item": [
+                        {
+                          "name": "Get Event",
+                          "id": "3a09e97e-8c74-4122-9e61-e5a261cb74ba",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events",
+                                ":event_id"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "event_id",
+                                  "value": "string"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "c9d5e44d-d29b-4098-8dbd-83ee2cd4a45d",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "GET",
+                                "header": [
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "OK",
+                              "code": 200,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 5043,\n  \"nakshatra_id\": 9,\n  \"thithi_id\": 13,\n  \"ml_day\": null,\n  \"ml_month\": 11,\n  \"ml_year\": null,\n  \"en_day\": 1,\n  \"en_month\": 9,\n  \"en_year\": 9567,\n  \"occurance\": 4782,\n  \"is_poornima\": null,\n  \"last_occurance\": null\n}"
+                            },
+                            {
+                              "id": "a75819aa-994c-4723-842b-6c27502e8329",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "GET",
+                                "header": [
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        },
+                        {
+                          "name": "Update Event",
+                          "id": "de31259a-e0e8-4f63-beea-885050f0a55d",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "PUT",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"name\": null,\n  \"description\": \"string\",\n  \"sort_order\": null,\n  \"nakshatra_id\": 6,\n  \"thithi_id\": 18,\n  \"ml_day\": null,\n  \"ml_month\": null,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 2,\n  \"en_year\": 2343,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": true\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events",
+                                ":event_id"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "event_id",
+                                  "value": "string"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "565b140f-4dde-46b2-a284-5660c3905374",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "PUT",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"name\": null,\n  \"description\": \"string\",\n  \"sort_order\": null,\n  \"nakshatra_id\": 6,\n  \"thithi_id\": 18,\n  \"ml_day\": null,\n  \"ml_month\": null,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 2,\n  \"en_year\": 2343,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": true\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "OK",
+                              "code": 200,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 5043,\n  \"nakshatra_id\": 9,\n  \"thithi_id\": 13,\n  \"ml_day\": null,\n  \"ml_month\": 11,\n  \"ml_year\": null,\n  \"en_day\": 1,\n  \"en_month\": 9,\n  \"en_year\": 9567,\n  \"occurance\": 4782,\n  \"is_poornima\": null,\n  \"last_occurance\": null\n}"
+                            },
+                            {
+                              "id": "7873e97a-7eb3-417d-8788-33fd1039ef7e",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "PUT",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"name\": null,\n  \"description\": \"string\",\n  \"sort_order\": null,\n  \"nakshatra_id\": 6,\n  \"thithi_id\": 18,\n  \"ml_day\": null,\n  \"ml_month\": null,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 2,\n  \"en_year\": 2343,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": true\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        },
+                        {
+                          "name": "Delete Event",
+                          "id": "faeeaccb-df1b-44c2-93c8-10fd45982ff0",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "DELETE",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events",
+                                ":event_id"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "event_id",
+                                  "value": "string"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "6a68a468-efc6-4b0e-9941-5748d0e4041d",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "DELETE",
+                                "header": [
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "No Content",
+                              "code": 204,
+                              "_postman_previewlanguage": "text",
+                              "header": [],
+                              "cookie": [],
+                              "body": ""
+                            },
+                            {
+                              "id": "5002d3ca-b5be-4e47-9dd4-7753b9e11c47",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "DELETE",
+                                "header": [
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "events",
+                                    ":event_id"
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "event_id",
+                                      "value": "string"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        }
+                      ],
+                      "id": "d6f2fdab-68ea-4127-8106-11a915776a2d"
+                    },
+                    {
+                      "name": "Events Reference",
+                      "id": "a5647750-418f-4bd5-9bfb-2e933c1492ad",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/events",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "events"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "0df8fe6b-b2d8-4ff9-9f1b-a026cb8ed82f",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "[\n  {\n    \"id\": \"string\",\n    \"name\": \"string\",\n    \"description\": \"string\"\n  },\n  {\n    \"id\": \"string\",\n    \"name\": \"string\",\n    \"description\": \"string\"\n  }\n]"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "Create Event",
+                      "id": "1f272894-47ee-4887-9690-fa7b07beaf0f",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 9202,\n  \"nakshatra_id\": null,\n  \"thithi_id\": null,\n  \"ml_day\": 27,\n  \"ml_month\": 8,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 3,\n  \"en_year\": null,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": null\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/events",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "events"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "250f6776-ec8c-4396-b1e4-8eb0fc3feefe",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 9202,\n  \"nakshatra_id\": null,\n  \"thithi_id\": null,\n  \"ml_day\": 27,\n  \"ml_month\": 8,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 3,\n  \"en_year\": null,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": null\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events"
+                              ]
+                            }
+                          },
+                          "status": "Created",
+                          "code": 201,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 5043,\n  \"nakshatra_id\": 9,\n  \"thithi_id\": 13,\n  \"ml_day\": null,\n  \"ml_month\": 11,\n  \"ml_year\": null,\n  \"en_day\": 1,\n  \"en_month\": 9,\n  \"en_year\": 9567,\n  \"occurance\": 4782,\n  \"is_poornima\": null,\n  \"last_occurance\": null\n}"
+                        },
+                        {
+                          "id": "b21011df-5113-403e-88ff-b1096fd5a85f",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"id\": \"string\",\n  \"sort_order\": 9202,\n  \"nakshatra_id\": null,\n  \"thithi_id\": null,\n  \"ml_day\": 27,\n  \"ml_month\": 8,\n  \"ml_year\": null,\n  \"en_day\": null,\n  \"en_month\": 3,\n  \"en_year\": null,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": null\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/events",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "events"
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "1b3d51e0-01a9-47d7-ad9c-b09674471254"
+                },
+                {
+                  "name": "locations",
+                  "item": [
+                    {
+                      "name": "Locations Reference",
+                      "id": "29f4a83a-5c7f-45d0-a6c1-64b43a5da75c",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "If-None-Match",
+                            "value": "\"3031e65d6447688816cfbb9cf3e45830ef981476e2c9c8da860b2bafc6f5f811\"",
+                            "type": "text",
+                            "uuid": "c999937a-95a5-44f8-846c-c7747facafea"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/panchangam/locations",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "panchangam",
+                            "locations"
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "id": "505557c4-4f34-4606-9b0d-4843dffd175a",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/locations",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "locations"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "[\n  {\n    \"code\": \"string\",\n    \"label\": \"string\",\n    \"latitude\": 1584.6391560451978,\n    \"longitude\": 3310.0738830761966,\n    \"timezone\": \"string\"\n  },\n  {\n    \"code\": \"string\",\n    \"label\": \"string\",\n    \"latitude\": 606.894638392439,\n    \"longitude\": 4120.863182418004,\n    \"timezone\": \"string\"\n  }\n]"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "13f34b28-90b7-452f-a99e-b35ad061ea35"
+                },
+                {
+                  "name": "kollavarsham",
+                  "item": [
+                    {
+                      "name": "generate",
+                      "item": [
+                        {
+                          "name": "Generate Kollavarsham",
+                          "id": "2498b759-a051-47f6-a354-44e546485b4b",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"start_date\": \"2021-08-03\",\n  \"end_date\": \"2021-06-02\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/generate?location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "kollavarsham",
+                                "generate"
+                              ],
+                              "query": [
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "44599907-b240-4a96-a23c-dcf57ba7aba0",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"start_date\": \"2021-08-03\",\n  \"end_date\": \"2021-06-02\"\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/generate?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    "generate"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "OK",
+                              "code": 200,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"start_date\": \"1966-04-12\",\n  \"end_date\": \"2014-08-09\",\n  \"count\": 9855,\n  \"years\": [\n    4329,\n    4766\n  ]\n}"
+                            },
+                            {
+                              "id": "592922f5-f1a6-41ed-88f7-438f3bc572f7",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"start_date\": \"2021-08-03\",\n  \"end_date\": \"2021-06-02\"\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/generate?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    "generate"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        }
+                      ],
+                      "id": "72f50e70-6097-4359-af4e-0acd251c9e10"
+                    },
+                    {
+                      "name": "{date}",
+                      "item": [
+                        {
+                          "name": "Get Kollavarsham",
+                          "id": "9d3d5b12-cd6c-4d28-867c-08f4a8bced8b",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "kollavarsham",
+                                ":date"
+                              ],
+                              "query": [
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ],
+                              "variable": [
+                                {
+                                  "key": "date",
+                                  "value": "2025-02-22"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "a20a878b-1049-4763-9a17-450e3c658cfb",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "GET",
+                                "header": [
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    ":date"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "date",
+                                      "value": "2025-02-22"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "OK",
+                              "code": 200,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"date\": \"2024-09-02\",\n  \"kv_day\": 1719,\n  \"kv_month\": 6213,\n  \"kv_year\": 8214,\n  \"kv_month_name_en\": \"string\",\n  \"kv_month_name_ml\": \"string\"\n}"
+                            },
+                            {
+                              "id": "1730eaa3-396c-4ac6-88be-defc3bdf076c",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "GET",
+                                "header": [
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    ":date"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "date",
+                                      "value": "2025-02-22"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        },
+                        {
+                          "name": "Update Kollavarsham",
+                          "id": "7e44bf21-abf7-4434-bd02-747118449ba1",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "auth": {
+                              "type": "bearer",
+                              "bearer": [
+                                {
+                                  "key": "token",
+                                  "value": "{{bearerToken}}",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "method": "PUT",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"kv_day\": 6,\n  \"kv_month\": 6,\n  \"kv_year\": 754\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "panchangam",
+                                "kollavarsham",
+                                ":date"
+                              ],
+                              "query": [
+                                {
+                                  "description": "Location code, e.g. 'tvm'",
+                                  "key": "location",
+                                  "value": "tvm"
+                                }
+                              ],
+                              "variable": [
+                                {
+                                  "key": "date",
+                                  "value": "2025-02-22"
+                                }
+                              ]
+                            }
+                          },
+                          "response": [
+                            {
+                              "id": "7be611ff-a249-46fb-8227-7c81c719c1a9",
+                              "name": "Successful Response",
+                              "originalRequest": {
+                                "method": "PUT",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"kv_day\": 6,\n  \"kv_month\": 6,\n  \"kv_year\": 754\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    ":date"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "date",
+                                      "value": "2025-02-22"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "OK",
+                              "code": 200,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"date\": \"2024-09-02\",\n  \"kv_day\": 1719,\n  \"kv_month\": 6213,\n  \"kv_year\": 8214,\n  \"kv_month_name_en\": \"string\",\n  \"kv_month_name_ml\": \"string\"\n}"
+                            },
+                            {
+                              "id": "13b7cc30-1fa2-41c4-8b58-8b3cf4b3e35e",
+                              "name": "Validation Error",
+                              "originalRequest": {
+                                "method": "PUT",
+                                "header": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "key": "Accept",
+                                    "value": "application/json"
+                                  },
+                                  {
+                                    "description": "Added as a part of security scheme: bearer",
+                                    "key": "Authorization",
+                                    "value": "Bearer <token>"
+                                  }
+                                ],
+                                "body": {
+                                  "mode": "raw",
+                                  "raw": "{\n  \"kv_day\": 6,\n  \"kv_month\": 6,\n  \"kv_year\": 754\n}",
+                                  "options": {
+                                    "raw": {
+                                      "headerFamily": "json",
+                                      "language": "json"
+                                    }
+                                  }
+                                },
+                                "url": {
+                                  "raw": "{{baseUrl}}/api/v1/panchangam/kollavarsham/:date?location=tvm",
+                                  "host": [
+                                    "{{baseUrl}}"
+                                  ],
+                                  "path": [
+                                    "api",
+                                    "v1",
+                                    "panchangam",
+                                    "kollavarsham",
+                                    ":date"
+                                  ],
+                                  "query": [
+                                    {
+                                      "description": "Location code, e.g. 'tvm'",
+                                      "key": "location",
+                                      "value": "tvm"
+                                    }
+                                  ],
+                                  "variable": [
+                                    {
+                                      "key": "date",
+                                      "value": "2025-02-22"
+                                    }
+                                  ]
+                                }
+                              },
+                              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                              "code": 422,
+                              "_postman_previewlanguage": "json",
+                              "header": [
+                                {
+                                  "key": "Content-Type",
+                                  "value": "application/json"
+                                }
+                              ],
+                              "cookie": [],
+                              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                            }
+                          ]
+                        }
+                      ],
+                      "id": "72642fcf-3bbe-4ff6-8fa0-6f4d20d0d733"
+                    }
+                  ],
+                  "id": "5e2b219e-a728-4c0f-afb3-8b2d65e75db5"
+                }
+              ],
+              "id": "66906c68-3e2f-4999-8643-8297d27f1135"
+            },
+            {
+              "name": "auth",
+              "item": [
+                {
+                  "name": "login",
+                  "item": [
+                    {
+                      "name": "Login",
+                      "id": "1cb4deee-8791-4622-ab9d-7e86f2f0bada",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "urlencoded",
+                          "urlencoded": [
+                            {
+                              "key": "username",
+                              "value": "string"
+                            },
+                            {
+                              "key": "password",
+                              "value": "string"
+                            },
+                            {
+                              "key": "grant_type",
+                              "value": "password"
+                            },
+                            {
+                              "key": "scope",
+                              "value": ""
+                            },
+                            {
+                              "key": "client_id",
+                              "value": "string"
+                            },
+                            {
+                              "key": "client_secret",
+                              "value": "string"
+                            }
+                          ]
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/auth/login",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "auth",
+                            "login"
+                          ]
+                        },
+                        "description": "Verify username/password and issue an access + refresh token pair."
+                      },
+                      "response": [
+                        {
+                          "id": "fcfbbee7-dcb5-4631-a76d-3cafea2eb0e3",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "urlencoded",
+                              "urlencoded": [
+                                {
+                                  "key": "username",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "password",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "grant_type",
+                                  "value": "password"
+                                },
+                                {
+                                  "key": "scope",
+                                  "value": ""
+                                },
+                                {
+                                  "key": "client_id",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "client_secret",
+                                  "value": "string"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/login",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"access_token\": \"string\",\n  \"refresh_token\": \"string\",\n  \"token_type\": \"bearer\"\n}"
+                        },
+                        {
+                          "id": "601e1d4e-58ec-4f3f-990f-7ebf7de4c40a",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "urlencoded",
+                              "urlencoded": [
+                                {
+                                  "key": "username",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "password",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "grant_type",
+                                  "value": "password"
+                                },
+                                {
+                                  "key": "scope",
+                                  "value": ""
+                                },
+                                {
+                                  "key": "client_id",
+                                  "value": "string"
+                                },
+                                {
+                                  "key": "client_secret",
+                                  "value": "string"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/login",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "7c06f896-a84b-40c0-a933-45d922112527"
+                },
+                {
+                  "name": "refresh",
+                  "item": [
+                    {
+                      "name": "Refresh",
+                      "id": "b332d337-175a-435b-a74a-b57a16bcf245",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"refresh_token\": \"string\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/auth/refresh",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "auth",
+                            "refresh"
+                          ]
+                        },
+                        "description": "Exchange a valid refresh token for a new access + refresh token pair\n(refresh-token rotation). The user is re-checked for existence and active\nstatus on every refresh."
+                      },
+                      "response": [
+                        {
+                          "id": "4a1a749f-3c12-49c5-9a14-bdcd2e098e2e",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"refresh_token\": \"string\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "refresh"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"access_token\": \"string\",\n  \"refresh_token\": \"string\",\n  \"token_type\": \"bearer\"\n}"
+                        },
+                        {
+                          "id": "8520d612-ba4c-4b94-8f73-9650bf1f6aed",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"refresh_token\": \"string\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "refresh"
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "8be7cee1-9796-49f1-a400-d53b93cbc7be"
+                },
+                {
+                  "name": "me",
+                  "item": [
+                    {
+                      "name": "Me",
+                      "id": "4752aea0-bf7a-4475-bdd6-96ac77926b0d",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/auth/me",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "auth",
+                            "me"
+                          ]
+                        },
+                        "description": "Return the currently authenticated user (requires user or admin)."
+                      },
+                      "response": [
+                        {
+                          "id": "6d79176f-bf85-4f24-99d0-988357f90906",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "GET",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/me",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "me"
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"username\": \"string\",\n  \"role\": \"admin\",\n  \"is_active\": true\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "97f2d1ef-75ce-4583-b658-b6f1fa8d889d"
+                },
+                {
+                  "name": "users",
+                  "item": [
+                    {
+                      "name": "Create User",
+                      "id": "3dc60211-f531-495a-b7bc-5a18e8db78af",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "auth": {
+                          "type": "bearer",
+                          "bearer": [
+                            {
+                              "key": "token",
+                              "value": "{{bearerToken}}",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"username\": \"string\",\n  \"password\": \"stringstring\",\n  \"role\": \"user\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/auth/users",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "auth",
+                            "users"
+                          ]
+                        },
+                        "description": "Create a new user with a chosen role. Admin only."
+                      },
+                      "response": [
+                        {
+                          "id": "9cc6b7f2-26d4-402e-88bd-18c6e78e121c",
+                          "name": "Successful Response",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"username\": \"string\",\n  \"password\": \"stringstring\",\n  \"role\": \"user\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/users",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "users"
+                              ]
+                            }
+                          },
+                          "status": "Created",
+                          "code": 201,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"username\": \"string\",\n  \"role\": \"admin\",\n  \"is_active\": true\n}"
+                        },
+                        {
+                          "id": "bd12bea0-5ff5-4d53-8b31-d1fb4da0981a",
+                          "name": "Validation Error",
+                          "originalRequest": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              },
+                              {
+                                "key": "Accept",
+                                "value": "application/json"
+                              },
+                              {
+                                "description": "Added as a part of security scheme: bearer",
+                                "key": "Authorization",
+                                "value": "Bearer <token>"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"username\": \"string\",\n  \"password\": \"stringstring\",\n  \"role\": \"user\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/auth/users",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "users"
+                              ]
+                            }
+                          },
+                          "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                          "code": 422,
+                          "_postman_previewlanguage": "json",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "application/json"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        8063,\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        659\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": \"\",\n      \"ctx\": {}\n    }\n  ]\n}"
+                        }
+                      ]
+                    }
+                  ],
+                  "id": "04fa2fa7-8c1b-4451-81e6-d74b9866c45a"
+                }
+              ],
+              "id": "8ac2301f-ec2e-43b7-a1d1-c95873eb1b5e"
+            }
+          ],
+          "id": "1cbbdd6c-61d1-45dc-bcf4-18db876f2830"
+        }
+      ],
+      "id": "26ff651d-b04c-4d7d-9517-5802bf599398"
+    }
+  ],
+  "variable": [
+    {
+      "id": "a8a52d75-3022-4778-80da-e2628550841d",
+      "key": "baseUrl",
+      "value": "/"
+    }
+  ]
+}

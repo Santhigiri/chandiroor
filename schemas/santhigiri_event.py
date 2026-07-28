@@ -14,7 +14,8 @@ means "any" / "not applicable".
 """
 from __future__ import annotations
 
-from typing import Optional
+from datetime import date
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -71,3 +72,11 @@ class SanthigiriEventDetail(SanthigiriEventBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+
+
+class SanthigiriEventOccurrences(BaseModel):
+    """Result of (re)generating an event's occurrence dates for a year."""
+
+    event_id: str
+    year: int
+    dates: List[date]

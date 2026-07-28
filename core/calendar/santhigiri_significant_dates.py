@@ -29,7 +29,7 @@ from schemas.panchangam_data import PanchangamData
 from utils.santhigiri_events import EventCondition, SanthigiriEvent
 
 
-def _pins_single_day(condition: EventCondition) -> bool:
+def pins_single_day(condition: EventCondition) -> bool:
     """True when the condition fixes an event to one calendar day.
 
     A day is pinned by any of: a full-moon requirement, an English day, a
@@ -59,7 +59,7 @@ def event_matches(
     """
     if condition.last_occurance:
         return False
-    if not _pins_single_day(condition):
+    if not pins_single_day(condition):
         return False
 
     if condition.nakshatra is not None and condition.nakshatra != data.nakshatra:
