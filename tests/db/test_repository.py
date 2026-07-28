@@ -3,15 +3,18 @@ import datetime
 import types
 
 import pytest
+import pytz
 from sqlmodel import Session, select
 
 from db.models.location import Location as LocationRow
 from db.models.panchangam import Panchangam as PanchangamRow
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from db.models.nakshatra_transition import NakshatraTransition as NakshatraTransitionRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.santhigiri_event_date import (
     SanthigiriEventDate as SsdRow,
 )
+from db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
 from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from db.repository import (
     PanchangamRepository,
@@ -123,6 +126,90 @@ def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchang
 
 def test_get_by_date_missing_returns_none(seeded_session):
     assert PanchangamRepository(seeded_session).get_by_date(datetime.date(1999, 1, 1), TVM) is None
+
+
+# ── Timezone-aware input is stored naive ────────────────────────────────────
+#
+# core/astronomy returns tz-aware Asia/Kolkata datetimes for sunrise/sunset and
+# transitions, but the DB columns are TIMESTAMP WITHOUT TIME ZONE. psycopg2
+# converts an aware datetime to the *session's* TimeZone before writing to such
+# a column (Postgres, not SQLite — so this in-memory suite can only check that
+# upsert() normalizes to naive before it ever reaches the DBAPI, not the
+# Postgres-specific shift itself). If the session TimeZone isn't IST (Neon
+# defaults to GMT), an un-stripped aware value silently lands shifted by the
+# difference — this is exactly the corruption that motivated stripping tzinfo
+# in PanchangamRepository.upsert().
+
+def test_upsert_strips_tzinfo_from_sunrise_sunset(seeded_session, make_panchangam_data):
+    repo = PanchangamRepository(seeded_session)
+    date = datetime.date(2026, 8, 1)
+    tz = pytz.timezone("Asia/Kolkata")
+    data = make_panchangam_data(
+        date,
+        thithi_transitions=[],
+        nakshatra_transitions=[],
+    )
+    data = data.model_copy(
+        update={
+            "sunrise": tz.localize(datetime.datetime(2026, 8, 1, 6, 17, 16, 917196)),
+            "sunset": tz.localize(datetime.datetime(2026, 8, 1, 18, 39, 51, 962109)),
+        }
+    )
+
+    repo.upsert(data, TVM)
+    seeded_session.flush()
+
+    row = seeded_session.exec(
+        select(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
+    ).one()
+    assert row.sunrise.tzinfo is None
+    assert row.sunset.tzinfo is None
+    # Wall-clock digits preserved exactly — only tzinfo is stripped.
+    assert row.sunrise == datetime.datetime(2026, 8, 1, 6, 17, 16, 917196)
+    assert row.sunset == datetime.datetime(2026, 8, 1, 18, 39, 51, 962109)
+
+
+def test_upsert_strips_tzinfo_from_transitions(seeded_session, make_panchangam_data):
+    from core.astronomy.nakshatra_transition import NakshatraTransition
+    from core.astronomy.thithi_transition import ThithiTransition
+
+    repo = PanchangamRepository(seeded_session)
+    date = datetime.date(2026, 8, 2)
+    tz = pytz.timezone("Asia/Kolkata")
+    aware_start = tz.localize(datetime.datetime(2026, 8, 1, 23, 7, 48, 10297))
+    aware_end = tz.localize(datetime.datetime(2026, 8, 2, 23, 15, 49, 68802))
+
+    data = make_panchangam_data(
+        date,
+        thithi_transitions=[
+            ThithiTransition(
+                name=Thithi.CHATURTHI_KRISHNA.en, thithi=Thithi.CHATURTHI_KRISHNA,
+                start_time=aware_start, end_time=aware_end,
+            )
+        ],
+        nakshatra_transitions=[
+            NakshatraTransition(
+                name=Nakshatra.POORURUTTATHI.en, nakshatra=Nakshatra.POORURUTTATHI,
+                start_time=aware_start, end_time=aware_end,
+            )
+        ],
+    )
+
+    repo.upsert(data, TVM)
+    seeded_session.flush()
+
+    thithi_row = seeded_session.exec(
+        select(ThithiTransitionRow).where(ThithiTransitionRow.panchangam_date == date)
+    ).one()
+    nakshatra_row = seeded_session.exec(
+        select(NakshatraTransitionRow).where(NakshatraTransitionRow.panchangam_date == date)
+    ).one()
+
+    for row in (thithi_row, nakshatra_row):
+        assert row.start_time.tzinfo is None
+        assert row.end_time.tzinfo is None
+        assert row.start_time == datetime.datetime(2026, 8, 1, 23, 7, 48, 10297)
+        assert row.end_time == datetime.datetime(2026, 8, 2, 23, 15, 49, 68802)
 
 
 # ── Multi-location isolation ──────────────────────────────────────────────────
