@@ -50,3 +50,23 @@ tz-naive columns.
 Both files are produced by `scripts/gen_seed_sql.py` (a build-time tool, not
 imported at runtime). Re-run it after changing the `db/models/` schema, the
 domain enums, the event definitions, or the `data/panchangam_*.pkl` caches.
+
+## Migrations
+
+There is no migration framework in this repo (no Alembic) — `01_schema.sql`
+is a bootstrap-only snapshot of the current `db/models/` schema, regenerated
+wholesale rather than diffed. `init_db()` (`db/database.py`) only creates
+*missing* tables at startup; it never `ALTER`s an existing one. So a schema
+change made to `db/models/` after a database has already been bootstrapped
+needs a hand-written, one-time `ALTER TABLE` script applied directly:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/migrations/0001_add_yields_to_event_id.sql
+```
+
+Migrations live in `db/sql/migrations/`, numbered in application order. Each
+one should be idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s,
+etc.) so re-running it is harmless. They only matter for a database that
+predates the change — a fresh database stood up from `01_schema.sql`/
+`02_seed.sql` already has every migrated change baked in, since those files
+are regenerated from the current `db/models/` state.

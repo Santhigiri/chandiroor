@@ -103,25 +103,26 @@ This is the day on which Guru left His physical body and merged in the ‘Adisan
   ('POOJITHA_PEEDA_SAMARPANAM', 'Poojitha Peeda Samarppanam Varshikam', 'Poojitha Peeda Samarppanam Varshikam Ardhavarshika kumba mela', 3, NULL, NULL, NULL, NULL, NULL, 22, 2, NULL, NULL, NULL, NULL),
   ('POOJITHA_PEEDA_VRITHARAMBAM', 'Poojitha Peeda Vritharambam', 'Poojitha Peeda Vritharambam', 4, NULL, NULL, NULL, NULL, NULL, 13, 1, NULL, NULL, NULL, NULL),
   ('PRATHISTA_VARSHIKAM', 'Prathista Varshikam', 'Prathista Varshikam', 5, NULL, NULL, NULL, NULL, NULL, 10, 2, NULL, NULL, NULL, NULL),
+  ('NAVOLI_JYOTHIR_DINAM_VRITHARAMBAM', 'Navoli Jyothir Dinam Vritharambam', 'Navoli Jyothir Dinam Vritharambam', 6, NULL, NULL, NULL, NULL, NULL, 24, 2, NULL, NULL, NULL, NULL),
   ('SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM', 'Sahakarana Mandiram Samarpana Varshikam', '
         On this day the ‘Sahakarana Mandiram’ (Shrine of Togetherness) was dedicated to Guru. The day falls on Kumbham 17 (February-March). It is marked by special prayers at the Ashram.
-    ', 6, NULL, NULL, 17, 11, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-  ('PRATHISTA_POORTHIKARANA_VARSHIKAM', 'Prathista Poorthikarana Varshikam', 'Prathista Poorthikarana Varshikam', 7, NULL, NULL, 10, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-  ('DIVYA_POOJA_SAMARPANA_VARSHIKAM', 'Divya pooja samarpana varshikam', 'Divya pooja samarpana varshikam', 8, NULL, NULL, NULL, NULL, NULL, 7, 5, NULL, NULL, NULL, NULL),
-  ('NAVAPOOJITHAM_VRITHARAMBAM', 'Navapoojitham vritharambam', 'Navapoojitham vritharambam', 9, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 7, NULL, NULL, 17, 11, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+  ('PRATHISTA_POORTHIKARANA_VARSHIKAM', 'Prathista Poorthikarana Varshikam', 'Prathista Poorthikarana Varshikam', 8, NULL, NULL, 10, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+  ('DIVYA_POOJA_SAMARPANA_VARSHIKAM', 'Divya pooja samarpana varshikam', 'Divya pooja samarpana varshikam', 9, NULL, NULL, NULL, NULL, NULL, 7, 5, NULL, NULL, NULL, NULL),
+  ('NAVAPOOJITHAM_VRITHARAMBAM', 'Navapoojitham vritharambam', 'Navapoojitham vritharambam', 10, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('NAVAPOOJITHAM', 'Navapoojitham', '
         Guru was born on September 1, 1927. The birthday celebrations are held as per the Malayalam Calendar, according to which Guru was born under the ‘Chothi’ star in the month of ‘Chingam’ (falling in August-September). The day is celebrated as ‘Navapoojitham - Janmadina Poojitha Samarpanam’. It is a day of special prayers, including Deepa Pradakshina (procession with lit lamps), at the Ashram.
-    ', 10, 15, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, TRUE),
+    ', 11, 15, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, TRUE),
   ('POORNA_KUMBAMELA', 'Poornakumba mela', '
 The ‘Poorna Kumbhamela’ commemorates the day of the Guru’s spiritual attainment, falling on the 4th of the Malayalam month of ‘Kanni’ (September). The highlight of the celebrations is a colorful procession by devotees, carrying ceremonial parasols and decorated ‘kumbhams’ (earthen pots filled with holy water – theertham), around the Ashram. Taking the ‘kumbham’ for 12 successive times helps to remove the ‘karmadoshas’ (karmic errors) of the self and the family.
-    ', 11, NULL, NULL, 4, 6, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 12, NULL, NULL, 4, 6, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('SANYASADHEEKSHA_VARSHIKAM', 'Sanyasadheeksha varshikam', '
         Falling on the Vijayadashami day (mostly in October), this marks the anniversary of the day that Guru first conferred ‘sanyasam’ (vow of renunciation of householder life) on disciples in 1984. Every year on this day, devotees gather to pray for the wellbeing of ‘sanyasis’ (renunciates). This paves the way for greater mutual understanding and spiritual bonding between the renunciate and the householder.
-    ', 12, NULL, 10, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 13, NULL, 10, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('SAMSKARIKA_DINAM', 'Samskarika Dinam', '
         The formation of a National Centre for Cultural Renaissance (NCCR) on February 17, 1983, marked the beginning of an organized movement for cultural activities in the Ashram. The ‘Santhigiri Vishwa Samskarika Navodhana Kendram’ was registered as a charitable society on June 20, 1984. The organization is engaged in various cultural and voluntary activities to propagate the teachings of Guru for a spiritual and cultural renaissance in the world. The Santhigiri Vishwa Samskarika Navodhana Kendram has more than 200 units in Kerala and elsewhere. The Samskarika Dinam is marked by awareness meetings, seminars and cultural programmes to spread the Guru’s ideology.
-    ', 13, NULL, NULL, NULL, NULL, NULL, 5, 11, NULL, NULL, NULL, NULL),
-  ('SHISHYAPOOJITHA_BDAY', 'Shishyapoojitha''s Birthday', 'Shishyapoojitha''s Birthday', 14, 20, NULL, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, TRUE);
+    ', 14, NULL, NULL, NULL, NULL, NULL, 5, 11, NULL, NULL, NULL, NULL),
+  ('SHISHYAPOOJITHA_BDAY', 'Shishyapoojitha''s Birthday', 'Shishyapoojitha''s Birthday', 15, 20, NULL, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, TRUE);
 
 
 -- ---------- Panchangam data (2021-01-01 .. 2030-12-31, 3652 days) ----------

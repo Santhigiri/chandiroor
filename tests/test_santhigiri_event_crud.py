@@ -178,6 +178,32 @@ def test_create_invalid_nakshatra_id_is_422(client, admin_auth):
     assert r.status_code == 422
 
 
+def test_create_self_referential_yield_is_422(client, admin_auth):
+    # Caught by the SanthigiriEventCreate model validator before the service is
+    # ever called (id is in the same payload) — 422, unlike the update case
+    # below, where the id comes from the URL and can only be checked in the
+    # service, so it maps to InvalidEventReference (400) instead.
+    r = client.post(
+        EVENTS_URL,
+        headers=admin_auth,
+        json={"id": "SELFY", "name": "n", "description": "d", "yields_to_event_id": "SELFY"},
+    )
+    assert r.status_code == 422
+
+
+def test_create_invalid_yields_to_event_id_is_400(client, admin_auth):
+    # yields_to_event_id is a free-form id with no ge/le range to catch a bad
+    # value pre-DB (unlike nakshatra_id above) — it only surfaces via the FK's
+    # IntegrityError -> InvalidEventReference -> 400, same path as a bad
+    # nakshatra_id/thithi_id that isn't caught by a range constraint.
+    r = client.post(
+        EVENTS_URL,
+        headers=admin_auth,
+        json={"id": "NEWEVT", "name": "n", "description": "d", "yields_to_event_id": "NOPE"},
+    )
+    assert r.status_code == 400
+
+
 # ── Read ───────────────────────────────────────────────────────────────────────
 
 def test_get_existing_event(client):
@@ -219,6 +245,34 @@ def test_update_bumps_events_etag(client, admin_auth, api_engine):
         json={"name": "Pournami (edited)"},
     )
     assert _stored_events_etag(api_engine) != before
+
+
+def test_update_self_referential_yield_is_400(client, admin_auth):
+    r = client.put(
+        f"{EVENTS_URL}/POURNAMI",
+        headers=admin_auth,
+        json={"yields_to_event_id": "POURNAMI"},
+    )
+    assert r.status_code == 400
+
+
+def test_update_invalid_yields_to_event_id_is_400(client, admin_auth):
+    r = client.put(
+        f"{EVENTS_URL}/POURNAMI",
+        headers=admin_auth,
+        json={"yields_to_event_id": "NOPE"},
+    )
+    assert r.status_code == 400
+
+
+def test_update_sets_yields_to_event_id(client, admin_auth):
+    r = client.put(
+        f"{EVENTS_URL}/JANMAGRIHA_THEERTHA_YATHRA",
+        headers=admin_auth,
+        json={"yields_to_event_id": "NAVAPOOJITHAM"},
+    )
+    assert r.status_code == 200
+    assert r.json()["yields_to_event_id"] == "NAVAPOOJITHAM"
 
 
 # ── Delete ─────────────────────────────────────────────────────────────────────

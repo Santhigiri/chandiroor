@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -53,6 +53,22 @@ class SanthigiriEvent(SQLModel, table=True):
     occurance:      Optional[int]  = None
     is_poornima:    Optional[bool] = None
     last_occurance: Optional[bool] = None
+
+    # Cross-event precedence: when generating THIS event's occurrences, any
+    # date that also matches yields_to_event_id's condition is dropped from
+    # this event's occurrence set (see
+    # SanthigiriEventService._excluded_dates_for_yield). NULL means "yields
+    # to nothing" — the default, unaffected behavior. ON DELETE SET NULL so
+    # deleting the referenced event self-heals the referencing event back to
+    # normal rather than being blocked or cascading.
+    yields_to_event_id: Optional[str] = Field(
+        default=None,
+        sa_column=Column(
+            String,
+            ForeignKey("santhigiri_event.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
 
     nakshatra: Optional["Nakshatra"] = Relationship()
     thithi:    Optional["Thithi"]    = Relationship()

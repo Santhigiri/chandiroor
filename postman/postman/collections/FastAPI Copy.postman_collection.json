@@ -412,7 +412,7 @@
                           }
                         ],
                         "url": {
-                          "raw": "{{baseUrl}}/api/v1/panchangam/day?day=2022-12-15&location=tvm",
+                          "raw": "{{baseUrl}}/api/v1/panchangam/day?day=2025-09-07&location=tvm",
                           "host": [
                             "{{baseUrl}}"
                           ],
@@ -425,7 +425,7 @@
                           "query": [
                             {
                               "key": "day",
-                              "value": "2022-12-15",
+                              "value": "2025-09-07",
                               "uuid": "1c7e691f-e3af-456a-bc7c-fcc2e5f7604f"
                             },
                             {

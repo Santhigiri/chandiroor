@@ -36,6 +36,15 @@ class SanthigiriEventRepository:
     def exists(self, event_id: str) -> bool:
         return self.get(event_id) is not None
 
+    def list_all(self) -> List[SanthigiriEventRow]:
+        """Every event definition, ordered by ``sort_order`` (stable order for
+        bulk occurrence generation)."""
+        return list(
+            self._s.exec(
+                select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
+            ).all()
+        )
+
     # ── Setters ────────────────────────────────────────────────────────────────
 
     def create(self, row: SanthigiriEventRow) -> SanthigiriEventRow:

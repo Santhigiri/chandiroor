@@ -17,20 +17,28 @@ status codes.
 from __future__ import annotations
 
 import datetime
-from typing import Iterable, List
+from time import perf_counter
+from typing import AsyncIterator, Dict, Iterable, List, Set, Union
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from core.calendar.santhigiri_event_occurrences import (
     OccurrenceComputationError,
+    PanchangamYear,
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
     compute_occurrences,
 )
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.repository import PanchangamRepository, event_row_to_event
 from db.santhigiri_event_repository import SanthigiriEventRepository
-from schemas.santhigiri_event import SanthigiriEventCreate, SanthigiriEventUpdate
+from schemas.santhigiri_event import (
+    SanthigiriEventCreate,
+    SanthigiriEventUpdate,
+    SanthigiriEventsGenerateProgress,
+    SanthigiriEventsGenerateResult,
+)
 from services.etag_service import refresh_etags
 from utils.location import DEFAULT_LOCATION
 
@@ -89,6 +97,10 @@ class SanthigiriEventService:
     def update(self, event_id: str, payload: SanthigiriEventUpdate) -> SanthigiriEventRow:
         row = self.get(event_id)
         changes = payload.model_dump(exclude_unset=True)
+        if changes.get("yields_to_event_id") == event_id:
+            raise InvalidEventReference(
+                f"yields_to_event_id cannot reference the event's own id ({event_id!r})"
+            )
         try:
             self._repo.update(row, changes)
             self._commit_with_etags([])
@@ -102,37 +114,178 @@ class SanthigiriEventService:
         affected_years = self._repo.delete(row)
         self._commit_with_etags(affected_years)
 
-    def generate_occurrences(self, event_id: str, year: int) -> List[datetime.date]:
-        """(Re)compute *event_id*'s occurrence dates for *year* and replace
-        whatever was previously stored for that event/year.
+    def generate_occurrences(
+        self, event_id: str, start_year: int, end_year: int
+    ) -> Dict[int, List[datetime.date]]:
+        """(Re)compute *event_id*'s occurrence dates across the inclusive
+        ``[start_year, end_year]`` range and replace whatever was previously
+        stored for that event in each of those years.
 
-        Raises :class:`IncompleteYearData` if the panchangam data for *year*
-        is not fully present in the DB, :class:`UnsupportedEventCondition` if
-        the event's condition cannot be resolved to a set of days, and
-        :class:`OccurrenceComputationError` if a resolvable condition still
-        has no computable occurrence in *year*.
+        Raises :class:`IncompleteYearData` for the first year in the range
+        whose panchangam data is not fully present in the DB,
+        :class:`UnsupportedEventCondition` if the event's condition cannot be
+        resolved to a set of days (this is year-independent, so it surfaces
+        on the first year), and :class:`OccurrenceComputationError` if a
+        resolvable condition still has no computable occurrence in a given
+        year. Any of these aborts the whole range — nothing commits until
+        every year has been computed, so a failure on a later year still
+        rolls back years already processed.
         """
         row = self.get(event_id)
         condition = event_row_to_event(row).event_condition
 
-        start = datetime.date(year, 1, 1)
-        end = datetime.date(year, 12, 31)
-        yearly_data = self._panchangam_repo.get_by_date_range(
-            start, end, DEFAULT_LOCATION
-        )
-        expected_days = (end - start).days + 1
-        if len(yearly_data) != expected_days:
-            raise IncompleteYearData(year)
+        years = list(range(start_year, end_year + 1))
+        results: Dict[int, List[datetime.date]] = {}
+        for year in years:
+            start = datetime.date(year, 1, 1)
+            end = datetime.date(year, 12, 31)
+            yearly_data = self._panchangam_repo.get_by_date_range(
+                start, end, DEFAULT_LOCATION
+            )
+            expected_days = (end - start).days + 1
+            if len(yearly_data) != expected_days:
+                raise IncompleteYearData(year)
 
-        occurrences = compute_occurrences(condition, yearly_data, year)
+            occurrences = compute_occurrences(condition, yearly_data, year)
+            excluded = self._excluded_dates_for_yield(row, yearly_data, year)
+            if excluded:
+                occurrences = [d for d in occurrences if d not in excluded]
+            self._panchangam_repo.set_event_occurrences_for_year(
+                event_id, year, occurrences
+            )
+            results[year] = occurrences
 
-        self._panchangam_repo.set_event_occurrences_for_year(
-            event_id, year, occurrences
+        self._commit_with_etags(years)
+        return results
+
+    async def generate_all_occurrences_streaming(
+        self, start_year: int, end_year: int
+    ) -> AsyncIterator[Union[SanthigiriEventsGenerateProgress, SanthigiriEventsGenerateResult]]:
+        """(Re)compute every event definition's occurrence dates across the
+        inclusive ``[start_year, end_year]`` range, yielding a
+        :class:`SanthigiriEventsGenerateProgress` line after each
+        ``(year, event)`` pair, then a final :class:`SanthigiriEventsGenerateResult`.
+
+        Raises :class:`IncompleteYearData` for the first year in the range
+        whose panchangam data is not fully present in the DB — the same
+        precondition :meth:`generate_occurrences` enforces per-year — which
+        aborts the whole range (nothing has committed yet, so no year's
+        writes stick). An individual event whose condition can't be resolved
+        (:class:`UnsupportedEventCondition`) or has no computable occurrence
+        in a given year (:class:`OccurrenceComputationError`) is reported as
+        ``"skipped"``/``"error"`` in its progress line instead — one bad
+        event definition shouldn't block regenerating the rest.
+
+        Each event's computation runs via ``run_in_threadpool``: a
+        last-occurrence condition with an ``is_poornima`` field can trigger a
+        live ephemeris check per candidate day, which is CPU-bound and would
+        otherwise block the event loop. All writes across every year land in
+        one session and commit together with every affected year's ETag
+        refresh at the very end — the whole range is one atomic transaction,
+        so a failure on a later year still rolls back years already processed.
+        """
+        years = list(range(start_year, end_year + 1))
+        rows = self._repo.list_all()
+        total = len(rows) * len(years)
+        generated = skipped = errors = 0
+        completed = 0
+
+        clock = perf_counter()
+        for year in years:
+            start = datetime.date(year, 1, 1)
+            end = datetime.date(year, 12, 31)
+            yearly_data = self._panchangam_repo.get_by_date_range(
+                start, end, DEFAULT_LOCATION
+            )
+            expected_days = (end - start).days + 1
+            if len(yearly_data) != expected_days:
+                raise IncompleteYearData(year)
+
+            for row in rows:
+                completed += 1
+                condition = event_row_to_event(row).event_condition
+                count = 0
+                status = "generated"
+                detail = None
+                try:
+                    occurrences = await run_in_threadpool(
+                        compute_occurrences, condition, yearly_data, year
+                    )
+                except UnsupportedOccurrenceCondition as exc:
+                    status, skipped, detail = "skipped", skipped + 1, str(exc)
+                except OccurrenceComputationError as exc:
+                    status, errors, detail = "error", errors + 1, str(exc)
+                else:
+                    if row.yields_to_event_id is None:
+                        excluded: Set[datetime.date] = set()
+                    else:
+                        excluded = await run_in_threadpool(
+                            self._excluded_dates_for_yield, row, yearly_data, year
+                        )
+                    if excluded:
+                        occurrences = [d for d in occurrences if d not in excluded]
+                    self._panchangam_repo.set_event_occurrences_for_year(
+                        row.id, year, occurrences
+                    )
+                    generated += 1
+                    count = len(occurrences)
+
+                yield SanthigiriEventsGenerateProgress(
+                    year=year,
+                    event_id=row.id,
+                    name=row.name,
+                    status=status,
+                    count=count,
+                    detail=detail,
+                    completed=completed,
+                    total=total,
+                    percent=round(completed / total * 100, 1) if total else 100.0,
+                    elapsed_seconds=round(perf_counter() - clock, 1),
+                )
+
+        self._commit_with_etags(years)
+
+        yield SanthigiriEventsGenerateResult(
+            start_year=start_year,
+            end_year=end_year,
+            years=years,
+            total_events=total,
+            generated=generated,
+            skipped=skipped,
+            errors=errors,
         )
-        self._commit_with_etags([year])
-        return occurrences
 
     # ── Internal ─────────────────────────────────────────────────────────────────
+
+    def _excluded_dates_for_yield(
+        self, row: SanthigiriEventRow, yearly_data: PanchangamYear, year: int
+    ) -> Set[datetime.date]:
+        """Dates *row* must NOT occur on for *year* because it "yields to"
+        another event whose condition also matches those dates.
+
+        Resolves the sibling event's condition and recomputes its
+        occurrences live against the same ``yearly_data`` already fetched
+        for *row* — never a DB read of the sibling's currently-stored
+        ``santhigiri_event_dates`` rows. This makes the exclusion
+        independent of whether the sibling has been (re)generated yet in
+        this run, and independent of how stale its stored dates are.
+
+        Never raises: a missing sibling row, or a sibling condition that
+        can't be classified (:class:`UnsupportedEventCondition`) or computed
+        (:class:`OccurrenceComputationError`), degrades to "nothing
+        excluded" — this event's own generation must never fail because of
+        a problem with the event it yields to.
+        """
+        if row.yields_to_event_id is None:
+            return set()
+        sibling = self._repo.get(row.yields_to_event_id)
+        if sibling is None:
+            return set()
+        sibling_condition = event_row_to_event(sibling).event_condition
+        try:
+            return set(compute_occurrences(sibling_condition, yearly_data, year))
+        except (UnsupportedOccurrenceCondition, OccurrenceComputationError):
+            return set()
 
     def _commit_with_etags(self, years: Iterable[int]) -> None:
         # refresh_etags recomputes the payloads from the (still pending) session

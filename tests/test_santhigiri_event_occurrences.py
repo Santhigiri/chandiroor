@@ -1,6 +1,7 @@
 """
-End-to-end tests for the "generate occurrences for a year" endpoint:
-``POST /api/v1/panchangam/events/{event_id}/occurrences``.
+End-to-end tests for the "generate occurrences over a year range" endpoint:
+``POST /api/v1/panchangam/events/{event_id}/occurrences``, plus its all-events
+counterpart ``POST /api/v1/panchangam/events/generate``.
 
 Seeds an in-memory DB from the real 2022 pickle cache (same fixture pattern as
 ``tests/test_etag.py``), so occurrences are computed against real astronomical
@@ -14,6 +15,7 @@ agree with the bespoke offline ones.
 """
 from __future__ import annotations
 
+import json
 import pickle
 
 import pytest
@@ -92,11 +94,11 @@ def admin_auth(client) -> dict:
     return _bearer(client, ADMIN_USER, ADMIN_PW)
 
 
-def _generate(client, admin_auth, event_id, year=YEAR):
+def _generate(client, admin_auth, event_id, start_year=YEAR, end_year=YEAR):
     return client.post(
         f"{EVENTS_URL}/{event_id}/occurrences",
         headers=admin_auth,
-        params={"year": year},
+        json={"start_year": start_year, "end_year": end_year},
     )
 
 
@@ -105,19 +107,55 @@ def _stored_etag(api_engine) -> str:
         return EtagRepository(s).get(year_key(YEAR, Location.TVM.code))
 
 
+def _lines(response) -> list[dict]:
+    """Parse an NDJSON response body into a list of line objects."""
+    return [json.loads(line) for line in response.text.strip().split("\n") if line]
+
+
+def _generate_all(client, admin_auth, start_year=YEAR, end_year=YEAR):
+    return client.post(
+        f"{EVENTS_URL}/generate",
+        headers=admin_auth,
+        json={"start_year": start_year, "end_year": end_year},
+    )
+
+
 # ── Authorization ────────────────────────────────────────────────────────────
 
 def test_generate_requires_authentication(client):
-    r = client.post(f"{EVENTS_URL}/POURNAMI/occurrences", params={"year": YEAR})
+    r = client.post(
+        f"{EVENTS_URL}/POURNAMI/occurrences",
+        json={"start_year": YEAR, "end_year": YEAR},
+    )
     assert r.status_code == 401
 
 
 def test_generate_requires_admin_role(client):
     user_auth = _bearer(client, NORMAL_USER, NORMAL_PW)
     r = client.post(
-        f"{EVENTS_URL}/POURNAMI/occurrences", headers=user_auth, params={"year": YEAR}
+        f"{EVENTS_URL}/POURNAMI/occurrences",
+        headers=user_auth,
+        json={"start_year": YEAR, "end_year": YEAR},
     )
     assert r.status_code == 403
+
+
+def test_generate_rejects_end_year_before_start_year(client, admin_auth):
+    r = client.post(
+        f"{EVENTS_URL}/POURNAMI/occurrences",
+        headers=admin_auth,
+        json={"start_year": YEAR, "end_year": YEAR - 1},
+    )
+    assert r.status_code == 422
+
+
+def test_generate_rejects_oversized_range(client, admin_auth):
+    r = client.post(
+        f"{EVENTS_URL}/POURNAMI/occurrences",
+        headers=admin_auth,
+        json={"start_year": 2021, "end_year": 2021 + 20},
+    )
+    assert r.status_code == 422
 
 
 # ── Class A: single-day-pinned ──────────────────────────────────────────────
@@ -127,8 +165,9 @@ def test_generate_single_day_event_matches_offline_pipeline(client, admin_auth):
     assert r.status_code == 200
     body = r.json()
     assert body["event_id"] == "POURNAMI"
-    assert body["year"] == YEAR
-    assert len(body["dates"]) == 12  # one per lunar month
+    assert body["start_year"] == YEAR
+    assert body["end_year"] == YEAR
+    assert len(body["occurrences"][str(YEAR)]) == 12  # one per lunar month
 
 
 # ── Class B: last-occurrence-in-month ───────────────────────────────────────
@@ -137,13 +176,13 @@ def test_generate_last_occurrence_event_matches_offline_pipeline(client, admin_a
     r = _generate(client, admin_auth, "NAVAPOOJITHAM")
     assert r.status_code == 200
     body = r.json()
-    assert body["dates"] == ["2022-09-01"]
+    assert body["occurrences"][str(YEAR)] == ["2022-09-01"]
 
 
 def test_generate_sishya_bday_matches_offline_pipeline(client, admin_auth):
     r = _generate(client, admin_auth, "SHISHYAPOOJITHA_BDAY")
     assert r.status_code == 200
-    assert r.json()["dates"] == ["2022-10-30"]
+    assert r.json()["occurrences"][str(YEAR)] == ["2022-10-30"]
 
 
 # ── Class C: every-transition-in-year ───────────────────────────────────────
@@ -151,7 +190,67 @@ def test_generate_sishya_bday_matches_offline_pipeline(client, admin_auth):
 def test_generate_transition_series_event_matches_offline_pipeline(client, admin_auth):
     r = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
     assert r.status_code == 200
-    assert len(r.json()["dates"]) == 13
+    assert len(r.json()["occurrences"][str(YEAR)]) == 13
+
+
+# ── yields_to_event_id: cross-event exclusion ───────────────────────────────
+#
+# NAVAPOOJITHAM's last-Chothi-in-Chingam date is, incidentally, also a routine
+# Chothi transition — so it's included in JANMAGRIHA_THEERTHA_YATHRA's set by
+# default (confirmed above: 13 dates for 2022, including 2022-09-01, the same
+# date NAVAPOOJITHAM resolves to). Setting yields_to_event_id makes the
+# transition-series event defer to the last-occurrence event on that date.
+
+def _set_yields_to(client, admin_auth, event_id, yields_to_event_id):
+    return client.put(
+        f"{EVENTS_URL}/{event_id}",
+        headers=admin_auth,
+        json={"yields_to_event_id": yields_to_event_id},
+    )
+
+
+def test_yields_to_excludes_shared_date_single_event(client, admin_auth):
+    assert _set_yields_to(
+        client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA", "NAVAPOOJITHAM"
+    ).status_code == 200
+
+    nav = _generate(client, admin_auth, "NAVAPOOJITHAM").json()
+    jty = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA").json()
+
+    assert nav["occurrences"][str(YEAR)] == ["2022-09-01"]
+    assert "2022-09-01" not in jty["occurrences"][str(YEAR)]
+    assert len(jty["occurrences"][str(YEAR)]) == 12  # 13 minus the shared date
+
+
+def test_yields_to_excludes_shared_date_bulk_generate(client, admin_auth):
+    _set_yields_to(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA", "NAVAPOOJITHAM")
+
+    r = _generate_all(client, admin_auth)
+    progress = {
+        line["event_id"]: line for line in _lines(r) if line["type"] == "progress"
+    }
+
+    assert progress["NAVAPOOJITHAM"]["status"] == "generated"
+    assert progress["JANMAGRIHA_THEERTHA_YATHRA"]["status"] == "generated"
+    assert progress["JANMAGRIHA_THEERTHA_YATHRA"]["count"] == 12
+
+    jty = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA").json()
+    assert "2022-09-01" not in jty["occurrences"][str(YEAR)]
+
+
+def test_yields_to_survives_sibling_deletion(client, admin_auth):
+    _set_yields_to(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA", "NAVAPOOJITHAM")
+    assert (
+        client.delete(f"{EVENTS_URL}/NAVAPOOJITHAM", headers=admin_auth).status_code
+        == 204
+    )
+
+    # ON DELETE SET NULL cleared yields_to_event_id — exclusion no longer applies.
+    r = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
+    assert r.status_code == 200
+    dates = r.json()["occurrences"][str(YEAR)]
+    assert "2022-09-01" in dates
+    assert len(dates) == 13
 
 
 # ── Errors ───────────────────────────────────────────────────────────────────
@@ -162,7 +261,14 @@ def test_generate_missing_event_is_404(client, admin_auth):
 
 
 def test_generate_incomplete_year_is_422(client, admin_auth):
-    r = _generate(client, admin_auth, "POURNAMI", year=2023)
+    r = _generate(client, admin_auth, "POURNAMI", start_year=2023, end_year=2023)
+    assert r.status_code == 422
+
+
+def test_generate_multi_year_range_incomplete_year_is_422(client, admin_auth):
+    # 2022 is fully seeded but 2023 is not — the whole range must fail, and
+    # nothing for 2022 should be (re)written as a side effect.
+    r = _generate(client, admin_auth, "POURNAMI", start_year=YEAR, end_year=2023)
     assert r.status_code == 422
 
 
@@ -179,8 +285,8 @@ def test_generate_unsupported_condition_is_422(client, admin_auth):
 # ── Idempotency / replace semantics ─────────────────────────────────────────
 
 def test_regenerate_replaces_rather_than_appends(client, admin_auth):
-    first = _generate(client, admin_auth, "POURNAMI").json()["dates"]
-    second = _generate(client, admin_auth, "POURNAMI").json()["dates"]
+    first = _generate(client, admin_auth, "POURNAMI").json()["occurrences"]
+    second = _generate(client, admin_auth, "POURNAMI").json()["occurrences"]
     assert first == second
 
 
@@ -196,5 +302,130 @@ def test_generate_bumps_year_etag(client, admin_auth, api_engine):
 
     _generate(client, admin_auth, "NEW_EVENT")
 
+    after = _stored_etag(api_engine)
+    assert after != before
+
+
+# ── Bulk generation (streamed): POST /panchangam/events/generate ────────────
+
+def test_generate_all_requires_authentication(client):
+    r = client.post(
+        f"{EVENTS_URL}/generate", json={"start_year": YEAR, "end_year": YEAR}
+    )
+    assert r.status_code == 401
+
+
+def test_generate_all_requires_admin_role(client):
+    user_auth = _bearer(client, NORMAL_USER, NORMAL_PW)
+    r = client.post(
+        f"{EVENTS_URL}/generate",
+        headers=user_auth,
+        json={"start_year": YEAR, "end_year": YEAR},
+    )
+    assert r.status_code == 403
+
+
+def test_generate_all_rejects_end_year_before_start_year(client, admin_auth):
+    r = client.post(
+        f"{EVENTS_URL}/generate",
+        headers=admin_auth,
+        json={"start_year": YEAR, "end_year": YEAR - 1},
+    )
+    assert r.status_code == 422
+
+
+def test_generate_all_rejects_oversized_range(client, admin_auth):
+    r = client.post(
+        f"{EVENTS_URL}/generate",
+        headers=admin_auth,
+        json={"start_year": 2021, "end_year": 2021 + 20},
+    )
+    assert r.status_code == 422
+
+
+def test_generate_all_streams_progress_per_event(client, admin_auth):
+    r = _generate_all(client, admin_auth)
+    assert r.status_code == 200
+    lines = _lines(r)
+
+    progress = [line for line in lines if line["type"] == "progress"]
+    assert len(progress) >= 1
+    assert [p["completed"] for p in progress] == list(range(1, len(progress) + 1))
+    assert all(p["total"] == len(progress) for p in progress)
+    assert all(p["year"] == YEAR for p in progress)
+    assert progress[-1]["percent"] == 100.0
+
+    pournami = next(p for p in progress if p["event_id"] == "POURNAMI")
+    assert pournami["status"] == "generated"
+    assert pournami["count"] == 12
+
+    result = lines[-1]
+    assert result["type"] == "complete"
+    assert result["start_year"] == YEAR
+    assert result["end_year"] == YEAR
+    assert result["years"] == [YEAR]
+    assert result["total_events"] == len(progress)
+    assert result["generated"] + result["skipped"] + result["errors"] == len(progress)
+    assert result["generated"] >= 1
+
+
+def test_generate_all_reports_unsupported_condition_as_skipped(client, admin_auth):
+    client.post(
+        EVENTS_URL,
+        headers=admin_auth,
+        json={"id": "MONTH_ONLY", "name": "n", "description": "d", "ml_month": 5},
+    )
+    r = _generate_all(client, admin_auth)
+    lines = _lines(r)
+    month_only = next(
+        line
+        for line in lines
+        if line["type"] == "progress" and line["event_id"] == "MONTH_ONLY"
+    )
+    assert month_only["status"] == "skipped"
+    assert month_only["count"] == 0
+    assert month_only["detail"]
+
+    result = lines[-1]
+    assert result["type"] == "complete"
+    assert result["skipped"] >= 1
+
+
+def test_generate_all_incomplete_year_is_error_line(client, admin_auth):
+    r = _generate_all(client, admin_auth, start_year=2023, end_year=2023)
+    assert r.status_code == 200
+    lines = _lines(r)
+    assert lines == [
+        {"type": "error", "detail": "Panchangam data for 2023 is not fully seeded."}
+    ]
+
+
+def test_generate_all_multi_year_range_reports_first_incomplete_year(client, admin_auth):
+    # Only 2022 is seeded; a range spanning into 2023 must fail on 2023 without
+    # persisting anything for 2022, even though 2022 alone would succeed.
+    r = _generate_all(client, admin_auth, start_year=YEAR, end_year=2023)
+    assert r.status_code == 200
+    lines = _lines(r)
+    assert lines[-1] == {
+        "type": "error",
+        "detail": "Panchangam data for 2023 is not fully seeded.",
+    }
+
+
+def test_generate_all_replaces_rather_than_appends(client, admin_auth):
+    first = _generate_all(client, admin_auth)
+    second = _generate_all(client, admin_auth)
+    first_pournami = next(
+        line for line in _lines(first) if line.get("event_id") == "POURNAMI"
+    )
+    second_pournami = next(
+        line for line in _lines(second) if line.get("event_id") == "POURNAMI"
+    )
+    assert first_pournami["count"] == second_pournami["count"]
+
+
+def test_generate_all_bumps_year_etag(client, admin_auth, api_engine):
+    before = _stored_etag(api_engine)
+    _generate_all(client, admin_auth)
     after = _stored_etag(api_engine)
     assert after != before

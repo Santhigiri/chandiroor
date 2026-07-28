@@ -102,9 +102,11 @@ CREATE TABLE santhigiri_event (
 	occurance INTEGER, 
 	is_poornima BOOLEAN, 
 	last_occurance BOOLEAN, 
+	yields_to_event_id VARCHAR, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(nakshatra_id) REFERENCES nakshatra (id), 
-	FOREIGN KEY(thithi_id) REFERENCES thithi (id)
+	FOREIGN KEY(thithi_id) REFERENCES thithi (id), 
+	FOREIGN KEY(yields_to_event_id) REFERENCES santhigiri_event (id) ON DELETE SET NULL
 );
 
 CREATE INDEX ix_santhigiri_event_sort_order ON santhigiri_event (sort_order);
