@@ -5,12 +5,13 @@ Co-located with the read-only ``GET /panchangam/events`` list (defined in
 ``api/routes/v1/panchangam.py``) on the same collection URI, mounted under
 ``/api/v1``:
 
-* ``POST   /api/v1/panchangam/events``                        — create an event  (admin)
-* ``GET    /api/v1/panchangam/events/{event_id}``              — fetch one event's full definition  (public)
-* ``PUT    /api/v1/panchangam/events/{event_id}``              — partial-update an event  (admin)
-* ``DELETE /api/v1/panchangam/events/{event_id}``              — delete an event  (admin)
-* ``POST   /api/v1/panchangam/events/{event_id}/occurrences``  — (re)generate an event's occurrence dates over a year range  (admin)
-* ``POST   /api/v1/panchangam/events/generate``                — (re)generate every event's occurrence dates over a year range, streamed  (admin)
+* ``POST   /api/v1/panchangam/events``                            — create an event  (admin)
+* ``GET    /api/v1/panchangam/events/{event_id}``                  — fetch one event's full definition  (public)
+* ``PUT    /api/v1/panchangam/events/{event_id}``                  — partial-update an event  (admin)
+* ``DELETE /api/v1/panchangam/events/{event_id}``                  — delete an event  (admin)
+* ``POST   /api/v1/panchangam/events/{event_id}/occurrences``      — (re)generate an event's occurrence dates over a year range  (admin)
+* ``POST   /api/v1/panchangam/events/{event_id}/occurrences/stream`` — same, streamed one line per year  (admin)
+* ``POST   /api/v1/panchangam/events/generate``                    — (re)generate every event's occurrence dates over a year range, streamed  (admin)
 
 Authorization mirrors the rest of the API: reading an event definition is
 public (the anonymous principal is allowed, any supplied token is still
@@ -19,21 +20,24 @@ and so requires the ``admin`` role. Handlers stay thin: parse the body, delegate
 to ``SanthigiriEventService``, and translate its domain errors into HTTP status
 codes.
 
-Both occurrence-generation endpoints take the same ``{start_year, end_year}``
-body (``SanthigiriEventsGenerateRequest``, an inclusive range). For
-``.../{event_id}/occurrences`` this replaces occurrences for one event across
-every year in the range and returns a single JSON object keyed by year. For
-``.../generate`` this covers every event definition and can take a while
-(one event may scan all 365 days per year, some with live Pournami checks),
-so its response streams as newline-delimited JSON (NDJSON) instead, mirroring
-``POST /panchangam/generate`` (``api/routes/v1/panchangam_generation.py``):
-one ``SanthigiriEventsGenerateProgress`` line per ``(year, event)`` pair, then
-a final ``SanthigiriEventsGenerateResult`` line (or a
-``SanthigiriEventsGenerateError`` line if the run fails before any
-event-level result exists — see ``schemas/santhigiri_event.py`` for the line
-shapes). The request-scoped session is captured into the closure and used for
-the whole stream — FastAPI keeps a ``yield``-based dependency open until the
-response finishes sending.
+All three occurrence-generation endpoints take the same ``{start_year, end_year}``
+body (``SanthigiriEventsGenerateRequest``, an inclusive range). Plain
+``.../{event_id}/occurrences`` replaces occurrences for one event across
+every year in the range and returns a single JSON object keyed by year — fine
+for a small range, but a wide one can scan a lot of dates (occasionally with
+live Pournami checks) before any response is sent. ``.../{event_id}/occurrences/stream``
+computes the same thing but streams newline-delimited JSON (NDJSON): one
+``SanthigiriEventGenerateProgress`` line per year, then a final
+``SanthigiriEventGenerateResult`` line (or a ``SanthigiriEventsGenerateError``
+line if the run fails, e.g. mid-range). ``.../generate`` covers every event
+definition the same way, one ``SanthigiriEventsGenerateProgress`` line per
+``(year, event)`` pair, then a final ``SanthigiriEventsGenerateResult`` line
+(or a ``SanthigiriEventsGenerateError`` line if the run fails before any
+event-level result exists) — mirrors ``POST /panchangam/generate``
+(``api/routes/v1/panchangam_generation.py``). See ``schemas/santhigiri_event.py``
+for all the line shapes. The request-scoped session is captured into the
+closure and used for the whole stream — FastAPI keeps a ``yield``-based
+dependency open until the response finishes sending.
 """
 from typing import Annotated
 
@@ -185,6 +189,47 @@ def generate_event_occurrences(
         end_year=payload.end_year,
         occurrences=occurrences,
     )
+
+
+@router.post(
+    "/{event_id}/occurrences/stream",
+    dependencies=[Depends(require_role(Role.ADMIN))],
+)
+async def generate_event_occurrences_streaming(
+    event_id: str,
+    payload: SanthigiriEventsGenerateRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> StreamingResponse:
+    """Streaming sibling of ``POST /{event_id}/occurrences``: (re)compute
+    *event_id*'s occurrence dates across ``[payload.start_year, payload.end_year]``,
+    streaming a progress line per year for ranges that scan a lot of dates."""
+
+    async def _stream():
+        service = SanthigiriEventService(session)
+        try:
+            async for event in service.generate_occurrences_streaming(
+                event_id, payload.start_year, payload.end_year
+            ):
+                yield event.model_dump_json() + "\n"
+        except EventNotFound:
+            session.rollback()
+            yield SanthigiriEventsGenerateError(
+                detail=f"Event '{event_id}' not found."
+            ).model_dump_json() + "\n"
+        except IncompleteYearData as exc:
+            session.rollback()
+            year = exc.args[0]
+            yield SanthigiriEventsGenerateError(
+                detail=f"Panchangam data for {year} is not fully seeded."
+            ).model_dump_json() + "\n"
+        except (UnsupportedEventCondition, OccurrenceComputationError) as exc:
+            session.rollback()
+            yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
+        except Exception as exc:
+            session.rollback()
+            yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @router.post(

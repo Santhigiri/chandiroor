@@ -188,3 +188,39 @@ class SanthigiriEventsGenerateError(BaseModel):
 
     type: Literal["error"] = "error"
     detail: str
+
+
+# ── Single-event occurrence generation, streamed as NDJSON ───────────────────
+#
+# ``POST /panchangam/events/{event_id}/occurrences/stream`` is the streaming
+# sibling of ``POST /panchangam/events/{event_id}/occurrences``: same
+# ``[start_year, end_year]`` range, same event, but a wide range can scan a
+# lot of days (occasionally with live Pournami checks), so the response
+# streams one JSON object per line: a :class:`SanthigiriEventGenerateProgress`
+# line after each year is (re)computed, then a final
+# :class:`SanthigiriEventGenerateResult` line — or a
+# :class:`SanthigiriEventsGenerateError` line (shared with the all-events
+# stream) if the run fails before any year completes. As with the all-events
+# stream, the whole range is one atomic write: nothing commits until every
+# year has been processed.
+
+class SanthigiriEventGenerateProgress(BaseModel):
+    """One line of the stream, emitted after each year is (re)computed."""
+
+    type: Literal["progress"] = "progress"
+    year: int
+    count: int = Field(description="Occurrence dates written for this year.")
+    completed: int = Field(description="Years processed so far, including this one.")
+    total: int
+    percent: float
+    elapsed_seconds: float
+
+
+class SanthigiriEventGenerateResult(BaseModel):
+    """Final line of the stream: summary across every year in the range."""
+
+    type: Literal["complete"] = "complete"
+    event_id: str
+    start_year: int
+    end_year: int
+    occurrences: Dict[int, List[date]]

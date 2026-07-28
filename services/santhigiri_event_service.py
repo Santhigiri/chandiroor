@@ -35,6 +35,8 @@ from db.repository import PanchangamRepository, event_row_to_event
 from db.santhigiri_event_repository import SanthigiriEventRepository
 from schemas.santhigiri_event import (
     SanthigiriEventCreate,
+    SanthigiriEventGenerateProgress,
+    SanthigiriEventGenerateResult,
     SanthigiriEventUpdate,
     SanthigiriEventsGenerateProgress,
     SanthigiriEventsGenerateResult,
@@ -157,6 +159,77 @@ class SanthigiriEventService:
 
         self._commit_with_etags(years)
         return results
+
+    async def generate_occurrences_streaming(
+        self, event_id: str, start_year: int, end_year: int
+    ) -> AsyncIterator[Union[SanthigiriEventGenerateProgress, SanthigiriEventGenerateResult]]:
+        """Streaming sibling of :meth:`generate_occurrences`: same
+        computation, one year at a time, yielding a
+        :class:`SanthigiriEventGenerateProgress` line after each year and a
+        final :class:`SanthigiriEventGenerateResult`.
+
+        Same error semantics as :meth:`generate_occurrences` —
+        :class:`IncompleteYearData`, :class:`UnsupportedEventCondition`, and
+        :class:`OccurrenceComputationError` all abort the whole range and
+        propagate to the caller; nothing commits until every year has been
+        computed, so a failure on a later year still rolls back years already
+        processed.
+
+        Each year's computation runs via ``run_in_threadpool`` since a
+        last-occurrence condition with an ``is_poornima`` field can trigger a
+        live ephemeris check per candidate day, which is CPU-bound and would
+        otherwise block the event loop.
+        """
+        row = self.get(event_id)
+        condition = event_row_to_event(row).event_condition
+
+        years = list(range(start_year, end_year + 1))
+        total = len(years)
+        completed = 0
+        results: Dict[int, List[datetime.date]] = {}
+
+        clock = perf_counter()
+        for year in years:
+            start = datetime.date(year, 1, 1)
+            end = datetime.date(year, 12, 31)
+            yearly_data = self._panchangam_repo.get_by_date_range(
+                start, end, DEFAULT_LOCATION
+            )
+            expected_days = (end - start).days + 1
+            if len(yearly_data) != expected_days:
+                raise IncompleteYearData(year)
+
+            occurrences = await run_in_threadpool(
+                compute_occurrences, condition, yearly_data, year
+            )
+            excluded = await run_in_threadpool(
+                self._excluded_dates_for_yield, row, yearly_data, year
+            )
+            if excluded:
+                occurrences = [d for d in occurrences if d not in excluded]
+            self._panchangam_repo.set_event_occurrences_for_year(
+                event_id, year, occurrences
+            )
+            results[year] = occurrences
+            completed += 1
+
+            yield SanthigiriEventGenerateProgress(
+                year=year,
+                count=len(occurrences),
+                completed=completed,
+                total=total,
+                percent=round(completed / total * 100, 1) if total else 100.0,
+                elapsed_seconds=round(perf_counter() - clock, 1),
+            )
+
+        self._commit_with_etags(years)
+
+        yield SanthigiriEventGenerateResult(
+            event_id=event_id,
+            start_year=start_year,
+            end_year=end_year,
+            occurrences=results,
+        )
 
     async def generate_all_occurrences_streaming(
         self, start_year: int, end_year: int
