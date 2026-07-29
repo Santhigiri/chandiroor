@@ -95,6 +95,10 @@ def test_login_sets_httponly_cookies_and_returns_user(client):
         "username": ADMIN_USER,
         "role": Role.ADMIN.value,
         "is_active": True,
+        "email": None,
+        "full_name": None,
+        "date_of_birth": None,
+        "birth_nakshatra": None,
     }
     assert "access_token" not in r.json()
     # Tokens are delivered as cookies instead.
@@ -131,6 +135,10 @@ def test_me_reflects_cookie_identity(client):
         "username": NORMAL_USER,
         "role": Role.USER.value,
         "is_active": True,
+        "email": None,
+        "full_name": None,
+        "date_of_birth": None,
+        "birth_nakshatra": None,
     }
 
 

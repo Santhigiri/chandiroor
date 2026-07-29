@@ -24,6 +24,8 @@ import datetime
 from typing import Any, Dict
 
 import bcrypt
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from jose import JWTError, jwt
 
 from core.config import settings
@@ -34,6 +36,10 @@ REFRESH_TOKEN_TYPE = "refresh"
 
 class TokenError(Exception):
     """Raised when a JWT is invalid, expired, or of the wrong type."""
+
+
+class GoogleTokenError(Exception):
+    """Raised when a Google ID token is invalid, expired, or unverifiable."""
 
 
 # ── Password hashing ──────────────────────────────────────────────────────────
@@ -125,3 +131,24 @@ def decode_token(token: str, expected_type: str) -> Dict[str, Any]:
         raise TokenError("token missing subject")
 
     return claims
+
+
+# ── Google Sign-In ────────────────────────────────────────────────────────────
+
+def verify_google_id_token(token: str) -> Dict[str, Any]:
+    """
+    Verify a Google-issued ID token and return its claims.
+
+    Checks the signature (against Google's published keys), expiry, and that
+    the token's audience matches ``settings.google_client_id``. Raises
+    ``GoogleTokenError`` if the token is invalid/expired/wrong-audience, or if
+    ``google_client_id`` is not configured.
+    """
+    if not settings.google_client_id:
+        raise GoogleTokenError("GOOGLE_CLIENT_ID is not configured")
+    try:
+        return google_id_token.verify_oauth2_token(
+            token, google_requests.Request(), audience=settings.google_client_id
+        )
+    except ValueError as exc:
+        raise GoogleTokenError(str(exc)) from exc

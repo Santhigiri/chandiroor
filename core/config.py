@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     initial_admin_username: str | None = None
     initial_admin_password: str | None = None
 
+    # ── Google Sign-In (optional) ─────────────────────────────────────────────
+    # The OAuth 2.0 Client ID from Google Cloud Console (APIs & Services →
+    # Credentials), used as the required `audience` when verifying a Google ID
+    # token in `core.security.verify_google_id_token`. Required for
+    # `POST /auth/google` to work; that endpoint fails closed (401) if unset.
+    google_client_id: str | None = None
+
 
 settings = Settings()
 

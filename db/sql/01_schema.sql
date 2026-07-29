@@ -11,6 +11,16 @@ CREATE TABLE dataset_etag (
 	PRIMARY KEY (key)
 );
 
+CREATE TABLE guruvani (
+	id SERIAL NOT NULL, 
+	text_en VARCHAR NOT NULL, 
+	text_ml VARCHAR NOT NULL, 
+	sort_order INTEGER NOT NULL, 
+	PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_guruvani_sort_order ON guruvani (sort_order);
+
 CREATE TABLE location (
 	id SERIAL NOT NULL, 
 	name VARCHAR NOT NULL, 
@@ -53,13 +63,20 @@ CREATE TABLE paksha (
 CREATE TABLE "user" (
 	id SERIAL NOT NULL, 
 	username VARCHAR NOT NULL, 
-	hashed_password VARCHAR NOT NULL, 
+	hashed_password VARCHAR, 
 	role VARCHAR NOT NULL, 
 	is_active BOOLEAN NOT NULL, 
 	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	email VARCHAR, 
+	full_name VARCHAR, 
+	google_id VARCHAR, 
+	date_of_birth DATE, 
+	birth_nakshatra VARCHAR, 
 	PRIMARY KEY (id)
 );
 
+CREATE UNIQUE INDEX ix_user_email ON "user" (email);
+CREATE UNIQUE INDEX ix_user_google_id ON "user" (google_id);
 CREATE UNIQUE INDEX ix_user_username ON "user" (username);
 
 CREATE TABLE thithi (
