@@ -77,10 +77,13 @@ def client(api_engine):
 # ── Helpers ─────────────────────────────────────────────────────────────────────
 
 def _bearer(client, username, password) -> dict:
+    # Login delivers the access token as an HTTP-only cookie; read it from the
+    # login response and replay it via the Authorization header (still accepted
+    # as a fallback for non-browser clients).
     token = client.post(
         "/api/v1/auth/login",
         data={"username": username, "password": password},
-    ).json()["access_token"]
+    ).cookies["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Callable, Optional
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Cookie, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
@@ -76,6 +76,10 @@ class Principal:
 
 ANONYMOUS = Principal(role=Role.ANONYMOUS)
 
+# Name of the HTTP-only cookie carrying the access token (must match the name
+# the auth routes set it under).
+ACCESS_TOKEN_COOKIE = "access_token"
+
 # auto_error=False so requests without an Authorization header are allowed
 # through as the anonymous principal instead of being rejected here.
 _bearer = HTTPBearer(auto_error=False)
@@ -84,20 +88,26 @@ _bearer = HTTPBearer(auto_error=False)
 def get_current_principal(
     credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)],
     session: Annotated[Session, Depends(get_session)],
+    access_token: Annotated[Optional[str], Cookie()] = None,
 ) -> Principal:
     """
-    Resolve the request's identity from its bearer access token.
+    Resolve the request's identity from its access token.
 
-    * No ``Authorization`` header → the anonymous principal.
+    The token is taken from the HTTP-only ``access_token`` cookie (how browsers
+    authenticate), falling back to an ``Authorization: Bearer`` header when
+    present (for non-browser/programmatic clients). Resolution:
+
+    * No cookie and no header → the anonymous principal.
     * A valid access token for an existing, active user → that user's principal.
     * A malformed/expired/wrong-type token, or one naming an unknown or
       deactivated user → 401.
     """
-    if credentials is None:
+    token = access_token or (credentials.credentials if credentials else None)
+    if token is None:
         return ANONYMOUS
 
     try:
-        claims = decode_token(credentials.credentials, ACCESS_TOKEN_TYPE)
+        claims = decode_token(token, ACCESS_TOKEN_TYPE)
     except TokenError:
         raise _unauthorized("Invalid or expired token")
 
