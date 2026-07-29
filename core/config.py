@@ -49,7 +49,10 @@ class Settings(BaseSettings):
     # Credentialed (cookie-bearing) requests cannot use a wildcard origin, so the
     # allowed frontend origins must be listed explicitly. Provide a comma- or
     # JSON-style list via the CORS_ALLOW_ORIGINS env var in non-dev deployments.
-    cors_allow_origins: list[str] = ["http://localhost:3000"]
+    cors_allow_origins: list[str] = [
+        "http://localhost:3000",
+        "https://panchangam.santhigiri.app",
+    ]
 
     # ── Initial admin seeding (optional) ──────────────────────────────────────
     # When both are set, an admin user is created at startup if it does not yet
