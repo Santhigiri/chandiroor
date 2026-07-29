@@ -31,6 +31,26 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60          # 1 hour
     refresh_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # ── Auth cookies ───────────────────────────────────────────────────────────
+    # Tokens are delivered as HTTP-only cookies (never in the response body), so
+    # browser JavaScript can never read them. These control the cookie flags.
+    #   cookie_secure   — only send over HTTPS. Browsers still accept Secure
+    #                     cookies on localhost, so the default works in dev too.
+    #   cookie_samesite — "lax"/"strict"/"none". "lax" is fine when the frontend
+    #                     and API share a registrable domain (incl. localhost on
+    #                     different ports). Truly cross-site deployments need
+    #                     "none" (which also requires cookie_secure=True).
+    #   cookie_domain   — optional shared parent domain (e.g. ".example.com").
+    cookie_secure: bool = True
+    cookie_samesite: str = "lax"
+    cookie_domain: str | None = None
+
+    # ── CORS ───────────────────────────────────────────────────────────────────
+    # Credentialed (cookie-bearing) requests cannot use a wildcard origin, so the
+    # allowed frontend origins must be listed explicitly. Provide a comma- or
+    # JSON-style list via the CORS_ALLOW_ORIGINS env var in non-dev deployments.
+    cors_allow_origins: list[str] = ["http://localhost:3000"]
+
     # ── Initial admin seeding (optional) ──────────────────────────────────────
     # When both are set, an admin user is created at startup if it does not yet
     # exist. Leave unset to skip seeding entirely.

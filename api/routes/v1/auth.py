@@ -5,13 +5,14 @@ user creation.
 The HTTP boundary only — credential checking, hashing, and token minting are
 delegated to ``core.security`` and ``db.user_repository``.
 """
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from api.deps import Principal, require_role
+from api.deps import ACCESS_TOKEN_COOKIE, Principal, require_role
+from core.config import settings
 from core.security import (
     REFRESH_TOKEN_TYPE,
     TokenError,
@@ -23,10 +24,12 @@ from core.security import (
 )
 from db.database import get_session
 from db.user_repository import UserRepository
-from schemas.auth import RefreshRequest, Token, UserCreate, UserRead
+from schemas.auth import Token, UserCreate, UserRead
 from utils.roles import Role
 
 router = APIRouter(prefix="/auth")
+
+REFRESH_TOKEN_COOKIE = "refresh_token"
 
 
 def _issue_tokens(username: str, role: str) -> Token:
@@ -36,12 +39,53 @@ def _issue_tokens(username: str, role: str) -> Token:
     )
 
 
-@router.post("/login", response_model=Token)
+def _set_auth_cookies(response: Response, tokens: Token) -> None:
+    """Deliver the token pair as HTTP-only cookies (never in the body)."""
+    common = {
+        "httponly": True,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
+        "domain": settings.cookie_domain,
+        "path": "/",
+    }
+    response.set_cookie(
+        ACCESS_TOKEN_COOKIE,
+        tokens.access_token,
+        max_age=settings.access_token_expire_minutes * 60,
+        **common,
+    )
+    response.set_cookie(
+        REFRESH_TOKEN_COOKIE,
+        tokens.refresh_token,
+        max_age=settings.refresh_token_expire_minutes * 60,
+        **common,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Expire both auth cookies (same attributes used to set them)."""
+    common = {
+        "httponly": True,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
+        "domain": settings.cookie_domain,
+        "path": "/",
+    }
+    response.delete_cookie(ACCESS_TOKEN_COOKIE, **common)
+    response.delete_cookie(REFRESH_TOKEN_COOKIE, **common)
+
+
+@router.post("/login", response_model=UserRead)
 def login(
+    response: Response,
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
-) -> Token:
-    """Verify username/password and issue an access + refresh token pair."""
+) -> UserRead:
+    """
+    Verify username/password, set the access + refresh tokens as HTTP-only
+    cookies, and return the (non-sensitive) current user so the client can show
+    who is logged in without ever handling the tokens.
+    """
     user = UserRepository(session).get_by_username(form.username)
     if (
         user is None
@@ -53,21 +97,29 @@ def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _issue_tokens(user.username, user.role)
+    _set_auth_cookies(response, _issue_tokens(user.username, user.role))
+    return UserRead(username=user.username, role=Role(user.role), is_active=user.is_active)
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", status_code=status.HTTP_204_NO_CONTENT)
 def refresh(
-    body: RefreshRequest,
+    response: Response,
     session: Annotated[Session, Depends(get_session)],
-) -> Token:
+    refresh_token: Annotated[Optional[str], Cookie()] = None,
+) -> None:
     """
-    Exchange a valid refresh token for a new access + refresh token pair
-    (refresh-token rotation). The user is re-checked for existence and active
-    status on every refresh.
+    Exchange a valid refresh-token cookie for a fresh access + refresh token
+    pair (refresh-token rotation), re-setting both cookies. The user is
+    re-checked for existence and active status on every refresh.
     """
+    if refresh_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
-        claims = decode_token(body.refresh_token, REFRESH_TOKEN_TYPE)
+        claims = decode_token(refresh_token, REFRESH_TOKEN_TYPE)
     except TokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -82,7 +134,13 @@ def refresh(
             detail="User no longer valid",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _issue_tokens(user.username, user.role)
+    _set_auth_cookies(response, _issue_tokens(user.username, user.role))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response) -> None:
+    """Clear the auth cookies. Safe to call even without a valid session."""
+    _clear_auth_cookies(response)
 
 
 @router.get("/me", response_model=UserRead)

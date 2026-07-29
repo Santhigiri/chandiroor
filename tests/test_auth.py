@@ -5,6 +5,12 @@ Exercises the auth endpoints end-to-end via ``TestClient`` against an in-memory
 SQLite DB seeded with an admin and a regular user, plus the role guards on the
 public panchangam router. Mirrors the client fixture in ``tests/test_etag.py``
 (deliberately not entered as a context manager, so the real lifespan never runs).
+
+Tokens are delivered as HTTP-only cookies rather than in the response body, so
+these tests lean on the ``TestClient`` cookie jar: after ``/auth/login`` the
+client automatically replays the ``access_token`` / ``refresh_token`` cookies on
+subsequent requests. ``cookie_secure`` is forced off in the ``client`` fixture so
+the cookies are resent over the plain-HTTP ``testserver`` transport.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +19,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 import db.database  # noqa: F401 — registers the FK pragma listener
 import db.models  # noqa: F401 — registers every table on SQLModel.metadata
+from core.config import settings
 from core.security import hash_password
 from db.database import get_session
 from db.user_repository import UserRepository
@@ -44,7 +51,11 @@ def api_engine():
 
 
 @pytest.fixture
-def client(api_engine):
+def client(api_engine, monkeypatch):
+    # The test transport is plain HTTP (http://testserver), so Secure cookies
+    # would never be replayed by the jar. Turn Secure off for the tests.
+    monkeypatch.setattr(settings, "cookie_secure", False)
+
     def _override():
         with Session(api_engine) as s:
             yield s
@@ -69,14 +80,30 @@ def _bearer(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _set_cookie_headers(response):
+    """All raw Set-Cookie header values on a response."""
+    return [v for k, v in response.headers.multi_items() if k.lower() == "set-cookie"]
+
+
 # ── Login ─────────────────────────────────────────────────────────────────────
 
-def test_login_returns_access_and_refresh_tokens(client):
+def test_login_sets_httponly_cookies_and_returns_user(client):
     r = _login(client, ADMIN_USER, ADMIN_PW)
     assert r.status_code == 200
-    body = r.json()
-    assert body["access_token"] and body["refresh_token"]
-    assert body["token_type"] == "bearer"
+    # The body is the (non-sensitive) current user — never the tokens.
+    assert r.json() == {
+        "username": ADMIN_USER,
+        "role": Role.ADMIN.value,
+        "is_active": True,
+    }
+    assert "access_token" not in r.json()
+    # Tokens are delivered as cookies instead.
+    assert r.cookies.get("access_token")
+    assert r.cookies.get("refresh_token")
+    # And both cookies are flagged HttpOnly.
+    set_cookies = _set_cookie_headers(r)
+    assert any("access_token=" in c and "httponly" in c.lower() for c in set_cookies)
+    assert any("refresh_token=" in c and "httponly" in c.lower() for c in set_cookies)
 
 
 def test_login_wrong_password_rejected(client):
@@ -95,9 +122,10 @@ def test_me_requires_authentication(client):
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
-def test_me_reflects_token_identity(client):
-    token = _login(client, NORMAL_USER, NORMAL_PW).json()["access_token"]
-    r = client.get("/api/v1/auth/me", headers=_bearer(token))
+def test_me_reflects_cookie_identity(client):
+    # Login seeds the cookie jar; /me is then authenticated by the cookie alone.
+    _login(client, NORMAL_USER, NORMAL_PW)
+    r = client.get("/api/v1/auth/me")
     assert r.status_code == 200
     assert r.json() == {
         "username": NORMAL_USER,
@@ -107,17 +135,28 @@ def test_me_reflects_token_identity(client):
 
 
 def test_invalid_token_rejected(client):
+    # The Authorization header fallback still validates the token.
     r = client.get("/api/v1/auth/me", headers=_bearer("not-a-real-token"))
     assert r.status_code == 401
+
+
+# ── Logout ────────────────────────────────────────────────────────────────────
+
+def test_logout_clears_cookies(client):
+    _login(client, ADMIN_USER, ADMIN_PW)
+    assert client.get("/api/v1/auth/me").status_code == 200
+    r = client.post("/api/v1/auth/logout")
+    assert r.status_code == 204
+    # Cookies are expired, so the session no longer authenticates.
+    assert client.get("/api/v1/auth/me").status_code == 401
 
 
 # ── Admin-only user management ────────────────────────────────────────────────
 
 def test_create_user_requires_admin_role(client):
-    user_token = _login(client, NORMAL_USER, NORMAL_PW).json()["access_token"]
+    _login(client, NORMAL_USER, NORMAL_PW)
     r = client.post(
         "/api/v1/auth/users",
-        headers=_bearer(user_token),
         json={"username": "new", "password": "password123", "role": "user"},
     )
     assert r.status_code == 403
@@ -132,23 +171,21 @@ def test_create_user_requires_authentication(client):
 
 
 def test_admin_can_create_user_who_can_then_log_in(client):
-    admin_token = _login(client, ADMIN_USER, ADMIN_PW).json()["access_token"]
+    _login(client, ADMIN_USER, ADMIN_PW)
     r = client.post(
         "/api/v1/auth/users",
-        headers=_bearer(admin_token),
         json={"username": "acolyte", "password": "password123", "role": "user"},
     )
     assert r.status_code == 201
     assert r.json()["username"] == "acolyte"
-    # The new user can authenticate.
+    # The new user can authenticate (this overwrites the admin cookies).
     assert _login(client, "acolyte", "password123").status_code == 200
 
 
 def test_create_duplicate_user_conflicts(client):
-    admin_token = _login(client, ADMIN_USER, ADMIN_PW).json()["access_token"]
+    _login(client, ADMIN_USER, ADMIN_PW)
     r = client.post(
         "/api/v1/auth/users",
-        headers=_bearer(admin_token),
         json={"username": NORMAL_USER, "password": "password123", "role": "user"},
     )
     assert r.status_code == 409
@@ -156,23 +193,34 @@ def test_create_duplicate_user_conflicts(client):
 
 # ── Refresh flow & token-type enforcement ─────────────────────────────────────
 
-def test_refresh_issues_working_access_token(client):
-    refresh_token = _login(client, NORMAL_USER, NORMAL_PW).json()["refresh_token"]
-    r = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
-    assert r.status_code == 200
-    new_access = r.json()["access_token"]
-    # The freshly minted access token authorizes a protected endpoint.
-    assert client.get("/api/v1/auth/me", headers=_bearer(new_access)).status_code == 200
+def test_refresh_rotates_cookies_and_keeps_session(client):
+    _login(client, NORMAL_USER, NORMAL_PW)
+    r = client.post("/api/v1/auth/refresh")
+    assert r.status_code == 204
+    # Refresh re-set the cookies; the session still authorizes a protected call.
+    assert client.get("/api/v1/auth/me").status_code == 200
+
+
+def test_refresh_without_cookie_rejected(client):
+    r = client.post("/api/v1/auth/refresh")
+    assert r.status_code == 401
 
 
 def test_access_token_rejected_on_refresh_endpoint(client):
-    access_token = _login(client, NORMAL_USER, NORMAL_PW).json()["access_token"]
-    r = client.post("/api/v1/auth/refresh", json={"refresh_token": access_token})
+    r = _login(client, NORMAL_USER, NORMAL_PW)
+    access_token = r.cookies["access_token"]
+    # Present an access token in the refresh cookie: wrong token type → 401.
+    client.cookies.clear()
+    client.cookies.set("refresh_token", access_token, domain="testserver", path="/")
+    r = client.post("/api/v1/auth/refresh")
     assert r.status_code == 401
 
 
 def test_refresh_token_rejected_as_access_token(client):
-    refresh_token = _login(client, NORMAL_USER, NORMAL_PW).json()["refresh_token"]
+    r = _login(client, NORMAL_USER, NORMAL_PW)
+    refresh_token = r.cookies["refresh_token"]
+    # A refresh token supplied as an access token (header path) is rejected.
+    client.cookies.clear()
     r = client.get("/api/v1/auth/me", headers=_bearer(refresh_token))
     assert r.status_code == 401
 
