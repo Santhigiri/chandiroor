@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core.config import settings
 from api.routes.panchangam import router as panchangam_router
 from api.routes.v1.panchangam import router as panchangam_v1_router
 from api.routes.v1.auth import router as auth_v1_router
@@ -14,7 +15,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
