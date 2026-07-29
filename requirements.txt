@@ -10,3 +10,5 @@ python-dotenv
 python-jose[cryptography]
 bcrypt
 pydantic-settings
+google-auth
+requests
