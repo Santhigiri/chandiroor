@@ -1,5 +1,5 @@
 from typing import Annotated, Dict, List
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
 
 from sqlmodel import Session
@@ -8,8 +8,10 @@ from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.location import LocationInfo
+from schemas.SunriseSunsetResponse import SunriseSunsetResponse
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -46,6 +48,29 @@ def panchangam(
 
     data = service.get_by_date(day, location)
     return CompactPanchangamData.from_panchangam_data(data)
+
+
+@router.get(
+    '/sunrise-sunset',
+    response_model=SunriseSunsetResponse,
+)
+def sunrise_sunset(
+    params: Annotated[GetSunriseSunsetParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_service)],
+):
+    try:
+        sunrise, sunset = service.get_sunrise_sunset(
+            params.day, params.latitude, params.longitude
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return SunriseSunsetResponse(
+        latitude=params.latitude,
+        longitude=params.longitude,
+        day=params.day,
+        sunrise=sunrise,
+        sunset=sunset,
+    )
 
 
 @router.get(
