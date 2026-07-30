@@ -39,24 +39,6 @@ from utils.thithi import Thithi
 
 # ── SQL row → domain type conversions ────────────────────────────────────────
 
-def _naive(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
-    """Strip tzinfo so a local wall-clock value lands in a ``TIMESTAMP WITHOUT
-    TIME ZONE`` column unchanged.
-
-    The astronomy layer returns timezone-aware ``Asia/Kolkata`` datetimes, but
-    the Postgres session's own ``TimeZone`` is not guaranteed to be IST (Neon
-    defaults to GMT). Handing an aware datetime to psycopg2 for a "without time
-    zone" column makes it convert to the *session* timezone before storing —
-    silently shifting the stored wall-clock time by the difference between IST
-    and the session's zone. Stripping tzinfo here writes the wall-clock digits
-    exactly as computed, matching the naive-local-time convention already used
-    by the offline seed pipeline (``scripts/gen_seed_sql.py``).
-    """
-    if dt is None or dt.tzinfo is None:
-        return dt
-    return dt.replace(tzinfo=None)
-
-
 def _row_to_panchangam_data(
     row: PanchangamRow,
     location: Location,
@@ -275,8 +257,8 @@ class PanchangamRepository:
             SunriseSunsetRow(
                 date=data.date,
                 location_id=location.id,
-                sunrise=_naive(data.sunrise),
-                sunset=_naive(data.sunset),
+                sunrise=data.sunrise,
+                sunset=data.sunset,
             )
         )
         for t in data.thithi_transitions:
@@ -285,8 +267,8 @@ class PanchangamRepository:
                     panchangam_date=data.date,
                     location_id=location.id,
                     thithi_id=t.thithi.id,
-                    start_time=_naive(t.start_time),
-                    end_time=_naive(t.end_time),
+                    start_time=t.start_time,
+                    end_time=t.end_time,
                 )
             )
         for n in data.nakshatra_transitions:
@@ -295,8 +277,8 @@ class PanchangamRepository:
                     panchangam_date=data.date,
                     location_id=location.id,
                     nakshatra_id=n.nakshatra.id,
-                    start_time=_naive(n.start_time),
-                    end_time=_naive(n.end_time),
+                    start_time=n.start_time,
+                    end_time=n.end_time,
                 )
             )
         # Ashram events are location-independent: keyed by date only and shown

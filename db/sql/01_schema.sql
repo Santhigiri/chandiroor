@@ -7,7 +7,7 @@
 CREATE TABLE dataset_etag (
 	key VARCHAR NOT NULL, 
 	etag VARCHAR NOT NULL, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (key)
 );
 
@@ -66,7 +66,7 @@ CREATE TABLE "user" (
 	hashed_password VARCHAR, 
 	role VARCHAR NOT NULL, 
 	is_active BOOLEAN NOT NULL, 
-	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	email VARCHAR, 
 	full_name VARCHAR, 
 	google_id VARCHAR, 
@@ -144,8 +144,8 @@ CREATE TABLE nakshatra_transitions (
 	panchangam_date DATE NOT NULL, 
 	location_id INTEGER NOT NULL, 
 	nakshatra_id INTEGER NOT NULL, 
-	start_time TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	end_time TIMESTAMP WITHOUT TIME ZONE, 
+	start_time TIMESTAMP WITH TIME ZONE NOT NULL, 
+	end_time TIMESTAMP WITH TIME ZONE, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(panchangam_date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE, 
 	FOREIGN KEY(nakshatra_id) REFERENCES nakshatra (id)
@@ -168,8 +168,8 @@ CREATE TABLE sunrise_sunset (
 	id SERIAL NOT NULL, 
 	date DATE NOT NULL, 
 	location_id INTEGER NOT NULL, 
-	sunrise TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	sunset TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	sunrise TIMESTAMP WITH TIME ZONE NOT NULL, 
+	sunset TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE, 
 	CONSTRAINT uq_sunrise_sunset_date_loc UNIQUE (date, location_id), 
@@ -183,8 +183,8 @@ CREATE TABLE thithi_transitions (
 	panchangam_date DATE NOT NULL, 
 	location_id INTEGER NOT NULL, 
 	thithi_id INTEGER NOT NULL, 
-	start_time TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	end_time TIMESTAMP WITHOUT TIME ZONE, 
+	start_time TIMESTAMP WITH TIME ZONE NOT NULL, 
+	end_time TIMESTAMP WITH TIME ZONE, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(panchangam_date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE, 
 	FOREIGN KEY(thithi_id) REFERENCES thithi (id)

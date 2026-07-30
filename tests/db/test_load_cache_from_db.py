@@ -27,7 +27,7 @@ D_NEXT = datetime.date(2026, 3, 5)
 
 
 def _dt(d: datetime.date, hour: int, minute: int = 0) -> datetime.datetime:
-    return datetime.datetime.combine(d, datetime.time(hour, minute))
+    return datetime.datetime.combine(d, datetime.time(hour, minute), tzinfo=datetime.timezone.utc)
 
 
 def _seed_full_moon_window(session, make_panchangam_data) -> None:

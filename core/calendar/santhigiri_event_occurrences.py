@@ -32,6 +32,8 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Literal
 
+import pytz
+
 from core.astronomy.pournami import is_poornima_live
 from core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
 from core.constants import DEFAULT_TIMEZONE
@@ -41,6 +43,18 @@ from utils.santhigiri_events import EventCondition
 PanchangamYear = Dict[date, PanchangamData]
 
 ConditionClass = Literal["single_day", "last_occurrence", "transition_series"]
+
+_IST = pytz.timezone(DEFAULT_TIMEZONE)
+
+
+def _ist_date(dt: datetime) -> date:
+    """The calendar date *dt* falls on in Asia/Kolkata.
+
+    Transition timestamps read back from the DB are UTC-aware; calendar-day
+    bucketing here is Ashram-observance logic and must stay IST regardless of
+    the storage/display timezone.
+    """
+    return dt.astimezone(_IST).date()
 
 
 class UnsupportedEventCondition(Exception):
@@ -147,7 +161,7 @@ def compute_last_occurrence(
             f"{condition.ml_month.en} of {year}."
         )
     last_transition = sorted(transitions, key=lambda t: t.start_time)[-1]
-    return last_transition.start_time.date()
+    return _ist_date(last_transition.start_time)
 
 
 def compute_transition_series(
@@ -173,10 +187,10 @@ def compute_transition_series(
     for transition in sorted_transitions:
         if transition.end_time is None:
             raise OccurrenceComputationError(
-                f"Transition end time is missing near {transition.start_time.date()} "
+                f"Transition end time is missing near {_ist_date(transition.start_time)} "
                 f"in {year}."
             )
-        end_date = transition.end_time.date()
+        end_date = _ist_date(transition.end_time)
         end_date_data = yearly_data.get(end_date)
         if end_date_data is not None and (
             transition.end_time - end_date_data.sunrise > timedelta(hours=3)

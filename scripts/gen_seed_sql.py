@@ -19,7 +19,7 @@ caches:
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -55,9 +55,10 @@ def q(v) -> str:
     if isinstance(v, (int, float)):
         return repr(v)
     if isinstance(v, datetime):
-        # Store naive local wall-clock (Asia/Kolkata) — matches the model's
-        # tz-naive TIMESTAMP columns.
-        return "'" + v.replace(tzinfo=None).isoformat(sep=" ") + "'"
+        # Store UTC — matches the model's TIMESTAMPTZ columns.
+        if v.tzinfo is None:
+            raise ValueError(f"expected a timezone-aware datetime, got naive {v!r}")
+        return "'" + v.astimezone(timezone.utc).isoformat(sep=" ") + "'"
     if hasattr(v, "isoformat"):  # date
         return "'" + v.isoformat() + "'"
     return "'" + str(v).replace("'", "''") + "'"
