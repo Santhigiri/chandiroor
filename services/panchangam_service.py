@@ -6,8 +6,8 @@ back to live astronomical computation so the API never 404s on an
 un-migrated date; the DB is expected to already cover the seeded range.
 """
 import calendar
-from datetime import date, timedelta
-from typing import Dict, List, Optional
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 from db.repository import PanchangamRepository
 from schemas.panchangam_data import PanchangamData
@@ -49,6 +49,19 @@ class PanchangamService:
             data, self._event_defs(), location.timezone
         )
         return data
+
+    def get_sunrise_sunset(
+        self, day: date, latitude: float, longitude: float
+    ) -> Tuple[datetime, datetime]:
+        """Sunrise/sunset for an arbitrary coordinate, in UTC.
+
+        Live computation only (no DB-backed table for this); raises ValueError
+        if no rising/setting is found for the given date/coordinate (e.g. polar
+        day/night).
+        """
+        from core.astronomy.sunrise_sunset import get_sunrise_sunset
+
+        return get_sunrise_sunset(day, latitude, longitude, timezone="UTC")
 
     def get_by_date(
         self, day: date, location: Location = DEFAULT_LOCATION
