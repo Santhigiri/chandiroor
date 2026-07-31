@@ -1,8 +1,10 @@
 import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKeyConstraint, Index, UniqueConstraint
+from sqlalchemy import Column, ForeignKeyConstraint, Index, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
+
+from db.models.types import UTCDateTime
 
 if TYPE_CHECKING:
     from db.models.location import Location
@@ -33,8 +35,8 @@ class SunriseSunset(SQLModel, table=True):
     id:          Optional[int]      = Field(default=None, primary_key=True)
     date:        datetime.date
     location_id: int                = Field(foreign_key="location.id")
-    sunrise:     datetime.datetime
-    sunset:      datetime.datetime
+    sunrise:     datetime.datetime = Field(sa_column=Column(UTCDateTime, nullable=False))
+    sunset:      datetime.datetime = Field(sa_column=Column(UTCDateTime, nullable=False))
 
     # location_id is shared between the FK to ``location`` and the composite FK
     # to ``panchangam``; overlaps annotations tell SQLAlchemy this is intentional.

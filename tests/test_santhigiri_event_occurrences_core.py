@@ -124,7 +124,38 @@ def test_last_occurrence_falls_back_to_nakshatra_transition(make_panchangam_data
         ml_month=MalayalamMasa.CHINGAM, nakshatra=Nakshatra.CHOTHI, last_occurance=True
     )
     transition_day = datetime.date(year, 8, 25)
-    start_time = datetime.datetime.combine(transition_day, datetime.time(4, 0))
+    start_time = datetime.datetime.combine(
+        transition_day, datetime.time(4, 0), tzinfo=datetime.timezone.utc
+    )
+    yearly[transition_day] = make_panchangam_data(
+        transition_day,
+        nakshatra=Nakshatra.ASWATHI,
+        kv_month=MalayalamMasa.CHINGAM,
+        nakshatra_transitions=[
+            NakshatraTransition(
+                name=Nakshatra.CHOTHI.en,
+                nakshatra=Nakshatra.CHOTHI,
+                start_time=start_time,
+                end_time=start_time + datetime.timedelta(hours=2),
+            )
+        ],
+    )
+
+    result = compute_last_occurrence(condition, yearly, year)
+    assert result == transition_day
+
+
+def test_last_occurrence_transition_date_uses_ist_not_utc(make_panchangam_data):
+    """A transition just after IST midnight is still UTC-previous-day; the
+    returned occurrence date must be the IST calendar day, not the UTC one."""
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data, nakshatra=Nakshatra.ASWATHI)
+    condition = EventCondition(
+        ml_month=MalayalamMasa.CHINGAM, nakshatra=Nakshatra.CHOTHI, last_occurance=True
+    )
+    transition_day = datetime.date(year, 8, 25)
+    # 00:30 IST on Aug 25 == 19:00 UTC on Aug 24.
+    start_time = datetime.datetime(year, 8, 24, 19, 0, tzinfo=datetime.timezone.utc)
     yearly[transition_day] = make_panchangam_data(
         transition_day,
         nakshatra=Nakshatra.ASWATHI,

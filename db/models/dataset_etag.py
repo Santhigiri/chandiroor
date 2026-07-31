@@ -1,6 +1,9 @@
 import datetime
 
+from sqlalchemy import Column
 from sqlmodel import Field, SQLModel
+
+from db.models.types import UTCDateTime
 
 
 class DatasetEtag(SQLModel, table=True):
@@ -19,5 +22,6 @@ class DatasetEtag(SQLModel, table=True):
     key:        str               = Field(primary_key=True)
     etag:       str
     updated_at: datetime.datetime = Field(
-        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UTCDateTime, nullable=False),
     )

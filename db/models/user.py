@@ -1,8 +1,10 @@
 import datetime
 from typing import Optional
 
+from sqlalchemy import Column
 from sqlmodel import Field, SQLModel
 
+from db.models.types import UTCDateTime
 from utils.roles import Role
 
 
@@ -32,7 +34,8 @@ class User(SQLModel, table=True):
     role:             str                = Field(default=Role.USER.value)
     is_active:        bool               = Field(default=True)
     created_at:       datetime.datetime  = Field(
-        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UTCDateTime, nullable=False),
     )
     email:            Optional[str]      = Field(default=None, unique=True, index=True)
     full_name:        Optional[str]      = Field(default=None)

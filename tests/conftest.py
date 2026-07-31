@@ -80,8 +80,10 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
     """
     Factory that builds a valid ``PanchangamData`` from the real domain enums.
 
-    Datetimes are intentionally naive: SQLite has no timezone type, so keeping
-    fixtures naive lets ``upsert`` → ``get_by_date`` round-trip compare equal.
+    Datetimes are UTC-aware: the DB columns are TIMESTAMPTZ and
+    ``db.models.types.UTCDateTime`` normalizes every round trip (on both
+    SQLite and Postgres) to UTC-aware, so fixtures must be aware too for
+    ``upsert`` → ``get_by_date`` round-trip comparisons to hold.
     """
 
     def _build(
@@ -98,9 +100,9 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         santhigiri_significant_dates: Optional[List[SanthigiriEvent]] = None,
         location: Location = Location.TVM,
     ) -> PanchangamData:
-        sunrise = _dt.datetime.combine(date, _dt.time(6, 15))
-        sunset = _dt.datetime.combine(date, _dt.time(18, 30))
-        day_start = _dt.datetime.combine(date, _dt.time.min)
+        sunrise = _dt.datetime.combine(date, _dt.time(6, 15), tzinfo=_dt.timezone.utc)
+        sunset = _dt.datetime.combine(date, _dt.time(18, 30), tzinfo=_dt.timezone.utc)
+        day_start = _dt.datetime.combine(date, _dt.time.min, tzinfo=_dt.timezone.utc)
 
         if thithi_transitions is None:
             thithi_transitions = [
