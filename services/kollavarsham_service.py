@@ -35,6 +35,7 @@ from schemas.kollavarsham import (
     KollavarshamGenerateResult,
 )
 from services.etag_service import refresh_etags
+from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION, Location
 
 
@@ -55,10 +56,21 @@ class UngeneratableDates(Exception):
         )
 
 
+class SpanTooLarge(Exception):
+    """Raised when a generate request's date span exceeds the admin-configured
+    ``max_generate_span_days`` setting (shared with panchangam generation)."""
+
+    def __init__(self, span: int, max_days: int) -> None:
+        self.span = span
+        self.max_days = max_days
+        super().__init__(f"date range too large: {span} days (max {max_days})")
+
+
 class KollavarshamService:
     def __init__(self, session: Session) -> None:
         self._s = session
         self._repo = KollavarshamRepository(session)
+        self._settings = SettingsService(session)
 
     # ── Read ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +90,9 @@ class KollavarshamService:
         location: Location = DEFAULT_LOCATION,
     ) -> KollavarshamGenerateResult:
         span = (req.end_date - req.start_date).days + 1
+        max_days = self._settings.get_max_generate_span_days()
+        if span > max_days:
+            raise SpanTooLarge(span, max_days)
         dates = [req.start_date + timedelta(days=offset) for offset in range(span)]
 
         missing = self._repo.missing_panchangam_dates(dates, location)
@@ -89,11 +104,13 @@ class KollavarshamService:
         from core.calendar.kollavarsham import get_kollavarsham_date
 
         for day in dates:
+            tuning = self._settings.get_astronomy_tuning(day.year)
             kv = get_kollavarsham_date(
                 dt=day,
                 latitude=location.latitude,
                 longitude=location.longitude,
                 timezone=location.timezone,
+                epsilon=tuning.kollavarsham_epsilon,
             )
             self._repo.upsert(day, location, kv.kv_day, kv.kv_month, kv.kv_year)
 

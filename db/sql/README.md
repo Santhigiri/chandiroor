@@ -10,6 +10,9 @@ Python pickle-import path. Apply them in order:
 2. **`02_seed.sql`** — all seed data wrapped in a single transaction:
    - Lookup tables (`paksha`, `nakshatra`, `thithi`, `malayalam_masa`,
      `location`, `santhigiri_event`) from the Python enums / event definitions.
+   - Default `app_setting` rows (admin-editable settings — see
+     `services/settings_service.py`), one per known `utils.settings_keys.SettingKey`,
+     each seeded with a value identical to the hardcoded constant it replaces.
    - 10 years of Panchangam data (2021-01-01 … 2030-12-31, 3652 days):
      `panchangam`, `kollavarsham_date`, `sunrise_sunset`,
      `thithi_transitions`, `nakshatra_transitions`, `santhigiri_event_dates`.
@@ -62,6 +65,13 @@ needs a hand-written, one-time `ALTER TABLE` script applied directly:
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/migrations/0001_add_yields_to_event_id.sql
 ```
+
+`0004_add_app_setting_table.sql` adds the `app_setting` table (DB-backed
+admin-editable settings) plus its default rows to an already-deployed
+database. Every `SettingsService` getter falls back to the hardcoded constant
+it replaces when a key's row is absent, so this migration is safe to apply at
+any time relative to a code deploy — there is no ordering dependency, unlike
+most other migrations here.
 
 Migrations live in `db/sql/migrations/`, numbered in application order. Most
 are idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s, etc.) so

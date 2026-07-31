@@ -118,10 +118,13 @@ def compute_single_day_occurrences(
 
 
 def compute_last_occurrence(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    nazhika_cutoff: float = 7.5,
 ) -> date:
     """The last day in *yearly_data* matching *condition*, applying the
-    7.5-Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
+    Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
     into ``condition.nakshatra`` within ``condition.ml_month`` if no day in
     the year matches directly.
 
@@ -134,7 +137,7 @@ def compute_last_occurrence(
     if matches:
         dt = matches[-1]
         data = yearly_data[dt]
-        if data.nazhika_from_sunrise > 7.5:
+        if data.nazhika_from_sunrise > nazhika_cutoff:
             return dt
         return dt - timedelta(days=1)
 
@@ -165,10 +168,13 @@ def compute_last_occurrence(
 
 
 def compute_transition_series(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    transition_hour_cutoff: float = 3.0,
 ) -> List[date]:
     """Every Nakshatra-transition into ``condition.nakshatra`` during the
-    year, applying the 3-hours-after-sunrise cutoff rule.
+    year, applying the hours-after-sunrise cutoff rule.
 
     Generalizes
     ``utils.cache_chothi_theerthayathra.calculate_chothi_theerthayathra_for_year``
@@ -193,7 +199,7 @@ def compute_transition_series(
         end_date = _ist_date(transition.end_time)
         end_date_data = yearly_data.get(end_date)
         if end_date_data is not None and (
-            transition.end_time - end_date_data.sunrise > timedelta(hours=3)
+            transition.end_time - end_date_data.sunrise > timedelta(hours=transition_hour_cutoff)
         ):
             occurrences.append(end_date)
         else:
@@ -202,7 +208,11 @@ def compute_transition_series(
 
 
 def compute_occurrences(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    nazhika_cutoff: float = 7.5,
+    transition_hour_cutoff: float = 3.0,
 ) -> List[date]:
     """Dispatch to the algorithm matching *condition*'s class and return the
     resulting occurrence dates for *year*, sorted."""
@@ -210,5 +220,9 @@ def compute_occurrences(
     if condition_class == "single_day":
         return compute_single_day_occurrences(condition, yearly_data)
     if condition_class == "last_occurrence":
-        return [compute_last_occurrence(condition, yearly_data, year)]
-    return sorted(compute_transition_series(condition, yearly_data, year))
+        return [
+            compute_last_occurrence(condition, yearly_data, year, nazhika_cutoff)
+        ]
+    return sorted(
+        compute_transition_series(condition, yearly_data, year, transition_hour_cutoff)
+    )

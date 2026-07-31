@@ -125,6 +125,18 @@ The ‘Poorna Kumbhamela’ commemorates the day of the Guru’s spiritual attai
   ('SHISHYAPOOJITHA_BDAY', 'Shishyapoojitha''s Birthday', 'Shishyapoojitha''s Birthday', 15, 20, NULL, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, TRUE);
 
 
+-- ---------- App settings (defaults) ----------
+
+INSERT INTO app_setting (key, value, updated_at) VALUES
+  ('seed_year_range', '{"start_year": 2021, "end_year": 2030}', '2026-07-31 12:47:50.520916+00:00'),
+  ('default_location_code', '{"code": "tvm"}', '2026-07-31 12:47:50.520916+00:00'),
+  ('max_generate_span_days', '{"max_days": 366}', '2026-07-31 12:47:50.520916+00:00'),
+  ('max_event_generate_year_span', '{"max_years": 15}', '2026-07-31 12:47:50.520916+00:00'),
+  ('event_cutoffs', '{"nazhika_cutoff": 7.5, "transition_hour_cutoff": 3.0}', '2026-07-31 12:47:50.520916+00:00'),
+  ('nakshatra_transition_step_days', '{"default": 0.01, "overrides": {}}', '2026-07-31 12:47:50.520916+00:00'),
+  ('astronomy_epsilons', '{"nakshatra_epsilon": 1e-08, "kollavarsham_epsilon": 1e-06}', '2026-07-31 12:47:50.520916+00:00');
+
+
 -- ---------- Panchangam data (2021-01-01 .. 2030-12-31, 3652 days) ----------
 
 INSERT INTO panchangam (date, location_id, thithi_id, nakshatra_id, nazhika_from_sunrise) VALUES

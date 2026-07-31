@@ -14,10 +14,11 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# Guard against an accidental multi-year range triggering a huge number of
-# Skyfield computations in one request. A generous ceiling — a full year plus a
-# leap day — that still covers any realistic single call.
-MAX_GENERATE_SPAN_DAYS = 366
+# A defensive, non-editable ceiling no admin setting can exceed — a DoS
+# backstop, not the real business rule. The actual cap is the admin-configured
+# `max_generate_span_days` setting (shared with schemas.panchangam_generation),
+# enforced by KollavarshamService (see services/settings_service.py).
+_HARD_SPAN_CEILING_DAYS = 3660
 
 
 class KollavarshamGenerateRequest(BaseModel):
@@ -31,9 +32,9 @@ class KollavarshamGenerateRequest(BaseModel):
         if self.end_date < self.start_date:
             raise ValueError("end_date must be on or after start_date")
         span = (self.end_date - self.start_date).days + 1
-        if span > MAX_GENERATE_SPAN_DAYS:
+        if span > _HARD_SPAN_CEILING_DAYS:
             raise ValueError(
-                f"date range too large: {span} days (max {MAX_GENERATE_SPAN_DAYS})"
+                f"date range too large: {span} days (max {_HARD_SPAN_CEILING_DAYS})"
             )
         return self
 

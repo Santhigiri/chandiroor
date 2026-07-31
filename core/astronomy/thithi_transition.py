@@ -13,6 +13,7 @@ import math
 from core.constants import  THITHI_NAMES  # Python 3.9+
 from core.astronomy.ephemeris import earth, sun, moon
 from core.astronomy.transitions import ThithiTransition
+from core.astronomy.tuning import AstronomyTuning
 from utils.thithi import Thithi
 
 
@@ -73,22 +74,34 @@ def get_thithi(
     thithi_name = THITHI_NAMES[thithi_number - 1]
     return thithi_name
 
-def get_thithi_transition(t: Time):
-    elongation = get_elongations(t)
+def make_thithi_transition_fn(step_days: float):
+    """Build a fresh ``find_discrete`` predicate bound to *step_days*.
 
-    return np.floor(elongation // 12).astype(int)
+    A closure per call, not a shared module-level function with a mutated
+    ``.step_days`` attribute: the old approach was a race condition once the
+    step size can vary per call (e.g. concurrently regenerating two years
+    with different overrides) — the mutation from one call could be read by
+    another call's ``find_discrete`` before it runs.
+    """
+
+    def _thithi_transition(t: Time):
+        elongation = get_elongations(t)
+        return np.floor(elongation // 12).astype(int)
+
+    _thithi_transition.step_days = step_days  # pyright: ignore adjust values to fetch all transition_times
+    return _thithi_transition
 
 
 @lru_cache(maxsize=1000)
-def get_thithi_transition_by_date(date: date, timezone: str) -> List[ThithiTransition]:
-    get_thithi_transition.step_days = 0.01  #pyright: ignore adjust values to fetch all transition_times
-    
-    # Add the step_days attribute to the function
+def get_thithi_transition_by_date(
+    date: date, timezone: str, step_days: float = 0.01, num: int = 100
+) -> List[ThithiTransition]:
+    transition_fn = make_thithi_transition_fn(step_days)
 
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-    t, values = find_discrete(t0, t1, get_thithi_transition, num=100)
+    t, values = find_discrete(t0, t1, transition_fn, num=num)
 
     # Filter to keep only the start of transitions (values == 1)
     transition_times = [(ti, vi) for ti, vi in zip(t, values)]
@@ -115,16 +128,27 @@ def get_thithi_transition_by_date(date: date, timezone: str) -> List[ThithiTrans
     return thithis_for_day
 
 
-def calc_thithi_transition_for_date(date: date, timezone: str)-> List[ThithiTransition]:
-    current_day_transition: List[ThithiTransition] = get_thithi_transition_by_date(date, timezone)
+def calc_thithi_transition_for_date(
+    date: date,
+    timezone: str,
+    tuning: AstronomyTuning = AstronomyTuning(),
+) -> List[ThithiTransition]:
+    step_days, num = tuning.thithi_step_days, tuning.thithi_num
+    current_day_transition: List[ThithiTransition] = get_thithi_transition_by_date(
+        date, timezone, step_days, num
+    )
     total_thithi_transitions: List[ThithiTransition] = current_day_transition
 
     previous_day = date - timedelta(days=1)
-    previous_day_transition = get_thithi_transition_by_date(previous_day, timezone)
+    previous_day_transition = get_thithi_transition_by_date(
+        previous_day, timezone, step_days, num
+    )
     total_thithi_transitions = previous_day_transition + total_thithi_transitions
-    
+
     next_day = date + timedelta(days=1)
-    next_day_transition = get_thithi_transition_by_date(next_day, timezone)
+    next_day_transition = get_thithi_transition_by_date(
+        next_day, timezone, step_days, num
+    )
 
     total_thithi_transitions += next_day_transition
 
@@ -140,15 +164,13 @@ def calc_thithi_transition_for_date(date: date, timezone: str)-> List[ThithiTran
 
 
 @lru_cache(maxsize=1000)
-def calc_thithi_transition(date: date, timezone: str):
-    get_thithi_transition.step_days = 0.0007  #pyright: ignore Step by 1 minute
-    
-    # Add the step_days attribute to the function
+def calc_thithi_transition(date: date, timezone: str, fine_step_days: float = 0.0007):
+    transition_fn = make_thithi_transition_fn(fine_step_days)  # Step by 1 minute by default
 
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-    t, values = find_discrete(t0, t1, get_thithi_transition)
+    t, values = find_discrete(t0, t1, transition_fn)
 
     # Filter to keep only the start of transitions (values == 1)
     transition_times = [(ti, vi) for ti, vi in zip(t, values)]

@@ -4,6 +4,15 @@
 -- Apply this first, then 02_seed.sql.
 -- ============================================================
 
+CREATE TABLE app_setting (
+	key VARCHAR NOT NULL, 
+	value JSON NOT NULL, 
+	description VARCHAR, 
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+	updated_by VARCHAR, 
+	PRIMARY KEY (key)
+);
+
 CREATE TABLE dataset_etag (
 	key VARCHAR NOT NULL, 
 	etag VARCHAR NOT NULL, 

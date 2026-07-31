@@ -19,12 +19,13 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# Guard against an accidental huge range triggering an enormous number of
-# per-event/per-year computations (some of which run live Pournami checks) in
-# one request. Generously covers the seeded 2021-2030 range plus headroom.
-# Shared by both the single-event and all-events occurrence generation
-# endpoints — see SanthigiriEventsGenerateRequest below.
-MAX_EVENT_GENERATE_YEAR_SPAN = 15
+# A defensive, non-editable ceiling no admin setting can exceed — a DoS
+# backstop, not the real business rule. The actual cap is the admin-configured
+# `max_event_generate_year_span` setting, enforced by SanthigiriEventService
+# (see services/settings_service.py). Shared by both the single-event and
+# all-events occurrence generation endpoints — see SanthigiriEventsGenerateRequest
+# below.
+_HARD_YEAR_SPAN_CEILING = 200
 
 
 class SanthigiriEventBase(BaseModel):
@@ -111,9 +112,9 @@ class SanthigiriEventsGenerateRequest(BaseModel):
         if self.end_year < self.start_year:
             raise ValueError("end_year must be on or after start_year")
         span = self.end_year - self.start_year + 1
-        if span > MAX_EVENT_GENERATE_YEAR_SPAN:
+        if span > _HARD_YEAR_SPAN_CEILING:
             raise ValueError(
-                f"year range too large: {span} years (max {MAX_EVENT_GENERATE_YEAR_SPAN})"
+                f"year range too large: {span} years (max {_HARD_YEAR_SPAN_CEILING})"
             )
         return self
 

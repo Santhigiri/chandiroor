@@ -8,7 +8,8 @@ from core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_d
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.astronomy.thithi import get_thithi
 from core.astronomy.pournami import is_poornima_live
-from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id, get_thithi_transition
+from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id
+from core.astronomy.tuning import AstronomyTuning
 from core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
 from core.constants import DEFAULT_TIMEZONE, Coordinates
@@ -38,15 +39,17 @@ def get_panchangam_data(
     localdt: date,
     latitude: float = Coordinates.SG_LATITUDE,
     longitude: float = Coordinates.SG_LONGITUDE,
-    timezone: str = DEFAULT_TIMEZONE
+    timezone: str = DEFAULT_TIMEZONE,
+    tuning: AstronomyTuning = AstronomyTuning(),
 ):
     kv = get_kollavarsham_date(
         dt = localdt,
         latitude = latitude,
         longitude = longitude,
-        timezone = timezone)
-    thithi_transitions = calc_thithi_transition_for_date(localdt, timezone)
-    nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone)
+        timezone = timezone,
+        epsilon = tuning.kollavarsham_epsilon)
+    thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
+    nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     # The thithi/nakshatra "of the day" is the one active at sunrise. Both transition
     # lists were just computed for this day, so derive it from them instead of doing

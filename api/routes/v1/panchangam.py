@@ -19,7 +19,7 @@ from services.etag_service import (
     enum_key,
     year_key,
 )
-from services.panchangam_service import PanchangamService
+from services.panchangam_service import PanchangamService, YearOutOfRange
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
@@ -82,11 +82,14 @@ def panchangam_monthly(
     service: Annotated[PanchangamService, Depends(get_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
-    data = service.get_by_month(
-        year=params.year,
-        month=params.month,
-        location=location,
-    )
+    try:
+        data = service.get_by_month(
+            year=params.year,
+            month=params.month,
+            location=location,
+        )
+    except YearOutOfRange as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
         for day, value in data.items()
@@ -105,12 +108,15 @@ def panchangam_yearly(
     # full-year download. The ETag key includes the location code so different
     # locations don't collide. The stored ETag is refreshed whenever the data is
     # reloaded (see services.etag_service), or computed lazily on first request.
-    return conditional_json_response(
-        request,
-        session,
-        year_key(params.year, location.code),
-        lambda: build_year_payload(service, params.year, location),
-    )
+    try:
+        return conditional_json_response(
+            request,
+            session,
+            year_key(params.year, location.code),
+            lambda: build_year_payload(service, params.year, location),
+        )
+    except YearOutOfRange as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 

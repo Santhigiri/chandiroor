@@ -63,6 +63,7 @@ from services.santhigiri_event_service import (
     OccurrenceComputationError,
     SanthigiriEventService,
     UnsupportedEventCondition,
+    YearSpanTooLarge,
 )
 from utils.roles import Role
 
@@ -181,7 +182,7 @@ def generate_event_occurrences(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Panchangam data for {year} is not fully seeded.",
         )
-    except (UnsupportedEventCondition, OccurrenceComputationError) as exc:
+    except (UnsupportedEventCondition, OccurrenceComputationError, YearSpanTooLarge) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return SanthigiriEventOccurrences(
         event_id=event_id,
@@ -203,6 +204,15 @@ async def generate_event_occurrences_streaming(
     """Streaming sibling of ``POST /{event_id}/occurrences``: (re)compute
     *event_id*'s occurrence dates across ``[payload.start_year, payload.end_year]``,
     streaming a progress line per year for ranges that scan a lot of dates."""
+    # Validated before the stream opens so an oversized range gets a real 422
+    # instead of a 200 with an NDJSON error line — once StreamingResponse
+    # starts, the status code can no longer change.
+    try:
+        SanthigiriEventService(session).validate_year_span(
+            payload.start_year, payload.end_year
+        )
+    except YearSpanTooLarge as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     async def _stream():
         service = SanthigiriEventService(session)
@@ -243,6 +253,15 @@ async def generate_all_event_occurrences(
     """(Re)compute every event definition's occurrence dates across
     ``[payload.start_year, payload.end_year]`` from the DB's panchangam data,
     streaming a progress line per (year, event) pair."""
+    # Validated before the stream opens so an oversized range gets a real 422
+    # instead of a 200 with an NDJSON error line — once StreamingResponse
+    # starts, the status code can no longer change.
+    try:
+        SanthigiriEventService(session).validate_year_span(
+            payload.start_year, payload.end_year
+        )
+    except YearSpanTooLarge as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     async def _stream():
         service = SanthigiriEventService(session)
