@@ -15,6 +15,7 @@ from db.models.santhigiri_event_date import SanthigiriEventDate
 from db.models.dataset_etag import DatasetEtag
 from db.models.user import User
 from db.models.guruvani import Guruvani
+from db.models.app_setting import AppSetting
 
 __all__ = [
     "Paksha",
@@ -32,4 +33,5 @@ __all__ = [
     "DatasetEtag",
     "User",
     "Guruvani",
+    "AppSetting",
 ]

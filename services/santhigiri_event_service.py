@@ -33,6 +33,7 @@ from core.calendar.santhigiri_event_occurrences import (
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.repository import PanchangamRepository, event_row_to_event
 from db.santhigiri_event_repository import SanthigiriEventRepository
+from schemas.app_setting import EventCutoffsValue
 from schemas.santhigiri_event import (
     SanthigiriEventCreate,
     SanthigiriEventGenerateProgress,
@@ -42,6 +43,7 @@ from schemas.santhigiri_event import (
     SanthigiriEventsGenerateResult,
 )
 from services.etag_service import refresh_etags
+from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION
 
 
@@ -63,6 +65,16 @@ class IncompleteYearData(Exception):
     computed."""
 
 
+class YearSpanTooLarge(Exception):
+    """Raised when a generate request's year span exceeds the admin-configured
+    ``max_event_generate_year_span`` setting."""
+
+    def __init__(self, span: int, max_years: int) -> None:
+        self.span = span
+        self.max_years = max_years
+        super().__init__(f"year range too large: {span} years (max {max_years})")
+
+
 # OccurrenceComputationError is imported directly above and re-exported as-is;
 # UnsupportedEventCondition is aliased on import so callers only need this module.
 UnsupportedEventCondition = UnsupportedOccurrenceCondition
@@ -73,6 +85,20 @@ class SanthigiriEventService:
         self._s = session
         self._repo = SanthigiriEventRepository(session)
         self._panchangam_repo = PanchangamRepository(session)
+        self._settings = SettingsService(session)
+
+    def validate_year_span(self, start_year: int, end_year: int) -> None:
+        """Raise :class:`YearSpanTooLarge` if the span exceeds the
+        admin-configured cap. Synchronous and side-effect-free, so route
+        handlers can call it before opening a streaming response — the only
+        way a caller of a streaming generate endpoint can get a real 422
+        instead of a 200 + NDJSON error line. The three ``generate_*`` methods
+        below also enforce this themselves as defense in depth for any other
+        caller."""
+        span = end_year - start_year + 1
+        max_years = self._settings.get_max_event_generate_year_span()
+        if span > max_years:
+            raise YearSpanTooLarge(span, max_years)
 
     # ── Read ────────────────────────────────────────────────────────────────────
 
@@ -133,8 +159,10 @@ class SanthigiriEventService:
         every year has been computed, so a failure on a later year still
         rolls back years already processed.
         """
+        self.validate_year_span(start_year, end_year)
         row = self.get(event_id)
         condition = event_row_to_event(row).event_condition
+        cutoffs = self._settings.get_event_cutoffs()
 
         years = list(range(start_year, end_year + 1))
         results: Dict[int, List[datetime.date]] = {}
@@ -148,8 +176,11 @@ class SanthigiriEventService:
             if len(yearly_data) != expected_days:
                 raise IncompleteYearData(year)
 
-            occurrences = compute_occurrences(condition, yearly_data, year)
-            excluded = self._excluded_dates_for_yield(row, yearly_data, year)
+            occurrences = compute_occurrences(
+                condition, yearly_data, year,
+                cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
+            )
+            excluded = self._excluded_dates_for_yield(row, yearly_data, year, cutoffs)
             if excluded:
                 occurrences = [d for d in occurrences if d not in excluded]
             self._panchangam_repo.set_event_occurrences_for_year(
@@ -180,8 +211,10 @@ class SanthigiriEventService:
         live ephemeris check per candidate day, which is CPU-bound and would
         otherwise block the event loop.
         """
+        self.validate_year_span(start_year, end_year)
         row = self.get(event_id)
         condition = event_row_to_event(row).event_condition
+        cutoffs = self._settings.get_event_cutoffs()
 
         years = list(range(start_year, end_year + 1))
         total = len(years)
@@ -200,10 +233,11 @@ class SanthigiriEventService:
                 raise IncompleteYearData(year)
 
             occurrences = await run_in_threadpool(
-                compute_occurrences, condition, yearly_data, year
+                compute_occurrences, condition, yearly_data, year,
+                cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
             )
             excluded = await run_in_threadpool(
-                self._excluded_dates_for_yield, row, yearly_data, year
+                self._excluded_dates_for_yield, row, yearly_data, year, cutoffs
             )
             if excluded:
                 occurrences = [d for d in occurrences if d not in excluded]
@@ -257,11 +291,13 @@ class SanthigiriEventService:
         refresh at the very end — the whole range is one atomic transaction,
         so a failure on a later year still rolls back years already processed.
         """
+        self.validate_year_span(start_year, end_year)
         years = list(range(start_year, end_year + 1))
         rows = self._repo.list_all()
         total = len(rows) * len(years)
         generated = skipped = errors = 0
         completed = 0
+        cutoffs = self._settings.get_event_cutoffs()
 
         clock = perf_counter()
         for year in years:
@@ -282,7 +318,8 @@ class SanthigiriEventService:
                 detail = None
                 try:
                     occurrences = await run_in_threadpool(
-                        compute_occurrences, condition, yearly_data, year
+                        compute_occurrences, condition, yearly_data, year,
+                        cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
                     )
                 except UnsupportedOccurrenceCondition as exc:
                     status, skipped, detail = "skipped", skipped + 1, str(exc)
@@ -293,7 +330,7 @@ class SanthigiriEventService:
                         excluded: Set[datetime.date] = set()
                     else:
                         excluded = await run_in_threadpool(
-                            self._excluded_dates_for_yield, row, yearly_data, year
+                            self._excluded_dates_for_yield, row, yearly_data, year, cutoffs
                         )
                     if excluded:
                         occurrences = [d for d in occurrences if d not in excluded]
@@ -331,7 +368,11 @@ class SanthigiriEventService:
     # ── Internal ─────────────────────────────────────────────────────────────────
 
     def _excluded_dates_for_yield(
-        self, row: SanthigiriEventRow, yearly_data: PanchangamYear, year: int
+        self,
+        row: SanthigiriEventRow,
+        yearly_data: PanchangamYear,
+        year: int,
+        cutoffs: EventCutoffsValue,
     ) -> Set[datetime.date]:
         """Dates *row* must NOT occur on for *year* because it "yields to"
         another event whose condition also matches those dates.
@@ -356,7 +397,12 @@ class SanthigiriEventService:
             return set()
         sibling_condition = event_row_to_event(sibling).event_condition
         try:
-            return set(compute_occurrences(sibling_condition, yearly_data, year))
+            return set(
+                compute_occurrences(
+                    sibling_condition, yearly_data, year,
+                    cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
+                )
+            )
         except (UnsupportedOccurrenceCondition, OccurrenceComputationError):
             return set()
 

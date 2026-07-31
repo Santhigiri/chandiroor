@@ -9,7 +9,7 @@ from core.astronomy.calculations import get_time
 
 from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
 from core.astronomy.transitions import NakshatraTransition
-from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+from core.astronomy.tuning import AstronomyTuning
 from utils.nakshatra import Nakshatra
 from utils.utils import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
 
@@ -25,38 +25,36 @@ def get_nakshatra(t: Time):
     return nakshatra
 
 
-def get_nakshatra_transition(t: Time):
-    moon_lon = get_sidereal_longitude_from_time(t, "moon")
+def make_nakshatra_transition_fn(eps: float, step_days: float):
+    """Build a fresh ``find_discrete`` predicate bound to *eps*/*step_days*.
 
-    eps = 1e-8
-    idx = ((moon_lon + eps) / (360/27)).astype(int)
+    A closure per call, not a shared module-level function with a mutated
+    ``.step_days`` attribute: the old approach was a race condition once the
+    step size can vary per call (e.g. concurrently regenerating two years
+    with different overrides) — the mutation from one call could be read by
+    another call's ``find_discrete`` before it runs.
+    """
 
-    #for ml, i, ts in zip(moon_lon, idx, t):
-    #    if ts.utc_datetime().date().day == 13:
-    #        print(f"{ml} -> {i} at {ts.utc_datetime()}")
-        #pass
+    def _nakshatra_transition(t: Time):
+        moon_lon = get_sidereal_longitude_from_time(t, "moon")
+        idx = ((moon_lon + eps) / (360/27)).astype(int)
+        return idx % 27
 
-    #return moon_lon % (360/27)
-
-    return idx % 27
-
-get_nakshatra_transition.step_days = NAKSHATRA_TRANSITION_STEP_DAYS #pyright: ignore adjust value to fetch all transition_times
+    _nakshatra_transition.step_days = step_days  # pyright: ignore adjust value to fetch all transition_times
+    return _nakshatra_transition
 
 
 #@lru_cache(maxsize=1000)
-def get_nakshatra_transition_for_date(date: date, timezone: str):
+def get_nakshatra_transition_for_date(
+    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
+):
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-
-    #print(
-    #    "date=", date,
-    #    "t0=", t0.utc_datetime(),
-    #    "t1=", t1.utc_datetime()
-    #)
-
-
-    t, values = find_discrete(t0, t1, get_nakshatra_transition, num = 12)
+    transition_fn = make_nakshatra_transition_fn(
+        tuning.nakshatra_epsilon, tuning.nakshatra_step_days
+    )
+    t, values = find_discrete(t0, t1, transition_fn, num=tuning.nakshatra_num)
 
     transition_times = [(ti, vi)  for ti, vi in zip(t, values)]
     #print(f"===========TRANSITIONS FOR DAY {date}============")
@@ -89,13 +87,16 @@ def get_nakshatra_transition_for_date(date: date, timezone: str):
     
     return nakshatras_for_day
 
-def find_previous_transitions(date: date, timezone: str):
+def find_previous_transitions(
+    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
+):
     transitions = []
     for i in range(1,4):
         offset_date = date - timedelta(days=i)
         transitions = get_nakshatra_transition_for_date(
             offset_date,
-            timezone
+            timezone,
+            tuning,
         )
 
         if len(transitions) > 0:
@@ -105,13 +106,16 @@ def find_previous_transitions(date: date, timezone: str):
 
 
 
-def find_next_transitions(date: date, timezone: str):
+def find_next_transitions(
+    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
+):
     transitions = []
     for i in range(1,4):
         offset_date = date + timedelta(days=i)
         transitions = get_nakshatra_transition_for_date(
             offset_date,
-            timezone
+            timezone,
+            tuning,
         )
 
         if len(transitions) > 0:
@@ -120,11 +124,13 @@ def find_next_transitions(date: date, timezone: str):
     return transitions
 
 
-def calc_nakshatra_transition_for_date(date: date, timezone: str):
+def calc_nakshatra_transition_for_date(
+    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
+):
     total_transitions: List[NakshatraTransition] = []
-    current_day_transitions = get_nakshatra_transition_for_date(date, timezone)
-    previous_transitions = find_previous_transitions(date, timezone)
-    next_transitions = find_next_transitions(date, timezone)
+    current_day_transitions = get_nakshatra_transition_for_date(date, timezone, tuning)
+    previous_transitions = find_previous_transitions(date, timezone, tuning)
+    next_transitions = find_next_transitions(date, timezone, tuning)
 
     total_transitions = previous_transitions + current_day_transitions + next_transitions
 

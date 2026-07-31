@@ -9,17 +9,37 @@ import calendar
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
+from core.astronomy.tuning import AstronomyTuning
 from db.repository import PanchangamRepository
 from schemas.panchangam_data import PanchangamData
+from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION, Location
 from utils.santhigiri_events import SanthigiriEvent
 
 _cal = calendar.Calendar(firstweekday=6)
 
 
+class YearOutOfRange(Exception):
+    """Raised when a requested year falls outside the admin-configured
+    ``seed_year_range`` setting (see ``services.settings_service``)."""
+
+    def __init__(self, year: int, start_year: int, end_year: int) -> None:
+        self.year = year
+        self.start_year = start_year
+        self.end_year = end_year
+        super().__init__(
+            f"year {year} is outside the configured range [{start_year}, {end_year}]"
+        )
+
+
 class PanchangamService:
-    def __init__(self, repository: PanchangamRepository) -> None:
+    def __init__(
+        self,
+        repository: PanchangamRepository,
+        settings: Optional[SettingsService] = None,
+    ) -> None:
         self._repo = repository
+        self._settings = settings
         # Cache the editable event definitions for the life of this (request-scoped)
         # service so the month/year loops don't issue one query per day.
         self._event_defs_cache: Optional[List[SanthigiriEvent]] = None
@@ -28,6 +48,22 @@ class PanchangamService:
         if self._event_defs_cache is None:
             self._event_defs_cache = self._repo.list_event_definitions()
         return self._event_defs_cache
+
+    def _tuning_for_year(self, year: int) -> AstronomyTuning:
+        if self._settings is None:
+            return AstronomyTuning()
+        return self._settings.get_astronomy_tuning(year)
+
+    def _check_year_in_range(self, year: int) -> None:
+        """Enforce the admin-configured ``seed_year_range`` setting, if a
+        ``SettingsService`` is available. No-op otherwise (e.g. internal
+        callers like ``services.etag_service`` that build a
+        ``PanchangamService`` from a repository alone)."""
+        if self._settings is None:
+            return
+        start_year, end_year = self._settings.get_seed_year_range()
+        if year < start_year or year > end_year:
+            raise YearOutOfRange(year, start_year, end_year)
 
     def _compute(self, day: date, location: Location) -> PanchangamData:
         """Live-computation fallback using the location's coordinates/timezone.
@@ -43,7 +79,11 @@ class PanchangamService:
         )
 
         data = get_panchangam_data(
-            day, location.latitude, location.longitude, location.timezone
+            day,
+            location.latitude,
+            location.longitude,
+            location.timezone,
+            self._tuning_for_year(day.year),
         )
         data.santhigiri_significant_dates = match_condition_based_events(
             data, self._event_defs(), location.timezone
@@ -71,6 +111,7 @@ class PanchangamService:
     def get_by_month(
         self, year: int, month: int, location: Location = DEFAULT_LOCATION
     ) -> Dict[date, PanchangamData]:
+        self._check_year_in_range(year)
         days = list(_cal.itermonthdates(year, month))
         found = self._repo.get_by_date_range(days[0], days[-1], location)
         return {day: found.get(day) or self._compute(day, location) for day in days}
@@ -78,6 +119,7 @@ class PanchangamService:
     def get_by_year(
         self, year: int, location: Location = DEFAULT_LOCATION
     ) -> Dict[date, PanchangamData]:
+        self._check_year_in_range(year)
         start = date(year, 1, 1)
         end = date(year, 12, 31)
         days = [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
