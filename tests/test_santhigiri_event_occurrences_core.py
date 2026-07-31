@@ -285,3 +285,76 @@ def test_compute_occurrences_raises_for_unsupported(make_panchangam_data):
     condition = EventCondition(ml_month=MalayalamMasa.CHINGAM)
     with pytest.raises(UnsupportedEventCondition):
         compute_occurrences(condition, yearly, 2026)
+
+
+# ── compute_occurrences day_offset ──────────────────────────────────────────
+
+def test_compute_occurrences_applies_positive_offset_single_day(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    condition = EventCondition(en_day=5, en_month=11, day_offset=3)
+    result = compute_occurrences(condition, yearly, year)
+    assert result == [datetime.date(year, 11, 8)]
+
+
+def test_compute_occurrences_applies_negative_offset_single_day(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    condition = EventCondition(en_day=5, en_month=11, day_offset=-1)
+    result = compute_occurrences(condition, yearly, year)
+    assert result == [datetime.date(year, 11, 4)]
+
+
+def test_compute_occurrences_applies_offset_to_transition_series(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data, nakshatra=Nakshatra.ASWATHI)
+    condition = EventCondition(nakshatra=Nakshatra.CHOTHI, day_offset=2)
+
+    d = datetime.date(year, 4, 10)
+    sunrise = yearly[d].sunrise
+    start_time = sunrise - datetime.timedelta(hours=1)
+    end_time = sunrise + datetime.timedelta(hours=5)
+    yearly[d] = make_panchangam_data(
+        d,
+        nakshatra_transitions=[
+            NakshatraTransition(
+                name=Nakshatra.CHOTHI.en, nakshatra=Nakshatra.CHOTHI,
+                start_time=start_time, end_time=end_time,
+            )
+        ],
+    )
+
+    result = compute_occurrences(condition, yearly, year)
+    assert result == [d + datetime.timedelta(days=2)]
+
+
+def test_compute_occurrences_applies_offset_to_last_occurrence(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    condition = EventCondition(
+        ml_month=MalayalamMasa.CHINGAM, nakshatra=Nakshatra.CHOTHI,
+        last_occurance=True, day_offset=-2,
+    )
+    match = datetime.date(year, 8, 28)
+    yearly[match] = make_panchangam_data(
+        match, nakshatra=Nakshatra.CHOTHI, kv_month=MalayalamMasa.CHINGAM,
+        nazhika_from_sunrise=20.0,
+    )
+    assert compute_occurrences(condition, yearly, year) == [
+        match - datetime.timedelta(days=2)
+    ]
+
+
+def test_compute_occurrences_zero_offset_is_noop(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    condition = EventCondition(en_day=5, en_month=11, day_offset=0)
+    assert compute_occurrences(condition, yearly, year) == [datetime.date(year, 11, 5)]
+
+
+def test_compute_occurrences_offset_crossing_year_boundary_raises(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    condition = EventCondition(en_day=31, en_month=12, day_offset=2)
+    with pytest.raises(OccurrenceComputationError):
+        compute_occurrences(condition, yearly, year)

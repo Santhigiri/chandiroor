@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 from core.astronomy.pournami import is_poornima
 from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache
+from utils.cache_utils import remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, EventCondition
@@ -85,10 +85,20 @@ def update_navapoojitham(
         yearly_data = get_yearly_cache(panchangamCache, year)
         navapoojitham_date = calculate_navapoojitham(yearly_data, year, nazhika_cutoff)
 
-        print(f"NAVAPOOJITHAM DATE FOR {year}: {navapoojitham_date}")
-        updated_events = updated_panchangam[navapoojitham_date].santhigiri_significant_dates
+        target_date = shift_date_for_offset(
+            updated_panchangam, navapoojitham_date, NAVAPOOJITHAM.event_condition.day_offset
+        )
+        if target_date is None:
+            print(
+                f"WARNING: NAVAPOOJITHAM day_offset shifts {navapoojitham_date} outside "
+                "the loaded pickle range — skipping."
+            )
+            continue
+
+        print(f"NAVAPOOJITHAM DATE FOR {year}: {target_date}")
+        updated_events = updated_panchangam[target_date].santhigiri_significant_dates
         updated_events.append(NAVAPOOJITHAM)
-        updated_panchangam[navapoojitham_date].santhigiri_significant_dates = list(set(updated_events))
+        updated_panchangam[target_date].santhigiri_significant_dates = list(set(updated_events))
     return updated_panchangam
 
 

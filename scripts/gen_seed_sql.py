@@ -149,13 +149,13 @@ def build_lookup_seed() -> str:
             c.thithi.id if c.thithi else None,
             c.ml_day, c.ml_month.id if c.ml_month else None, c.ml_year,
             c.en_day, c.en_month, c.en_year,
-            c.occurance, c.is_poornima, c.last_occurance,
+            c.occurance, c.is_poornima, c.last_occurance, c.day_offset,
         ))
     parts.append(insert_block(
         "santhigiri_event",
         ["id", "name", "description", "sort_order", "nakshatra_id", "thithi_id",
          "ml_day", "ml_month", "ml_year", "en_day", "en_month", "en_year",
-         "occurance", "is_poornima", "last_occurance"],
+         "occurance", "is_poornima", "last_occurance", "day_offset"],
         event_rows,
     ))
     return "\n".join(parts)

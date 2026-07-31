@@ -15,6 +15,7 @@ agree with the bespoke offline ones.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import pickle
 
@@ -254,6 +255,42 @@ def test_yields_to_survives_sibling_deletion(client, admin_auth):
     dates = r.json()["occurrences"][str(YEAR)]
     assert "2022-09-01" in dates
     assert len(dates) == 13
+
+
+# ── day_offset ───────────────────────────────────────────────────────────────
+
+def _set_day_offset(client, admin_auth, event_id, day_offset):
+    return client.put(
+        f"{EVENTS_URL}/{event_id}",
+        headers=admin_auth,
+        json={"day_offset": day_offset},
+    )
+
+
+def test_generate_shifts_single_day_occurrences_by_day_offset(client, admin_auth):
+    baseline = _generate(client, admin_auth, "POURNAMI").json()["occurrences"][str(YEAR)]
+
+    assert _set_day_offset(client, admin_auth, "POURNAMI", 2).status_code == 200
+    shifted = _generate(client, admin_auth, "POURNAMI").json()["occurrences"][str(YEAR)]
+
+    expected = [
+        (datetime.date.fromisoformat(d) + datetime.timedelta(days=2)).isoformat()
+        for d in baseline
+    ]
+    assert shifted == expected
+
+
+def test_generate_offset_crossing_year_boundary_is_422(client, admin_auth):
+    # NAVOLI_JYOTHIR_DINAM is pinned to May 6 — shifting it far enough to cross
+    # into a different year isn't possible with a small offset, so instead pin
+    # a fresh event right at year-end and shift it across the boundary.
+    client.post(
+        EVENTS_URL,
+        headers=admin_auth,
+        json={"id": "YEAR_END", "name": "n", "description": "d", "en_day": 31, "en_month": 12, "day_offset": 2},
+    )
+    r = _generate(client, admin_auth, "YEAR_END")
+    assert r.status_code == 422
 
 
 # ── Errors ───────────────────────────────────────────────────────────────────

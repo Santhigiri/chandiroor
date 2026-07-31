@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 from core.astronomy.pournami import is_poornima
 from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache
+from utils.cache_utils import remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, SISHYAPOOJITHA_BDAY, EventCondition
@@ -86,11 +86,21 @@ def update_sishya_bday(
         yearly_data = get_yearly_cache(panchangamCache, year)
         bday_date = calculate_sishya_bday(yearly_data, year, nazhika_cutoff)
 
-        print(f"SISHYA_BDAY DATE FOR {year}: {bday_date}")
-        updated_events = updated_panchangam[bday_date].santhigiri_significant_dates
+        target_date = shift_date_for_offset(
+            updated_panchangam, bday_date, SISHYAPOOJITHA_BDAY.event_condition.day_offset
+        )
+        if target_date is None:
+            print(
+                f"WARNING: SHISHYAPOOJITHA_BDAY day_offset shifts {bday_date} outside "
+                "the loaded pickle range — skipping."
+            )
+            continue
+
+        print(f"SISHYA_BDAY DATE FOR {year}: {target_date}")
+        updated_events = updated_panchangam[target_date].santhigiri_significant_dates
         updated_events.append(SISHYAPOOJITHA_BDAY)
         unique = {e.id : e for e in updated_events}
-        updated_panchangam[bday_date].santhigiri_significant_dates = list(unique.values())
+        updated_panchangam[target_date].santhigiri_significant_dates = list(unique.values())
     return updated_panchangam
 
 

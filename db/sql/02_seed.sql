@@ -92,49 +92,49 @@ INSERT INTO location (id, name, label, latitude, longitude, timezone) VALUES
 
 SELECT setval(pg_get_serial_sequence('location', 'id'), (SELECT MAX(id) FROM location));
 
-INSERT INTO santhigiri_event (id, name, description, sort_order, nakshatra_id, thithi_id, ml_day, ml_month, ml_year, en_day, en_month, en_year, occurance, is_poornima, last_occurance) VALUES
+INSERT INTO santhigiri_event (id, name, description, sort_order, nakshatra_id, thithi_id, ml_day, ml_month, ml_year, en_day, en_month, en_year, occurance, is_poornima, last_occurance, day_offset) VALUES
   ('POURNAMI', 'Pournami', '
     The full moon day (Pournami) is observed as a day of fasting and prayers at the Ashram. This day is considered very auspicious for spiritual and material wellbeing. It is also an apt time to pray for one’s ancestral lineage (pithrus) and a change in our capability and propensity for action (‘karmagati’). Devotees in large numbers pray through the day and night at the Ashram on ‘Pournami’, with Deepa and Kumbha Pradakshina. Pournami prayers are held at the Ashram Branches also.
-    ', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TRUE, NULL),
+    ', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TRUE, NULL, NULL),
   ('NAVOLI_JYOTHIR_DINAM', 'Navoli Jyothir Dinam', '
 This is the day on which Guru left His physical body and merged in the ‘Adisankalpam’ (The Plane of Primordial Consciousness), on May 6th, 1999. The Guru’s ‘Prakasham’ (Light) is now present in the world as ‘Nava Oli’ (A New Light). The day is observed as ‘Navaolijyothirdinam – Sarvamangala Sudinam’ (the Day of the New Light, Auspicious for All). Devotees observe ‘vratam’ (austerities) for 72 days prior to ‘Navaolijyothirdinam’, commemorating the 72 years that Guru lived, enduring great sacrifices and hardships. A Deepa Pradakshina is held in the evening, followed by a special ‘pushpanjali’ (floral offering) by the sanyasi sangh. A spectacular fireworks and percussion display is held after the 9 p.m. prayers to mark the time of the Guru’s physical departure.
-        ', 1, NULL, NULL, NULL, NULL, NULL, 6, 5, NULL, NULL, NULL, NULL),
-  ('JANMAGRIHA_THEERTHA_YATHRA', 'Janmagriha Theertha Yaathra', 'Janmagriha Theertha Yaathra', 2, 15, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-  ('POOJITHA_PEEDA_SAMARPANAM', 'Poojitha Peeda Samarppanam Varshikam', 'Poojitha Peeda Samarppanam Varshikam Ardhavarshika kumba mela', 3, NULL, NULL, NULL, NULL, NULL, 22, 2, NULL, NULL, NULL, NULL),
-  ('POOJITHA_PEEDA_VRITHARAMBAM', 'Poojitha Peeda Vritharambam', 'Poojitha Peeda Vritharambam', 4, NULL, NULL, NULL, NULL, NULL, 13, 1, NULL, NULL, NULL, NULL),
-  ('PRATHISTA_VARSHIKAM', 'Prathista Varshikam', 'Prathista Varshikam', 5, NULL, NULL, NULL, NULL, NULL, 10, 2, NULL, NULL, NULL, NULL),
-  ('NAVOLI_JYOTHIR_DINAM_VRITHARAMBAM', 'Navoli Jyothir Dinam Vritharambam', 'Navoli Jyothir Dinam Vritharambam', 6, NULL, NULL, NULL, NULL, NULL, 24, 2, NULL, NULL, NULL, NULL),
+        ', 1, NULL, NULL, NULL, NULL, NULL, 6, 5, NULL, NULL, NULL, NULL, NULL),
+  ('JANMAGRIHA_THEERTHA_YATHRA', 'Janmagriha Theertha Yaathra', 'Janmagriha Theertha Yaathra', 2, 15, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+  ('POOJITHA_PEEDA_SAMARPANAM', 'Poojitha Peeda Samarppanam Varshikam', 'Poojitha Peeda Samarppanam Varshikam Ardhavarshika kumba mela', 3, NULL, NULL, NULL, NULL, NULL, 22, 2, NULL, NULL, NULL, NULL, NULL),
+  ('POOJITHA_PEEDA_VRITHARAMBAM', 'Poojitha Peeda Vritharambam', 'Poojitha Peeda Vritharambam', 4, NULL, NULL, NULL, NULL, NULL, 13, 1, NULL, NULL, NULL, NULL, NULL),
+  ('PRATHISTA_VARSHIKAM', 'Prathista Varshikam', 'Prathista Varshikam', 5, NULL, NULL, NULL, NULL, NULL, 10, 2, NULL, NULL, NULL, NULL, NULL),
+  ('NAVOLI_JYOTHIR_DINAM_VRITHARAMBAM', 'Navoli Jyothir Dinam Vritharambam', 'Navoli Jyothir Dinam Vritharambam', 6, NULL, NULL, NULL, NULL, NULL, 24, 2, NULL, NULL, NULL, NULL, NULL),
   ('SAHAKARANA_MANDIRAM_SAMARPANA_VARSHIKAM', 'Sahakarana Mandiram Samarpana Varshikam', '
         On this day the ‘Sahakarana Mandiram’ (Shrine of Togetherness) was dedicated to Guru. The day falls on Kumbham 17 (February-March). It is marked by special prayers at the Ashram.
-    ', 7, NULL, NULL, 17, 11, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-  ('PRATHISTA_POORTHIKARANA_VARSHIKAM', 'Prathista Poorthikarana Varshikam', 'Prathista Poorthikarana Varshikam', 8, NULL, NULL, 10, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-  ('DIVYA_POOJA_SAMARPANA_VARSHIKAM', 'Divya pooja samarpana varshikam', 'Divya pooja samarpana varshikam', 9, NULL, NULL, NULL, NULL, NULL, 7, 5, NULL, NULL, NULL, NULL),
-  ('NAVAPOOJITHAM_VRITHARAMBAM', 'Navapoojitham vritharambam', 'Navapoojitham vritharambam', 10, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 7, NULL, NULL, 17, 11, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+  ('PRATHISTA_POORTHIKARANA_VARSHIKAM', 'Prathista Poorthikarana Varshikam', 'Prathista Poorthikarana Varshikam', 8, NULL, NULL, 10, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+  ('DIVYA_POOJA_SAMARPANA_VARSHIKAM', 'Divya pooja samarpana varshikam', 'Divya pooja samarpana varshikam', 9, NULL, NULL, NULL, NULL, NULL, 7, 5, NULL, NULL, NULL, NULL, NULL),
+  ('NAVAPOOJITHAM_VRITHARAMBAM', 'Navapoojitham vritharambam', 'Navapoojitham vritharambam', 10, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('NAVAPOOJITHAM', 'Navapoojitham', '
         Guru was born on September 1, 1927. The birthday celebrations are held as per the Malayalam Calendar, according to which Guru was born under the ‘Chothi’ star in the month of ‘Chingam’ (falling in August-September). The day is celebrated as ‘Navapoojitham - Janmadina Poojitha Samarpanam’. It is a day of special prayers, including Deepa Pradakshina (procession with lit lamps), at the Ashram.
-    ', 11, 15, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, TRUE),
+    ', 11, 15, NULL, NULL, 5, NULL, NULL, NULL, NULL, NULL, NULL, TRUE, NULL),
   ('POORNA_KUMBAMELA', 'Poornakumba mela', '
 The ‘Poorna Kumbhamela’ commemorates the day of the Guru’s spiritual attainment, falling on the 4th of the Malayalam month of ‘Kanni’ (September). The highlight of the celebrations is a colorful procession by devotees, carrying ceremonial parasols and decorated ‘kumbhams’ (earthen pots filled with holy water – theertham), around the Ashram. Taking the ‘kumbham’ for 12 successive times helps to remove the ‘karmadoshas’ (karmic errors) of the self and the family.
-    ', 12, NULL, NULL, 4, 6, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 12, NULL, NULL, 4, 6, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('SANYASADHEEKSHA_VARSHIKAM', 'Sanyasadheeksha varshikam', '
         Falling on the Vijayadashami day (mostly in October), this marks the anniversary of the day that Guru first conferred ‘sanyasam’ (vow of renunciation of householder life) on disciples in 1984. Every year on this day, devotees gather to pray for the wellbeing of ‘sanyasis’ (renunciates). This paves the way for greater mutual understanding and spiritual bonding between the renunciate and the householder.
-    ', 13, NULL, 10, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    ', 13, NULL, 10, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
   ('SAMSKARIKA_DINAM', 'Samskarika Dinam', '
         The formation of a National Centre for Cultural Renaissance (NCCR) on February 17, 1983, marked the beginning of an organized movement for cultural activities in the Ashram. The ‘Santhigiri Vishwa Samskarika Navodhana Kendram’ was registered as a charitable society on June 20, 1984. The organization is engaged in various cultural and voluntary activities to propagate the teachings of Guru for a spiritual and cultural renaissance in the world. The Santhigiri Vishwa Samskarika Navodhana Kendram has more than 200 units in Kerala and elsewhere. The Samskarika Dinam is marked by awareness meetings, seminars and cultural programmes to spread the Guru’s ideology.
-    ', 14, NULL, NULL, NULL, NULL, NULL, 5, 11, NULL, NULL, NULL, NULL),
-  ('SHISHYAPOOJITHA_BDAY', 'Shishyapoojitha''s Birthday', 'Shishyapoojitha''s Birthday', 15, 20, NULL, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, TRUE);
+    ', 14, NULL, NULL, NULL, NULL, NULL, 5, 11, NULL, NULL, NULL, NULL, NULL),
+  ('SHISHYAPOOJITHA_BDAY', 'Shishyapoojitha''s Birthday', 'Shishyapoojitha''s Birthday', 15, 20, NULL, NULL, 7, NULL, NULL, NULL, NULL, NULL, NULL, TRUE, NULL);
 
 
 -- ---------- App settings (defaults) ----------
 
 INSERT INTO app_setting (key, value, updated_at) VALUES
-  ('seed_year_range', '{"start_year": 2021, "end_year": 2030}', '2026-07-31 12:47:50.520916+00:00'),
-  ('default_location_code', '{"code": "tvm"}', '2026-07-31 12:47:50.520916+00:00'),
-  ('max_generate_span_days', '{"max_days": 366}', '2026-07-31 12:47:50.520916+00:00'),
-  ('max_event_generate_year_span', '{"max_years": 15}', '2026-07-31 12:47:50.520916+00:00'),
-  ('event_cutoffs', '{"nazhika_cutoff": 7.5, "transition_hour_cutoff": 3.0}', '2026-07-31 12:47:50.520916+00:00'),
-  ('nakshatra_transition_step_days', '{"default": 0.01, "overrides": {}}', '2026-07-31 12:47:50.520916+00:00'),
-  ('astronomy_epsilons', '{"nakshatra_epsilon": 1e-08, "kollavarsham_epsilon": 1e-06}', '2026-07-31 12:47:50.520916+00:00');
+  ('seed_year_range', '{"start_year": 2021, "end_year": 2030}', '2026-07-31 13:51:57.687176+00:00'),
+  ('default_location_code', '{"code": "tvm"}', '2026-07-31 13:51:57.687176+00:00'),
+  ('max_generate_span_days', '{"max_days": 366}', '2026-07-31 13:51:57.687176+00:00'),
+  ('max_event_generate_year_span', '{"max_years": 15}', '2026-07-31 13:51:57.687176+00:00'),
+  ('event_cutoffs', '{"nazhika_cutoff": 7.5, "transition_hour_cutoff": 3.0}', '2026-07-31 13:51:57.687176+00:00'),
+  ('nakshatra_transition_step_days', '{"default": 0.01, "overrides": {}}', '2026-07-31 13:51:57.687176+00:00'),
+  ('astronomy_epsilons', '{"nakshatra_epsilon": 1e-08, "kollavarsham_epsilon": 1e-06}', '2026-07-31 13:51:57.687176+00:00');
 
 
 -- ---------- Panchangam data (2021-01-01 .. 2030-12-31, 3652 days) ----------

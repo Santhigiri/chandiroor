@@ -91,9 +91,16 @@ def match_condition_based_events(
     event_defs: List[SanthigiriEvent],
     timezone: str = DEFAULT_TIMEZONE,
 ) -> List[SanthigiriEvent]:
-    """Return the subset of *event_defs* whose condition matches *data*'s day."""
+    """Return the subset of *event_defs* whose condition matches *data*'s day.
+
+    Events with a ``day_offset`` are excluded here: this matcher only ever
+    sees one day's data, so it cannot tell whether *this* day is the shifted
+    target of some other day's match (that requires whole-year context, see
+    ``core.calendar.santhigiri_event_occurrences.compute_occurrences``).
+    """
     return [
         event
         for event in event_defs
-        if event_matches(event.event_condition, data, timezone)
+        if not event.event_condition.day_offset
+        and event_matches(event.event_condition, data, timezone)
     ]

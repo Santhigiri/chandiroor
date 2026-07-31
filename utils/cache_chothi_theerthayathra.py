@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 from core.astronomy.nakshatra import get_duration_from_sunrise
 from utils.cache_crud import load_cache, write_cache
 from utils.cache_navapoojitham import calculate_navapoojitham, get_matching_dates
-from utils.cache_utils import get_yearly_cache, remove_events_from_cache
+from utils.cache_utils import get_yearly_cache, remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import JANMAGRIHA_THEERTHA_YATHRA, NAVAPOOJITHAM, EventCondition, SanthigiriEvent
@@ -64,10 +64,19 @@ def update_chothi_theerthayathra(
 
         print(f"NAVAPOOJITHAM DATE FOR {year}: {chothi_dates}")
         for dt in chothi_dates:
-            updated_events: List[SanthigiriEvent] = updated_panchangam[dt].santhigiri_significant_dates
+            target_date = shift_date_for_offset(
+                updated_panchangam, dt, JANMAGRIHA_THEERTHA_YATHRA.event_condition.day_offset
+            )
+            if target_date is None:
+                print(
+                    f"WARNING: JANMAGRIHA_THEERTHA_YATHRA day_offset shifts {dt} outside "
+                    "the loaded pickle range — skipping."
+                )
+                continue
+            updated_events: List[SanthigiriEvent] = updated_panchangam[target_date].santhigiri_significant_dates
             updated_events.append(JANMAGRIHA_THEERTHA_YATHRA)
             unique = {e.id : e for e in updated_events}
-            updated_panchangam[dt].santhigiri_significant_dates = list(unique.values())
+            updated_panchangam[target_date].santhigiri_significant_dates = list(unique.values())
     return updated_panchangam
 
 

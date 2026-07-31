@@ -56,6 +56,7 @@ def seed_santhigiri_events(session: Session) -> None:
                 occurance=c.occurance,
                 is_poornima=c.is_poornima,
                 last_occurance=c.last_occurance,
+                day_offset=c.day_offset,
             )
         )
 
