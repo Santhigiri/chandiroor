@@ -3,9 +3,21 @@ Request/response models for the authentication endpoints.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from datetime import date
+from typing import Optional
 
+from pydantic import BaseModel, Field, field_validator
+
+from utils.nakshatra import Nakshatra
 from utils.roles import Role
+
+
+def _validate_nakshatra_name(value: Optional[str]) -> Optional[str]:
+    if value is not None and value not in Nakshatra.__members__:
+        raise ValueError(
+            f"Unknown nakshatra {value!r}; must be one of {sorted(Nakshatra.__members__)}"
+        )
+    return value
 
 
 class Token(BaseModel):
@@ -34,3 +46,30 @@ class UserRead(BaseModel):
     username: str
     role: Role
     is_active: bool
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    birth_nakshatra: Optional[str] = None
+
+
+class GoogleLoginRequest(BaseModel):
+    """Body for ``POST /auth/google`` — a Google Identity Services ID token."""
+
+    id_token: str
+
+
+class ProfileUpdate(BaseModel):
+    """
+    Body for ``PATCH /auth/me`` — self-service profile fields.
+
+    All fields are optional; only the ones supplied are updated (partial
+    update semantics), leaving the rest of the profile untouched.
+    """
+
+    full_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    birth_nakshatra: Optional[str] = None
+
+    _validate_birth_nakshatra = field_validator("birth_nakshatra")(
+        _validate_nakshatra_name
+    )

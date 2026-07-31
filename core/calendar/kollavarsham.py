@@ -31,12 +31,11 @@ MALAYALAM_MONTHS = [
 ]
 
 
-def get_raasi(longitude: float) -> int:
+def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:
     """
     Convert sidereal longitude to raasi index.
     """
-    EPSILON = 1e-6
-    normalized = (longitude - EPSILON) % 360
+    normalized = (longitude - epsilon) % 360
     return int(normalized // 30)
 
 
@@ -45,7 +44,8 @@ def get_madhyahnam_raasi(
     dt: date,
     latitude: float,
     longitude: float,
-    timezone: str = DEFAULT_TIMEZONE
+    timezone: str = DEFAULT_TIMEZONE,
+    epsilon: float = 1e-6,
 ) -> int:
     """
     Get Sun's raasi at the end of Modyana (madhyahnam).
@@ -74,7 +74,7 @@ def get_madhyahnam_raasi(
         timezone=timezone
     )
 
-    return get_raasi(longitude)
+    return get_raasi(longitude, epsilon)
 
 
 @lru_cache(maxsize=1000)
@@ -82,7 +82,8 @@ def get_kollavarsham_date(
     dt: date,
     latitude: float,
     longitude: float,
-    timezone: str = DEFAULT_TIMEZONE
+    timezone: str = DEFAULT_TIMEZONE,
+    epsilon: float = 1e-6,
 ) -> KollavarshamDate:
 
 
@@ -91,7 +92,8 @@ def get_kollavarsham_date(
         dt=dt,
         timezone=timezone,
         latitude=latitude,
-        longitude=longitude
+        longitude=longitude,
+        epsilon=epsilon,
     )
 
     # The Malayalam day is the count of days since the Sun entered the current
@@ -107,7 +109,8 @@ def get_kollavarsham_date(
             dt=dt - timedelta(days=mid),
             latitude=latitude,
             longitude=longitude,
-            timezone=timezone
+            timezone=timezone,
+            epsilon=epsilon,
         )
         if mid_raasi == today_raasi:
             lo = mid

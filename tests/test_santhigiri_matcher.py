@@ -87,6 +87,24 @@ def test_nakshatra_only_event_never_matches(make_panchangam_data):
     ) is False
 
 
+# ── match_condition_based_events: day_offset exclusion ────────────────────────
+
+def test_match_condition_based_events_excludes_day_offset_conditions(make_panchangam_data):
+    """An event with a nonzero day_offset is excluded from the single-day
+    matcher even when its other fields would otherwise match — this matcher
+    only sees one day and cannot tell if that day is a shift target."""
+    data = make_panchangam_data(datetime.date(2026, 5, 6))
+    offset_event = _event("NAVOLI_JYOTHIR_DINAM").model_copy(
+        update={
+            "event_condition": _event("NAVOLI_JYOTHIR_DINAM").event_condition.model_copy(
+                update={"day_offset": 1}
+            )
+        }
+    )
+    matched = match_condition_based_events(data, [offset_event])
+    assert matched == []
+
+
 # ── match_condition_based_events ──────────────────────────────────────────────
 
 def test_match_condition_based_events_filters_the_list(make_panchangam_data):

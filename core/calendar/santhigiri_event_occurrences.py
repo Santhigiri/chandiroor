@@ -32,6 +32,8 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Literal
 
+import pytz
+
 from core.astronomy.pournami import is_poornima_live
 from core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
 from core.constants import DEFAULT_TIMEZONE
@@ -41,6 +43,18 @@ from utils.santhigiri_events import EventCondition
 PanchangamYear = Dict[date, PanchangamData]
 
 ConditionClass = Literal["single_day", "last_occurrence", "transition_series"]
+
+_IST = pytz.timezone(DEFAULT_TIMEZONE)
+
+
+def _ist_date(dt: datetime) -> date:
+    """The calendar date *dt* falls on in Asia/Kolkata.
+
+    Transition timestamps read back from the DB are UTC-aware; calendar-day
+    bucketing here is Ashram-observance logic and must stay IST regardless of
+    the storage/display timezone.
+    """
+    return dt.astimezone(_IST).date()
 
 
 class UnsupportedEventCondition(Exception):
@@ -104,10 +118,13 @@ def compute_single_day_occurrences(
 
 
 def compute_last_occurrence(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    nazhika_cutoff: float = 7.5,
 ) -> date:
     """The last day in *yearly_data* matching *condition*, applying the
-    7.5-Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
+    Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
     into ``condition.nakshatra`` within ``condition.ml_month`` if no day in
     the year matches directly.
 
@@ -120,7 +137,7 @@ def compute_last_occurrence(
     if matches:
         dt = matches[-1]
         data = yearly_data[dt]
-        if data.nazhika_from_sunrise > 7.5:
+        if data.nazhika_from_sunrise > nazhika_cutoff:
             return dt
         return dt - timedelta(days=1)
 
@@ -147,14 +164,17 @@ def compute_last_occurrence(
             f"{condition.ml_month.en} of {year}."
         )
     last_transition = sorted(transitions, key=lambda t: t.start_time)[-1]
-    return last_transition.start_time.date()
+    return _ist_date(last_transition.start_time)
 
 
 def compute_transition_series(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    transition_hour_cutoff: float = 3.0,
 ) -> List[date]:
     """Every Nakshatra-transition into ``condition.nakshatra`` during the
-    year, applying the 3-hours-after-sunrise cutoff rule.
+    year, applying the hours-after-sunrise cutoff rule.
 
     Generalizes
     ``utils.cache_chothi_theerthayathra.calculate_chothi_theerthayathra_for_year``
@@ -173,13 +193,13 @@ def compute_transition_series(
     for transition in sorted_transitions:
         if transition.end_time is None:
             raise OccurrenceComputationError(
-                f"Transition end time is missing near {transition.start_time.date()} "
+                f"Transition end time is missing near {_ist_date(transition.start_time)} "
                 f"in {year}."
             )
-        end_date = transition.end_time.date()
+        end_date = _ist_date(transition.end_time)
         end_date_data = yearly_data.get(end_date)
         if end_date_data is not None and (
-            transition.end_time - end_date_data.sunrise > timedelta(hours=3)
+            transition.end_time - end_date_data.sunrise > timedelta(hours=transition_hour_cutoff)
         ):
             occurrences.append(end_date)
         else:
@@ -187,14 +207,49 @@ def compute_transition_series(
     return occurrences
 
 
+def _apply_day_offset(dates: List[date], day_offset: int | None, year: int) -> List[date]:
+    """Shift every date in *dates* by *day_offset* days.
+
+    Raises :class:`OccurrenceComputationError` if a shift pushes a date out
+    of *year* — ``set_event_occurrences_for_year`` (``db/repository.py``)
+    deletes/reinserts strictly within the requested year, so a date that
+    crosses into a neighboring year would either get silently dropped by
+    that year's own regeneration or leak in undetected. Rejecting here keeps
+    that invariant intact rather than attempting to resolve it.
+    """
+    if not day_offset:
+        return dates
+    shifted = []
+    for d in dates:
+        nd = d + timedelta(days=day_offset)
+        if nd.year != year:
+            raise OccurrenceComputationError(
+                f"day_offset={day_offset} shifts {d} to {nd}, crossing out of "
+                f"{year} — not supported."
+            )
+        shifted.append(nd)
+    return shifted
+
+
 def compute_occurrences(
-    condition: EventCondition, yearly_data: PanchangamYear, year: int
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    year: int,
+    nazhika_cutoff: float = 7.5,
+    transition_hour_cutoff: float = 3.0,
 ) -> List[date]:
     """Dispatch to the algorithm matching *condition*'s class and return the
-    resulting occurrence dates for *year*, sorted."""
+    resulting occurrence dates for *year*, sorted, shifted by
+    ``condition.day_offset`` if set."""
     condition_class = classify_condition(condition)
     if condition_class == "single_day":
-        return compute_single_day_occurrences(condition, yearly_data)
-    if condition_class == "last_occurrence":
-        return [compute_last_occurrence(condition, yearly_data, year)]
-    return sorted(compute_transition_series(condition, yearly_data, year))
+        occurrences = compute_single_day_occurrences(condition, yearly_data)
+    elif condition_class == "last_occurrence":
+        occurrences = [
+            compute_last_occurrence(condition, yearly_data, year, nazhika_cutoff)
+        ]
+    else:
+        occurrences = sorted(
+            compute_transition_series(condition, yearly_data, year, transition_hour_cutoff)
+        )
+    return _apply_day_offset(occurrences, condition.day_offset, year)

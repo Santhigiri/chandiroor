@@ -1,8 +1,8 @@
 from datetime import date, timedelta
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from core.astronomy.pournami import is_poornima
 from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache
+from utils.cache_utils import remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, EventCondition
@@ -13,11 +13,13 @@ PanchangamCache = Dict[date, PanchangamData]
 def get_yearly_cache(cache: PanchangamCache, year: int):
     return {k: v for k,v in cache.items() if k.year == year}
 
-def calculate_navapoojitham(yearly_cache: PanchangamCache, year: int)-> date:
+def calculate_navapoojitham(
+    yearly_cache: PanchangamCache, year: int, nazhika_cutoff: float = 7.5
+)-> date:
     filtered_events  = get_matching_dates(yearly_cache, NAVAPOOJITHAM.event_condition)
     if len(filtered_events) > 0:
         dt, p_data = filtered_events[-1]
-        if p_data.nazhika_from_sunrise > 7.5:
+        if p_data.nazhika_from_sunrise > nazhika_cutoff:
             return dt
         else:
             return dt - timedelta(days= 1)
@@ -68,9 +70,11 @@ def remove_navapoojitham():
     write_cache(updated_cache)
     
 
-def update_navapoojitham(panchangamCache: PanchangamCache)-> PanchangamCache:
+def update_navapoojitham(
+    panchangamCache: PanchangamCache, nazhika_cutoff: float = 7.5
+)-> PanchangamCache:
     """
-    Updates Navapoojitham of a panchangam cache and returns the updated cache. 
+    Updates Navapoojitham of a panchangam cache and returns the updated cache.
     Iterates through each year in the cache and updates :attr:`PanchangamData.santhigiri_significant_dates` with the :class:`SanthigiriEvent` `NAVAPOOJITHAM`
     """
     start_year = min(panchangamCache.keys())
@@ -79,18 +83,42 @@ def update_navapoojitham(panchangamCache: PanchangamCache)-> PanchangamCache:
 
     for year in range(start_year.year, end_year.year + 1):
         yearly_data = get_yearly_cache(panchangamCache, year)
-        navapoojitham_date = calculate_navapoojitham(yearly_data, year)
+        navapoojitham_date = calculate_navapoojitham(yearly_data, year, nazhika_cutoff)
 
-        print(f"NAVAPOOJITHAM DATE FOR {year}: {navapoojitham_date}")
-        updated_events = updated_panchangam[navapoojitham_date].santhigiri_significant_dates
+        target_date = shift_date_for_offset(
+            updated_panchangam, navapoojitham_date, NAVAPOOJITHAM.event_condition.day_offset
+        )
+        if target_date is None:
+            print(
+                f"WARNING: NAVAPOOJITHAM day_offset shifts {navapoojitham_date} outside "
+                "the loaded pickle range — skipping."
+            )
+            continue
+
+        print(f"NAVAPOOJITHAM DATE FOR {year}: {target_date}")
+        updated_events = updated_panchangam[target_date].santhigiri_significant_dates
         updated_events.append(NAVAPOOJITHAM)
-        updated_panchangam[navapoojitham_date].santhigiri_significant_dates = list(set(updated_events))
+        updated_panchangam[target_date].santhigiri_significant_dates = list(set(updated_events))
     return updated_panchangam
 
 
-def cache_navapoojitham():
+def _resolve_nazhika_cutoff() -> float:
+    """The admin-configured event Nazhika cutoff, resolved from the DB
+    (falls back to 7.5 if unset/unavailable — see
+    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    from sqlmodel import Session
+
+    from db.database import engine
+    from services.settings_service import SettingsService
+
+    with Session(engine) as s:
+        return SettingsService(s).get_event_cutoffs().nazhika_cutoff
+
+
+def cache_navapoojitham(nazhika_cutoff: Optional[float] = None):
+    cutoff = nazhika_cutoff if nazhika_cutoff is not None else _resolve_nazhika_cutoff()
     cache: PanchangamCache = load_cache()
-    updated_cache = update_navapoojitham(cache)
+    updated_cache = update_navapoojitham(cache, cutoff)
     write_cache(updated_cache)
 
 

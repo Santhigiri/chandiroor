@@ -7,6 +7,7 @@ safe — session.merge() is idempotent on rows that already exist.
 """
 from sqlmodel import Session, select
 
+from db.models.app_setting import AppSetting as AppSettingRow
 from db.models.location import Location as LocationRow
 from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
@@ -18,7 +19,17 @@ from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
 from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from utils.settings_keys import SettingKey
 from utils.thithi import Thithi
+from schemas.app_setting import (
+    AstronomyEpsilonsValue,
+    DefaultLocationCodeValue,
+    EventCutoffsValue,
+    MaxEventGenerateYearSpanValue,
+    MaxGenerateSpanDaysValue,
+    NakshatraStepDaysValue,
+    SeedYearRangeValue,
+)
 
 
 def seed_santhigiri_events(session: Session) -> None:
@@ -45,6 +56,7 @@ def seed_santhigiri_events(session: Session) -> None:
                 occurance=c.occurance,
                 is_poornima=c.is_poornima,
                 last_occurance=c.last_occurance,
+                day_offset=c.day_offset,
             )
         )
 
@@ -62,8 +74,41 @@ def seed_santhigiri_events_if_empty(session: Session) -> bool:
     return True
 
 
+def seed_app_settings(session: Session) -> None:
+    """Insert every known app setting with its default value — identical to
+    today's hardcoded constants, so applying this is behaviorally a no-op
+    until an admin edits a value (see ``services.settings_service``).
+
+    Does NOT commit — callers batch this with the rest of a seed transaction.
+    """
+    defaults = {
+        SettingKey.SEED_YEAR_RANGE: SeedYearRangeValue(),
+        SettingKey.DEFAULT_LOCATION_CODE: DefaultLocationCodeValue(),
+        SettingKey.MAX_GENERATE_SPAN_DAYS: MaxGenerateSpanDaysValue(),
+        SettingKey.MAX_EVENT_GENERATE_YEAR_SPAN: MaxEventGenerateYearSpanValue(),
+        SettingKey.EVENT_CUTOFFS: EventCutoffsValue(),
+        SettingKey.NAKSHATRA_TRANSITION_STEP_DAYS: NakshatraStepDaysValue(),
+        SettingKey.ASTRONOMY_EPSILONS: AstronomyEpsilonsValue(),
+    }
+    for key, value in defaults.items():
+        session.merge(AppSettingRow(key=key.value, value=value.model_dump()))
+
+
+def seed_app_settings_if_empty(session: Session) -> bool:
+    """Seed default app settings only when the table is empty; commit and
+    return True. Backfills a DB first populated before the app_setting table
+    existed, without clobbering an admin's later edits to an already-seeded
+    table."""
+    if session.exec(select(AppSettingRow).limit(1)).first() is not None:
+        return False
+    seed_app_settings(session)
+    session.commit()
+    return True
+
+
 def seed_lookup_tables(session: Session) -> None:
-    """Insert all Paksha, Thithi, Nakshatra, MalayalamMasa, Location, and SanthigiriEvent values."""
+    """Insert all Paksha, Thithi, Nakshatra, MalayalamMasa, Location, SanthigiriEvent,
+    and default AppSetting values."""
     for p in Paksha:
         session.merge(PakshaRow(id=p.id, name=p.name, ml=p.ml, en=p.en))
 
@@ -98,5 +143,6 @@ def seed_lookup_tables(session: Session) -> None:
         )
 
     seed_santhigiri_events(session)
+    seed_app_settings(session)
 
     session.commit()

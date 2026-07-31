@@ -41,13 +41,38 @@ from schemas.panchangam_generation import (
     PanchangamGenerateResult,
 )
 from services.etag_service import refresh_etags
+from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION, Location
+
+
+class SpanTooLarge(Exception):
+    """Raised when a generate request's date span exceeds the admin-configured
+    ``max_generate_span_days`` setting."""
+
+    def __init__(self, span: int, max_days: int) -> None:
+        self.span = span
+        self.max_days = max_days
+        super().__init__(f"date range too large: {span} days (max {max_days})")
 
 
 class PanchangamGenerationService:
     def __init__(self, session: Session) -> None:
         self._s = session
         self._repo = PanchangamRepository(session)
+        self._settings = SettingsService(session)
+
+    def validate_span(self, req: PanchangamGenerateRequest) -> None:
+        """Raise :class:`SpanTooLarge` if *req*'s span exceeds the
+        admin-configured cap. Synchronous and side-effect-free, so route
+        handlers can call it before opening a streaming response — the only
+        way a caller of the streaming ``/generate`` endpoint can get a real
+        422 instead of a 200 + NDJSON error line (see
+        :meth:`generate_streaming`, which also enforces this as defense in
+        depth for any other caller)."""
+        span = (req.end_date - req.start_date).days + 1
+        max_days = self._settings.get_max_generate_span_days()
+        if span > max_days:
+            raise SpanTooLarge(span, max_days)
 
     async def generate_streaming(
         self,
@@ -65,6 +90,7 @@ class PanchangamGenerationService:
         sequentially across awaits, so ``self._repo.upsert`` is never
         offloaded — it's cheap relative to the Skyfield computation anyway.
         """
+        self.validate_span(req)
         span = (req.end_date - req.start_date).days + 1
         dates = [req.start_date + timedelta(days=offset) for offset in range(span)]
 
@@ -80,6 +106,7 @@ class PanchangamGenerationService:
                 location.latitude,
                 location.longitude,
                 location.timezone,
+                self._settings.get_astronomy_tuning(day.year),
             )
             self._repo.upsert(data, location)  # does NOT commit
             yield PanchangamGenerateProgress(

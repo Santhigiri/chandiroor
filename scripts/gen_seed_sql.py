@@ -18,8 +18,9 @@ caches:
 """
 from __future__ import annotations
 
+import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -31,11 +32,21 @@ from sqlmodel import SQLModel
 
 import db.models  # noqa: F401 — registers all tables on SQLModel.metadata
 
+from schemas.app_setting import (
+    AstronomyEpsilonsValue,
+    DefaultLocationCodeValue,
+    EventCutoffsValue,
+    MaxEventGenerateYearSpanValue,
+    MaxGenerateSpanDaysValue,
+    NakshatraStepDaysValue,
+    SeedYearRangeValue,
+)
 from utils.cache_crud import load_cache
 from utils.location import Location as LocationEnum
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.paksha import Paksha
+from utils.settings_keys import SettingKey
 from utils.thithi import Thithi
 from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 
@@ -55,9 +66,10 @@ def q(v) -> str:
     if isinstance(v, (int, float)):
         return repr(v)
     if isinstance(v, datetime):
-        # Store naive local wall-clock (Asia/Kolkata) — matches the model's
-        # tz-naive TIMESTAMP columns.
-        return "'" + v.replace(tzinfo=None).isoformat(sep=" ") + "'"
+        # Store UTC — matches the model's TIMESTAMPTZ columns.
+        if v.tzinfo is None:
+            raise ValueError(f"expected a timezone-aware datetime, got naive {v!r}")
+        return "'" + v.astimezone(timezone.utc).isoformat(sep=" ") + "'"
     if hasattr(v, "isoformat"):  # date
         return "'" + v.isoformat() + "'"
     return "'" + str(v).replace("'", "''") + "'"
@@ -137,16 +149,40 @@ def build_lookup_seed() -> str:
             c.thithi.id if c.thithi else None,
             c.ml_day, c.ml_month.id if c.ml_month else None, c.ml_year,
             c.en_day, c.en_month, c.en_year,
-            c.occurance, c.is_poornima, c.last_occurance,
+            c.occurance, c.is_poornima, c.last_occurance, c.day_offset,
         ))
     parts.append(insert_block(
         "santhigiri_event",
         ["id", "name", "description", "sort_order", "nakshatra_id", "thithi_id",
          "ml_day", "ml_month", "ml_year", "en_day", "en_month", "en_year",
-         "occurance", "is_poornima", "last_occurance"],
+         "occurance", "is_poornima", "last_occurance", "day_offset"],
         event_rows,
     ))
     return "\n".join(parts)
+
+
+# ── App setting seed rows (defaults, identical to the hardcoded constants) ────
+
+def build_app_setting_seed() -> str:
+    defaults = {
+        SettingKey.SEED_YEAR_RANGE: SeedYearRangeValue(),
+        SettingKey.DEFAULT_LOCATION_CODE: DefaultLocationCodeValue(),
+        SettingKey.MAX_GENERATE_SPAN_DAYS: MaxGenerateSpanDaysValue(),
+        SettingKey.MAX_EVENT_GENERATE_YEAR_SPAN: MaxEventGenerateYearSpanValue(),
+        SettingKey.EVENT_CUTOFFS: EventCutoffsValue(),
+        SettingKey.NAKSHATRA_TRANSITION_STEP_DAYS: NakshatraStepDaysValue(),
+        SettingKey.ASTRONOMY_EPSILONS: AstronomyEpsilonsValue(),
+    }
+    now = datetime.now(timezone.utc)
+    rows = [
+        (key.value, json.dumps(value.model_dump()), now)
+        for key, value in defaults.items()
+    ]
+    return "\n".join([
+        "-- ---------- App settings (defaults) ----------",
+        "",
+        insert_block("app_setting", ["key", "value", "updated_at"], rows),
+    ])
 
 
 # ── Panchangam data seed rows ─────────────────────────────────────────────────
@@ -202,6 +238,8 @@ def main() -> None:
         "BEGIN;",
         "",
         build_lookup_seed(),
+        "",
+        build_app_setting_seed(),
         "",
         build_data_seed(cache),
         "",

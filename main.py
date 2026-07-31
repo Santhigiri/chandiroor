@@ -8,6 +8,7 @@ from api.routes.v1.santhigiri_events import router as santhigiri_events_v1_route
 from api.routes.v1.kollavarsham import router as kollavarsham_v1_router
 from api.routes.v1.panchangam_generation import router as panchangam_generation_v1_router
 from api.routes.v1.guruvani import router as guruvani_v1_router
+from api.routes.v1.settings import router as settings_v1_router
 
 from utils.lifespan import lifespan
 
@@ -28,3 +29,4 @@ app.include_router(santhigiri_events_v1_router, prefix="/api/v1")
 app.include_router(kollavarsham_v1_router, prefix="/api/v1")
 app.include_router(panchangam_generation_v1_router, prefix="/api/v1")
 app.include_router(guruvani_v1_router, prefix="/api/v1")
+app.include_router(settings_v1_router, prefix="/api/v1")

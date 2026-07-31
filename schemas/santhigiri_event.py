@@ -19,12 +19,13 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# Guard against an accidental huge range triggering an enormous number of
-# per-event/per-year computations (some of which run live Pournami checks) in
-# one request. Generously covers the seeded 2021-2030 range plus headroom.
-# Shared by both the single-event and all-events occurrence generation
-# endpoints — see SanthigiriEventsGenerateRequest below.
-MAX_EVENT_GENERATE_YEAR_SPAN = 15
+# A defensive, non-editable ceiling no admin setting can exceed — a DoS
+# backstop, not the real business rule. The actual cap is the admin-configured
+# `max_event_generate_year_span` setting, enforced by SanthigiriEventService
+# (see services/settings_service.py). Shared by both the single-event and
+# all-events occurrence generation endpoints — see SanthigiriEventsGenerateRequest
+# below.
+_HARD_YEAR_SPAN_CEILING = 200
 
 
 class SanthigiriEventBase(BaseModel):
@@ -47,6 +48,16 @@ class SanthigiriEventBase(BaseModel):
     occurance: Optional[int] = None
     is_poornima: Optional[bool] = None
     last_occurance: Optional[bool] = None
+    day_offset: Optional[int] = Field(
+        default=None,
+        description=(
+            "Shift the matched occurrence date by N days. None/0 = no "
+            "shift; positive = N days after the day the other condition "
+            "fields match; negative = N days before. A shift that would "
+            "cross a calendar-year boundary is rejected at occurrence-"
+            "generation time."
+        ),
+    )
 
     yields_to_event_id: Optional[str] = Field(
         default=None,
@@ -86,6 +97,7 @@ class SanthigiriEventUpdate(BaseModel):
     occurance: Optional[int] = None
     is_poornima: Optional[bool] = None
     last_occurance: Optional[bool] = None
+    day_offset: Optional[int] = None
     yields_to_event_id: Optional[str] = None
 
 
@@ -111,9 +123,9 @@ class SanthigiriEventsGenerateRequest(BaseModel):
         if self.end_year < self.start_year:
             raise ValueError("end_year must be on or after start_year")
         span = self.end_year - self.start_year + 1
-        if span > MAX_EVENT_GENERATE_YEAR_SPAN:
+        if span > _HARD_YEAR_SPAN_CEILING:
             raise ValueError(
-                f"year range too large: {span} years (max {MAX_EVENT_GENERATE_YEAR_SPAN})"
+                f"year range too large: {span} years (max {_HARD_YEAR_SPAN_CEILING})"
             )
         return self
 

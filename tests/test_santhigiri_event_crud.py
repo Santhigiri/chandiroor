@@ -147,6 +147,19 @@ def test_create_event(client, admin_auth):
     assert data["sort_order"] is not None  # auto-assigned
 
 
+def test_create_event_with_day_offset(client, admin_auth):
+    body = {
+        "id": "SHIFTED_EVENT",
+        "name": "Shifted Event",
+        "description": "Occurs a few days after Chothi",
+        "nakshatra_id": 15,
+        "day_offset": 3,
+    }
+    r = client.post(EVENTS_URL, headers=admin_auth, json=body)
+    assert r.status_code == 201
+    assert r.json()["day_offset"] == 3
+
+
 def test_create_shows_up_in_list_and_bumps_etag(client, admin_auth, api_engine):
     before_etag = _stored_events_etag(api_engine)
     before = client.get(EVENTS_URL)
@@ -233,6 +246,16 @@ def test_update_is_partial(client, admin_auth):
     assert data["description"] == "Updated description"
     assert data["name"] == "Pournami"          # unchanged
     assert data["is_poornima"] is True          # condition untouched
+
+
+def test_update_sets_day_offset(client, admin_auth):
+    r = client.put(
+        f"{EVENTS_URL}/POURNAMI",
+        headers=admin_auth,
+        json={"day_offset": -1},
+    )
+    assert r.status_code == 200
+    assert r.json()["day_offset"] == -1
 
 
 def test_update_missing_event_is_404(client, admin_auth):

@@ -29,34 +29,45 @@ from db.database import get_session
 from db.repository import PanchangamRepository
 from db.user_repository import UserRepository
 from services.panchangam_service import PanchangamService
-from utils.location import DEFAULT_LOCATION_CODE, Location
+from services.settings_service import SettingsService
+from utils.location import Location
 from utils.roles import Role
 
 
 # ── Service wiring ────────────────────────────────────────────────────────────
 
+def get_settings_service(
+    session: Annotated[Session, Depends(get_session)],
+) -> SettingsService:
+    return SettingsService(session)
+
+
 def get_service(
     session: Annotated[Session, Depends(get_session)],
+    settings_service: Annotated[SettingsService, Depends(get_settings_service)],
 ) -> PanchangamService:
-    return PanchangamService(PanchangamRepository(session))
+    return PanchangamService(PanchangamRepository(session), settings_service)
 
 
 # ── Location selection ────────────────────────────────────────────────────────
 
 def get_location(
-    location: Annotated[str, Query(description="Location code, e.g. 'tvm'")] = DEFAULT_LOCATION_CODE,
+    settings_service: Annotated[SettingsService, Depends(get_settings_service)],
+    location: Annotated[Optional[str], Query(description="Location code, e.g. 'tvm'")] = None,
 ) -> Location:
     """Resolve the ``?location=`` query param (a location code) to a ``Location``.
 
-    Defaults to the ashram (``tvm``). An unknown code is a 404 — the caller asked
-    for a location the API does not serve.
+    Defaults to the admin-configured ``default_location_code`` setting (the
+    ashram, ``tvm``, unless changed) when omitted. An unknown code is a 404 —
+    the caller asked for a location the API does not serve.
     """
+    code = location if location is not None else settings_service.get_default_location_code()
     try:
-        return Location.from_code(location)
+        return Location.from_code(code)
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unknown location code: {location!r}",
+            detail=f"Unknown location code: {code!r}",
         )
 
 

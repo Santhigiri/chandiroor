@@ -23,7 +23,7 @@ the duration of the generator.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
@@ -33,7 +33,7 @@ from schemas.panchangam_generation import (
     PanchangamGenerateError,
     PanchangamGenerateRequest,
 )
-from services.panchangam_generation_service import PanchangamGenerationService
+from services.panchangam_generation_service import PanchangamGenerationService, SpanTooLarge
 from utils.location import Location
 from utils.roles import Role
 
@@ -49,11 +49,27 @@ async def generate_panchangam(
     session: Annotated[Session, Depends(get_session)],
     location: Annotated[Location, Depends(get_location)],
 ) -> StreamingResponse:
+    # Validated before the stream opens so an oversized range gets a real 422
+    # instead of a 200 with an NDJSON error line — once StreamingResponse
+    # starts, the status code can no longer change.
+    try:
+        PanchangamGenerationService(session).validate_span(payload)
+    except SpanTooLarge as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
     async def _stream():
         service = PanchangamGenerationService(session)
         try:
             async for event in service.generate_streaming(payload, location):
                 yield event.model_dump_json() + "\n"
+        except SpanTooLarge as exc:
+            # The stream's response already started with a 200 by the time this
+            # can be raised (span is only known once generate_streaming starts
+            # iterating), so — like every other mid-stream failure — it surfaces
+            # as an error line rather than a true 422; clients must check `type`
+            # on the last line.
+            session.rollback()
+            yield PanchangamGenerateError(detail=str(exc)).model_dump_json() + "\n"
         except Exception as exc:
             session.rollback()
             yield PanchangamGenerateError(detail=str(exc)).model_dump_json() + "\n"

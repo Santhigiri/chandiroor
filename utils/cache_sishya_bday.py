@@ -1,8 +1,8 @@
 from datetime import date, timedelta
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from core.astronomy.pournami import is_poornima
 from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache
+from utils.cache_utils import remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import NAVAPOOJITHAM, SISHYAPOOJITHA_BDAY, EventCondition
@@ -13,12 +13,14 @@ PanchangamCache = Dict[date, PanchangamData]
 def get_yearly_cache(cache: PanchangamCache, year: int):
     return {k: v for k,v in cache.items() if k.year == year}
 
-def calculate_sishya_bday(yearly_cache: PanchangamCache, year: int)-> date:
+def calculate_sishya_bday(
+    yearly_cache: PanchangamCache, year: int, nazhika_cutoff: float = 7.5
+)-> date:
     event = SISHYAPOOJITHA_BDAY
     filtered_events  = get_matching_dates(yearly_cache, event.event_condition)
     if len(filtered_events) > 0:
         dt, p_data = filtered_events[-1]
-        if p_data.nazhika_from_sunrise > 7.5:
+        if p_data.nazhika_from_sunrise > nazhika_cutoff:
             return dt
         else:
             return dt - timedelta(days= 1)
@@ -69,9 +71,11 @@ def remove_sishya_bday():
     write_cache(updated_cache)
     
 
-def update_sishya_bday(panchangamCache: PanchangamCache)-> PanchangamCache:
+def update_sishya_bday(
+    panchangamCache: PanchangamCache, nazhika_cutoff: float = 7.5
+)-> PanchangamCache:
     """
-    Updates Navapoojitham of a panchangam cache and returns the updated cache. 
+    Updates Navapoojitham of a panchangam cache and returns the updated cache.
     Iterates through each year in the cache and updates :attr:`PanchangamData.santhigiri_significant_dates` with the :class:`SanthigiriEvent` `NAVAPOOJITHAM`
     """
     start_year = min(panchangamCache.keys())
@@ -80,19 +84,43 @@ def update_sishya_bday(panchangamCache: PanchangamCache)-> PanchangamCache:
 
     for year in range(start_year.year, end_year.year + 1):
         yearly_data = get_yearly_cache(panchangamCache, year)
-        bday_date = calculate_sishya_bday(yearly_data, year)
+        bday_date = calculate_sishya_bday(yearly_data, year, nazhika_cutoff)
 
-        print(f"SISHYA_BDAY DATE FOR {year}: {bday_date}")
-        updated_events = updated_panchangam[bday_date].santhigiri_significant_dates
+        target_date = shift_date_for_offset(
+            updated_panchangam, bday_date, SISHYAPOOJITHA_BDAY.event_condition.day_offset
+        )
+        if target_date is None:
+            print(
+                f"WARNING: SHISHYAPOOJITHA_BDAY day_offset shifts {bday_date} outside "
+                "the loaded pickle range — skipping."
+            )
+            continue
+
+        print(f"SISHYA_BDAY DATE FOR {year}: {target_date}")
+        updated_events = updated_panchangam[target_date].santhigiri_significant_dates
         updated_events.append(SISHYAPOOJITHA_BDAY)
         unique = {e.id : e for e in updated_events}
-        updated_panchangam[bday_date].santhigiri_significant_dates = list(unique.values())
+        updated_panchangam[target_date].santhigiri_significant_dates = list(unique.values())
     return updated_panchangam
 
 
-def cache_sishya_bday():
+def _resolve_nazhika_cutoff() -> float:
+    """The admin-configured event Nazhika cutoff, resolved from the DB
+    (falls back to 7.5 if unset/unavailable — see
+    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    from sqlmodel import Session
+
+    from db.database import engine
+    from services.settings_service import SettingsService
+
+    with Session(engine) as s:
+        return SettingsService(s).get_event_cutoffs().nazhika_cutoff
+
+
+def cache_sishya_bday(nazhika_cutoff: Optional[float] = None):
+    cutoff = nazhika_cutoff if nazhika_cutoff is not None else _resolve_nazhika_cutoff()
     cache: PanchangamCache = load_cache()
-    updated_cache = update_sishya_bday(cache)
+    updated_cache = update_sishya_bday(cache, cutoff)
     write_cache(updated_cache)
 
 

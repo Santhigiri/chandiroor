@@ -29,6 +29,7 @@ from schemas.kollavarsham import (
 from services.kollavarsham_service import (
     KollavarshamDateNotFound,
     KollavarshamService,
+    SpanTooLarge,
     UngeneratableDates,
 )
 from utils.location import Location
@@ -77,6 +78,8 @@ def generate_kollavarsham(
                 "missing_dates": [d.isoformat() for d in exc.dates],
             },
         )
+    except SpanTooLarge as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.get(

@@ -19,6 +19,7 @@ from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from db.repository import (
     PanchangamRepository,
     _row_to_panchangam_data,
+    event_row_to_event,
 )
 from utils.location import Location
 from utils.nakshatra import Nakshatra
@@ -98,11 +99,25 @@ def test_roundtrip_with_santhigiri_event(seeded_session, make_panchangam_data):
     assert fetched == data
 
 
+def test_event_row_to_event_maps_day_offset():
+    row = SanthigiriEventRow(
+        id="SHIFTED", name="Shifted", description="d", sort_order=0, day_offset=3,
+    )
+    cond = event_row_to_event(row).event_condition
+    assert cond.day_offset == 3
+
+
+def test_event_row_to_event_defaults_day_offset_to_none():
+    row = SanthigiriEventRow(id="PLAIN", name="Plain", description="d", sort_order=0)
+    cond = event_row_to_event(row).event_condition
+    assert cond.day_offset is None
+
+
 def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchangam_data):
     from core.astronomy.thithi_transition import ThithiTransition
 
     date = datetime.date(2026, 3, 5)
-    day = datetime.datetime.combine(date, datetime.time.min)
+    day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
     early = ThithiTransition(
         name=Thithi.PRATHAMA_SHUKLA.en, thithi=Thithi.PRATHAMA_SHUKLA,
         start_time=day, end_time=day + datetime.timedelta(hours=10),
@@ -128,19 +143,15 @@ def test_get_by_date_missing_returns_none(seeded_session):
     assert PanchangamRepository(seeded_session).get_by_date(datetime.date(1999, 1, 1), TVM) is None
 
 
-# ── Timezone-aware input is stored naive ────────────────────────────────────
+# ── Timezone-aware input is normalized to UTC ───────────────────────────────
 #
 # core/astronomy returns tz-aware Asia/Kolkata datetimes for sunrise/sunset and
-# transitions, but the DB columns are TIMESTAMP WITHOUT TIME ZONE. psycopg2
-# converts an aware datetime to the *session's* TimeZone before writing to such
-# a column (Postgres, not SQLite — so this in-memory suite can only check that
-# upsert() normalizes to naive before it ever reaches the DBAPI, not the
-# Postgres-specific shift itself). If the session TimeZone isn't IST (Neon
-# defaults to GMT), an un-stripped aware value silently lands shifted by the
-# difference — this is exactly the corruption that motivated stripping tzinfo
-# in PanchangamRepository.upsert().
+# transitions. The DB columns are TIMESTAMPTZ via db.models.types.UTCDateTime,
+# which converts any aware input to UTC on write and always hands back
+# UTC-aware datetimes on read, regardless of the connection's session
+# TimeZone — so an IST-aware input round-trips as the equivalent UTC instant.
 
-def test_upsert_strips_tzinfo_from_sunrise_sunset(seeded_session, make_panchangam_data):
+def test_upsert_normalizes_sunrise_sunset_to_utc(seeded_session, make_panchangam_data):
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 8, 1)
     tz = pytz.timezone("Asia/Kolkata")
@@ -149,11 +160,10 @@ def test_upsert_strips_tzinfo_from_sunrise_sunset(seeded_session, make_panchanga
         thithi_transitions=[],
         nakshatra_transitions=[],
     )
+    aware_sunrise = tz.localize(datetime.datetime(2026, 8, 1, 6, 17, 16, 917196))
+    aware_sunset = tz.localize(datetime.datetime(2026, 8, 1, 18, 39, 51, 962109))
     data = data.model_copy(
-        update={
-            "sunrise": tz.localize(datetime.datetime(2026, 8, 1, 6, 17, 16, 917196)),
-            "sunset": tz.localize(datetime.datetime(2026, 8, 1, 18, 39, 51, 962109)),
-        }
+        update={"sunrise": aware_sunrise, "sunset": aware_sunset}
     )
 
     repo.upsert(data, TVM)
@@ -162,14 +172,14 @@ def test_upsert_strips_tzinfo_from_sunrise_sunset(seeded_session, make_panchanga
     row = seeded_session.exec(
         select(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
     ).one()
-    assert row.sunrise.tzinfo is None
-    assert row.sunset.tzinfo is None
-    # Wall-clock digits preserved exactly — only tzinfo is stripped.
-    assert row.sunrise == datetime.datetime(2026, 8, 1, 6, 17, 16, 917196)
-    assert row.sunset == datetime.datetime(2026, 8, 1, 18, 39, 51, 962109)
+    assert row.sunrise.tzinfo == datetime.timezone.utc
+    assert row.sunset.tzinfo == datetime.timezone.utc
+    # Same instant as the IST input, just re-expressed in UTC.
+    assert row.sunrise == aware_sunrise
+    assert row.sunset == aware_sunset
 
 
-def test_upsert_strips_tzinfo_from_transitions(seeded_session, make_panchangam_data):
+def test_upsert_normalizes_transitions_to_utc(seeded_session, make_panchangam_data):
     from core.astronomy.nakshatra_transition import NakshatraTransition
     from core.astronomy.thithi_transition import ThithiTransition
 
@@ -206,10 +216,10 @@ def test_upsert_strips_tzinfo_from_transitions(seeded_session, make_panchangam_d
     ).one()
 
     for row in (thithi_row, nakshatra_row):
-        assert row.start_time.tzinfo is None
-        assert row.end_time.tzinfo is None
-        assert row.start_time == datetime.datetime(2026, 8, 1, 23, 7, 48, 10297)
-        assert row.end_time == datetime.datetime(2026, 8, 2, 23, 15, 49, 68802)
+        assert row.start_time.tzinfo == datetime.timezone.utc
+        assert row.end_time.tzinfo == datetime.timezone.utc
+        assert row.start_time == aware_start
+        assert row.end_time == aware_end
 
 
 # ── Multi-location isolation ──────────────────────────────────────────────────
@@ -290,7 +300,7 @@ def test_upsert_replaces_children_cleanly(seeded_session, make_panchangam_data):
 
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 3, 6)
-    day = datetime.datetime.combine(date, datetime.time.min)
+    day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
 
     repo.upsert(make_panchangam_data(date), TVM)  # default: 1 thithi transition
     seeded_session.commit()

@@ -1,11 +1,11 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import datetime
 
 from api.deps import get_location, get_service, require_role
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetDayPanchangamParams import GetPanchangamParams
-from services.panchangam_service import PanchangamService
+from services.panchangam_service import PanchangamService, YearOutOfRange
 from utils.location import Location
 from utils.roles import Role
 
@@ -38,10 +38,13 @@ def panchangam_monthly(
     service: Annotated[PanchangamService, Depends(get_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
-    return service.get_by_month(
-        year=params.year,
-        month=params.month,
-        location=location,
-    )
+    try:
+        return service.get_by_month(
+            year=params.year,
+            month=params.month,
+            location=location,
+        )
+    except YearOutOfRange as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 

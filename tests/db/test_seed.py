@@ -31,6 +31,14 @@ def test_seed_inserts_exact_enum_counts(session):
     assert _count(session, SanthigiriEventRow) == len(EVENT_DEFINITIONS_BY_ID)
 
 
+def test_seed_carries_day_offset_from_event_condition(session):
+    seed_lookup_tables(session)
+
+    for event in EVENT_DEFINITIONS_BY_ID.values():
+        row = session.get(SanthigiriEventRow, event.id)
+        assert row.day_offset == event.event_condition.day_offset
+
+
 def test_seed_values_match_enums(session):
     seed_lookup_tables(session)
 

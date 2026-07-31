@@ -1,5 +1,5 @@
 from typing import Annotated, Dict, List
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
 
 from sqlmodel import Session
@@ -8,8 +8,10 @@ from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.location import LocationInfo
+from schemas.SunriseSunsetResponse import SunriseSunsetResponse
 from services.etag_service import (
     build_enum_payload,
     build_year_payload,
@@ -17,7 +19,7 @@ from services.etag_service import (
     enum_key,
     year_key,
 )
-from services.panchangam_service import PanchangamService
+from services.panchangam_service import PanchangamService, YearOutOfRange
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
@@ -49,6 +51,29 @@ def panchangam(
 
 
 @router.get(
+    '/sunrise-sunset',
+    response_model=SunriseSunsetResponse,
+)
+def sunrise_sunset(
+    params: Annotated[GetSunriseSunsetParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_service)],
+):
+    try:
+        sunrise, sunset = service.get_sunrise_sunset(
+            params.day, params.latitude, params.longitude
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return SunriseSunsetResponse(
+        latitude=params.latitude,
+        longitude=params.longitude,
+        day=params.day,
+        sunrise=sunrise,
+        sunset=sunset,
+    )
+
+
+@router.get(
     '/month',
     response_model=Dict[date, CompactPanchangamData]
 )
@@ -57,11 +82,14 @@ def panchangam_monthly(
     service: Annotated[PanchangamService, Depends(get_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
-    data = service.get_by_month(
-        year=params.year,
-        month=params.month,
-        location=location,
-    )
+    try:
+        data = service.get_by_month(
+            year=params.year,
+            month=params.month,
+            location=location,
+        )
+    except YearOutOfRange as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
         for day, value in data.items()
@@ -80,12 +108,15 @@ def panchangam_yearly(
     # full-year download. The ETag key includes the location code so different
     # locations don't collide. The stored ETag is refreshed whenever the data is
     # reloaded (see services.etag_service), or computed lazily on first request.
-    return conditional_json_response(
-        request,
-        session,
-        year_key(params.year, location.code),
-        lambda: build_year_payload(service, params.year, location),
-    )
+    try:
+        return conditional_json_response(
+            request,
+            session,
+            year_key(params.year, location.code),
+            lambda: build_year_payload(service, params.year, location),
+        )
+    except YearOutOfRange as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 
