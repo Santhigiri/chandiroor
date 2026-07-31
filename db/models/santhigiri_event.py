@@ -54,6 +54,12 @@ class SanthigiriEvent(SQLModel, table=True):
     is_poornima:    Optional[bool] = None
     last_occurance: Optional[bool] = None
 
+    # Shift the day the other condition columns match by N days. NULL/0 =
+    # no shift; positive = N days after; negative = N days before. See
+    # utils.santhigiri_events.EventCondition.day_offset and
+    # core.calendar.santhigiri_event_occurrences.compute_occurrences.
+    day_offset: Optional[int] = None
+
     # Cross-event precedence: when generating THIS event's occurrences, any
     # date that also matches yields_to_event_id's condition is dropped from
     # this event's occurrence set (see

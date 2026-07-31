@@ -112,6 +112,7 @@ def event_row_to_event(ev: SanthigiriEventRow) -> SanthigiriEvent:
         occurance=ev.occurance,
         is_poornima=ev.is_poornima,
         last_occurance=ev.last_occurance,
+        day_offset=ev.day_offset,
     )
     return SanthigiriEvent(
         id=ev.id,

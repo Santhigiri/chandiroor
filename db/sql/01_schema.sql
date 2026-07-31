@@ -128,6 +128,7 @@ CREATE TABLE santhigiri_event (
 	occurance INTEGER, 
 	is_poornima BOOLEAN, 
 	last_occurance BOOLEAN, 
+	day_offset INTEGER, 
 	yields_to_event_id VARCHAR, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(nakshatra_id) REFERENCES nakshatra (id), 

@@ -207,6 +207,30 @@ def compute_transition_series(
     return occurrences
 
 
+def _apply_day_offset(dates: List[date], day_offset: int | None, year: int) -> List[date]:
+    """Shift every date in *dates* by *day_offset* days.
+
+    Raises :class:`OccurrenceComputationError` if a shift pushes a date out
+    of *year* — ``set_event_occurrences_for_year`` (``db/repository.py``)
+    deletes/reinserts strictly within the requested year, so a date that
+    crosses into a neighboring year would either get silently dropped by
+    that year's own regeneration or leak in undetected. Rejecting here keeps
+    that invariant intact rather than attempting to resolve it.
+    """
+    if not day_offset:
+        return dates
+    shifted = []
+    for d in dates:
+        nd = d + timedelta(days=day_offset)
+        if nd.year != year:
+            raise OccurrenceComputationError(
+                f"day_offset={day_offset} shifts {d} to {nd}, crossing out of "
+                f"{year} — not supported."
+            )
+        shifted.append(nd)
+    return shifted
+
+
 def compute_occurrences(
     condition: EventCondition,
     yearly_data: PanchangamYear,
@@ -215,14 +239,17 @@ def compute_occurrences(
     transition_hour_cutoff: float = 3.0,
 ) -> List[date]:
     """Dispatch to the algorithm matching *condition*'s class and return the
-    resulting occurrence dates for *year*, sorted."""
+    resulting occurrence dates for *year*, sorted, shifted by
+    ``condition.day_offset`` if set."""
     condition_class = classify_condition(condition)
     if condition_class == "single_day":
-        return compute_single_day_occurrences(condition, yearly_data)
-    if condition_class == "last_occurrence":
-        return [
+        occurrences = compute_single_day_occurrences(condition, yearly_data)
+    elif condition_class == "last_occurrence":
+        occurrences = [
             compute_last_occurrence(condition, yearly_data, year, nazhika_cutoff)
         ]
-    return sorted(
-        compute_transition_series(condition, yearly_data, year, transition_hour_cutoff)
-    )
+    else:
+        occurrences = sorted(
+            compute_transition_series(condition, yearly_data, year, transition_hour_cutoff)
+        )
+    return _apply_day_offset(occurrences, condition.day_offset, year)

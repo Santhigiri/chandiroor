@@ -19,6 +19,7 @@ from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 from db.repository import (
     PanchangamRepository,
     _row_to_panchangam_data,
+    event_row_to_event,
 )
 from utils.location import Location
 from utils.nakshatra import Nakshatra
@@ -96,6 +97,20 @@ def test_roundtrip_with_santhigiri_event(seeded_session, make_panchangam_data):
     assert fetched is not None
     assert len(fetched.santhigiri_significant_dates) == 1
     assert fetched == data
+
+
+def test_event_row_to_event_maps_day_offset():
+    row = SanthigiriEventRow(
+        id="SHIFTED", name="Shifted", description="d", sort_order=0, day_offset=3,
+    )
+    cond = event_row_to_event(row).event_condition
+    assert cond.day_offset == 3
+
+
+def test_event_row_to_event_defaults_day_offset_to_none():
+    row = SanthigiriEventRow(id="PLAIN", name="Plain", description="d", sort_order=0)
+    cond = event_row_to_event(row).event_condition
+    assert cond.day_offset is None
 
 
 def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchangam_data):

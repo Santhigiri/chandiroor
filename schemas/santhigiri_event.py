@@ -48,6 +48,16 @@ class SanthigiriEventBase(BaseModel):
     occurance: Optional[int] = None
     is_poornima: Optional[bool] = None
     last_occurance: Optional[bool] = None
+    day_offset: Optional[int] = Field(
+        default=None,
+        description=(
+            "Shift the matched occurrence date by N days. None/0 = no "
+            "shift; positive = N days after the day the other condition "
+            "fields match; negative = N days before. A shift that would "
+            "cross a calendar-year boundary is rejected at occurrence-"
+            "generation time."
+        ),
+    )
 
     yields_to_event_id: Optional[str] = Field(
         default=None,
@@ -87,6 +97,7 @@ class SanthigiriEventUpdate(BaseModel):
     occurance: Optional[int] = None
     is_poornima: Optional[bool] = None
     last_occurance: Optional[bool] = None
+    day_offset: Optional[int] = None
     yields_to_event_id: Optional[str] = None
 
 
