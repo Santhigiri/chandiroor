@@ -1,29 +1,26 @@
 name: Build, Push, and Deploy
-
 on:
   push:
     branches:
       - develop
+      - release
       - main
   workflow_dispatch:
-
 env:
   IMAGE_NAME: chandiroor
   GCP_PROJECT: santhigiri-496211
   GCP_REGION: asia-south1
   AR_REPO: santhigiri
-
 jobs:
   build-push-deploy:
     runs-on: [self-hosted, proxmox]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # --- Tag generation  ---
+      # --- Tag generation ---
       - name: Generate version tag
         id: version
         run: |
@@ -31,25 +28,29 @@ jobs:
           PUSH_NUM=$(git log --oneline \
             --since="${DATE} 00:00:00" --until="${DATE} 23:59:59" \
             "${{ github.sha }}" | wc -l | tr -d ' ')
+
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
             TAG="dev-${DATE}.${PUSH_NUM}"
-            echo "SERVICE=chandiroor-dev" >> $GITHUB_OUTPUT
+            SERVICE="chandiroor-dev"
+          elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            TAG="staging-${DATE}.${PUSH_NUM}"
+            SERVICE="chandiroor-staging"
           else
             TAG="${DATE}.${PUSH_NUM}"
-            echo "SERVICE=chandiroor-prod" >> $GITHUB_OUTPUT
+            SERVICE="chandiroor-prod"
           fi
+
           echo "TAG=${TAG}" >> $GITHUB_OUTPUT
-          echo "Generated tag: ${TAG}"
+          echo "SERVICE=${SERVICE}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}, service: ${SERVICE}"
 
       # --- GCP auth ---
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
-
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
@@ -58,7 +59,6 @@ jobs:
         run: |
           AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
           docker build -t "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" -f Dockerfile .
-
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" "${AR_IMAGE}:latest"
           fi
@@ -72,10 +72,9 @@ jobs:
             docker push "${AR_IMAGE}:latest"
           fi
 
-      # --- (Optional) Also push to Docker Hub, if you still need it ---
+      # --- (Optional) Also push to Docker Hub ---
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
       - name: Push images to Docker Hub
         run: |
           AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
@@ -85,7 +84,6 @@ jobs:
             docker tag "${AR_IMAGE}:latest" "${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
             docker push "${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
           fi
-
       - name: Logout from Docker Hub
         if: always()
         run: docker logout
