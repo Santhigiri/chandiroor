@@ -75,6 +75,24 @@ def compute_etag(payload: Any) -> str:
     return '"' + stable_hash(jsonable_encoder(payload)) + '"'
 
 
+def etag_json_response(request: Request, payload: Any) -> Response:
+    """
+    Serve *payload* as an ETag-validated JSON response, computed fresh on every
+    call — unlike :func:`conditional_json_response`, which persists the ETag to
+    avoid rebuilding an expensive payload (e.g. a full year of Skyfield-backed
+    data). Use this instead for payloads cheap enough to rebuild every request,
+    e.g. the settings admin endpoints, where there's no benefit to persisting
+    (and later invalidating) a stored ETag.
+    """
+    encoded = jsonable_encoder(payload)
+    etag = '"' + stable_hash(encoded) + '"'
+
+    if if_none_match_satisfied(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"ETag": etag})
+
+    return JSONResponse(content=encoded, headers={"ETag": etag})
+
+
 def conditional_json_response(
     request: Request,
     session: Session,
