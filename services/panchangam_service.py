@@ -6,8 +6,9 @@ back to live astronomical computation so the API never 404s on an
 un-migrated date; the DB is expected to already cover the seeded range.
 """
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from core.astronomy.tuning import AstronomyTuning
 from db.repository import PanchangamRepository
@@ -97,6 +98,24 @@ class PanchangamService:
             data, self._event_defs(), location.timezone
         )
         return data
+
+    def compute_at_instant(
+        self, day: date, time_of_day: time, latitude: float, longitude: float, timezone: str
+    ) -> PanchangamData:
+        """Live-compute Panchangam anchored at an exact date+time+coordinate.
+
+        Always live-computed — arbitrary coordinates are never in the seeded
+        (Location-keyed) database, so this never reads through the repository.
+        No santhigiri_significant_dates overlay: those are Ashram/Kerala-specific
+        matches against DB event definitions and don't apply to an arbitrary
+        global coordinate (PanchangamData defaults that list to empty).
+        """
+        from core.calendar.panchangam import get_panchangam_data_at_instant
+
+        instant = datetime.combine(day, time_of_day, tzinfo=ZoneInfo(timezone))
+        return get_panchangam_data_at_instant(
+            instant, latitude, longitude, timezone, self._tuning_for_year(day.year)
+        )
 
     def get_sunrise_sunset(
         self, day: date, latitude: float, longitude: float

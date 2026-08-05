@@ -1,6 +1,7 @@
 from typing import Annotated, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
+from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
@@ -8,6 +9,7 @@ from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from schemas.GetPanchangamAtInstantParams import GetPanchangamAtInstantParams
 from schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from schemas.location import LocationInfo
@@ -47,6 +49,30 @@ def panchangam(
 ):
 
     data = service.get_by_date(day, location)
+    return CompactPanchangamData.from_panchangam_data(data)
+
+
+@router.get(
+    '/instant',
+    response_model=CompactPanchangamData
+)
+def panchangam_at_instant(
+    params: Annotated[GetPanchangamAtInstantParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_service)],
+):
+    """Panchangam for an exact date+time+coordinate (not sunrise-anchored).
+
+    Powers the Starfinder feature: arbitrary global coordinates, always
+    live-computed, never read through the Location-keyed DB.
+    """
+    try:
+        data = service.compute_at_instant(
+            params.day, params.time_of_day, params.latitude, params.longitude, params.timezone,
+        )
+    except ZoneInfoNotFoundError:
+        raise HTTPException(status_code=400, detail=f"Unknown timezone: {params.timezone!r}")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return CompactPanchangamData.from_panchangam_data(data)
 
 

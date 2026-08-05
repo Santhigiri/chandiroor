@@ -35,13 +35,18 @@ def _active_at(transitions, instant):
     return transitions[-1]
 
 
-def get_panchangam_data(
+def _compute_panchangam_pieces(
     localdt: date,
-    latitude: float = Coordinates.SG_LATITUDE,
-    longitude: float = Coordinates.SG_LONGITUDE,
-    timezone: str = DEFAULT_TIMEZONE,
-    tuning: AstronomyTuning = AstronomyTuning(),
+    latitude: float,
+    longitude: float,
+    timezone: str,
+    tuning: AstronomyTuning,
 ):
+    """Everything sunrise-anchored and instant-anchored Panchangam both need:
+    kv, both transition lists, sunrise/sunset, and the resolved location.
+    Callers pick the active thithi/nakshatra/nazhika themselves, anchored at
+    whichever instant is meaningful for them (sunrise, or an arbitrary time).
+    """
     kv = get_kollavarsham_date(
         dt = localdt,
         latitude = latitude,
@@ -51,9 +56,25 @@ def get_panchangam_data(
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
-    # The thithi/nakshatra "of the day" is the one active at sunrise. Both transition
-    # lists were just computed for this day, so derive it from them instead of doing
-    # two more ephemeris evaluations at sunrise.
+    # Resolve which known location these coordinates belong to so the response is
+    # self-describing. Unknown coordinates (an ad-hoc lat/long) leave it unset.
+    try:
+        location = LocationInfo.from_location(Location.from_coords(latitude, longitude))
+    except KeyError:
+        location = None
+    return kv, thithi_transitions, nakshatra_transitions, sunrise, sunset, location
+
+
+def get_panchangam_data(
+    localdt: date,
+    latitude: float = Coordinates.SG_LATITUDE,
+    longitude: float = Coordinates.SG_LONGITUDE,
+    timezone: str = DEFAULT_TIMEZONE,
+    tuning: AstronomyTuning = AstronomyTuning(),
+):
+    kv, thithi_transitions, nakshatra_transitions, sunrise, sunset, location = \
+        _compute_panchangam_pieces(localdt, latitude, longitude, timezone, tuning)
+    # The thithi/nakshatra "of the day" is the one active at sunrise.
     thithi = _active_at(thithi_transitions, sunrise).thithi
     nakshatra = _active_at(nakshatra_transitions, sunrise).nakshatra
     nazhika_from_sunrise = get_duration_from_sunrise(
@@ -61,12 +82,6 @@ def get_panchangam_data(
         nakshatra_transitions=nakshatra_transitions,
         sunrise=sunrise
     )
-    # Resolve which known location these coordinates belong to so the response is
-    # self-describing. Unknown coordinates (an ad-hoc lat/long) leave it unset.
-    try:
-        location = LocationInfo.from_location(Location.from_coords(latitude, longitude))
-    except KeyError:
-        location = None
     panchangam_data = PanchangamData(
         date= localdt,
         kv=kv,
@@ -84,6 +99,44 @@ def get_panchangam_data(
     # editable DB event definitions (see core/calendar/santhigiri_significant_dates.py);
     # get_panchangam_data stays pure and returns an empty list here.
     return panchangam_data
+
+
+def get_panchangam_data_at_instant(
+    instant: datetime,
+    latitude: float = Coordinates.SG_LATITUDE,
+    longitude: float = Coordinates.SG_LONGITUDE,
+    timezone: str = DEFAULT_TIMEZONE,
+    tuning: AstronomyTuning = AstronomyTuning(),
+):
+    """Panchangam anchored at an exact instant instead of sunrise.
+
+    `instant` must be timezone-aware, in `timezone` (the transition lists it's
+    compared against are localized to that same zone). Powers the Starfinder
+    feature: unlike get_panchangam_data(), the thithi/nakshatra returned are
+    whichever are active at the caller's requested moment, not at sunrise.
+    """
+    localdt = instant.date()
+    kv, thithi_transitions, nakshatra_transitions, sunrise, sunset, location = \
+        _compute_panchangam_pieces(localdt, latitude, longitude, timezone, tuning)
+    thithi = _active_at(thithi_transitions, instant).thithi
+    nakshatra = _active_at(nakshatra_transitions, instant).nakshatra
+    nazhika_from_sunrise = get_duration_from_sunrise(
+        nakshatra=nakshatra,
+        nakshatra_transitions=nakshatra_transitions,
+        sunrise=instant
+    )
+    return PanchangamData(
+        date= localdt,
+        kv=kv,
+        thithi_transitions= thithi_transitions,
+        nakshatra_transitions= nakshatra_transitions,
+        thithi = thithi,
+        nakshatra = nakshatra,
+        nazhika_from_sunrise=nazhika_from_sunrise,
+        sunrise = sunrise,
+        sunset = sunset,
+        location = location,
+    )
 
 
 def get_panchangam(
