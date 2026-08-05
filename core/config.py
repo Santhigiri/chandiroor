@@ -53,6 +53,13 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "https://panchangam.santhigiri.app",
     ]
+    # Temporary broad allowance: any HTTPS origin, matched via regex rather than
+    # a fixed list (Starlette's CORSMiddleware reflects the specific matched
+    # Origin header for credentialed requests, so this stays spec-compliant
+    # without resorting to a literal "*"). Override/narrow via the
+    # CORS_ALLOW_ORIGIN_REGEX env var; set to unset/None to fall back to only
+    # the explicit cors_allow_origins list above.
+    cors_allow_origin_regex: str | None = r"https://.*"
 
     # ── Initial admin seeding (optional) ──────────────────────────────────────
     # When both are set, an admin user is created at startup if it does not yet
