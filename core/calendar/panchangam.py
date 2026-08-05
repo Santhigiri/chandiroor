@@ -1,6 +1,6 @@
 from datetime import datetime, time
 from time import perf_counter
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import pytz
 from core.astronomy.calculations import get_sun_sidereal_longitude, get_time
 from core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
@@ -41,6 +41,7 @@ def get_panchangam_data(
     longitude: float = Coordinates.SG_LONGITUDE,
     timezone: str = DEFAULT_TIMEZONE,
     tuning: AstronomyTuning = AstronomyTuning(),
+    instant: Optional[datetime] = None,
 ):
     kv = get_kollavarsham_date(
         dt = localdt,
@@ -51,11 +52,14 @@ def get_panchangam_data(
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
-    # The thithi/nakshatra "of the day" is the one active at sunrise. Both transition
-    # lists were just computed for this day, so derive it from them instead of doing
-    # two more ephemeris evaluations at sunrise.
-    thithi = _active_at(thithi_transitions, sunrise).thithi
-    nakshatra = _active_at(nakshatra_transitions, sunrise).nakshatra
+    # The thithi/nakshatra "of the day" is the one active at sunrise, unless the
+    # caller asked for an arbitrary instant (e.g. the Starfinder "what's active
+    # right now, anywhere" query). Both transition lists were just computed for
+    # this day, so derive it from them instead of doing another ephemeris
+    # evaluation at the eval instant.
+    eval_instant = instant if instant is not None else sunrise
+    thithi = _active_at(thithi_transitions, eval_instant).thithi
+    nakshatra = _active_at(nakshatra_transitions, eval_instant).nakshatra
     nazhika_from_sunrise = get_duration_from_sunrise(
         nakshatra=nakshatra,
         nakshatra_transitions=nakshatra_transitions,
