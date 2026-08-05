@@ -18,6 +18,14 @@ from utils.santhigiri_events import SanthigiriEvent
 
 _cal = calendar.Calendar(firstweekday=6)
 
+# Grid size (decimal degrees) that arbitrary sunrise/sunset coordinates are
+# snapped to before hitting get_sunrise_sunset()'s @lru_cache. This is a
+# caching knob, not an accuracy one: at ~11 km per 0.1 degree, the resulting
+# sunrise/sunset shift is at most ~14s even at the solstices, but it lets
+# calls from many nearby callers on the same day collapse onto one cache
+# entry. Must be applied here, before the cached call, not inside it.
+SUNRISE_SUNSET_CACHE_GRID_DEGREES = 1
+
 
 class YearOutOfRange(Exception):
     """Raised when a requested year falls outside the admin-configured
@@ -95,12 +103,19 @@ class PanchangamService:
     ) -> Tuple[datetime, datetime]:
         """Sunrise/sunset for an arbitrary coordinate, in UTC.
 
+        The coordinate is snapped to a SUNRISE_SUNSET_CACHE_GRID_DEGREES grid
+        before computation so that nearby callers share cache entries; this
+        trades a negligible (sub-15s) accuracy cost for a much higher hit
+        rate on get_sunrise_sunset()'s @lru_cache.
+
         Live computation only (no DB-backed table for this); raises ValueError
         if no rising/setting is found for the given date/coordinate (e.g. polar
         day/night).
         """
         from core.astronomy.sunrise_sunset import get_sunrise_sunset
 
+        latitude = round(latitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
+        longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
         return get_sunrise_sunset(day, latitude, longitude, timezone="UTC")
 
     def get_by_date(
