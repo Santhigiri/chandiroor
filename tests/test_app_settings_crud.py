@@ -185,3 +185,84 @@ def test_update_nakshatra_step_days_with_year_override(client, admin_auth):
     )
     assert r.status_code == 200
     assert r.json()["value"] == {"default": 0.01, "overrides": {"2028": 0.05}}
+
+
+# ── ETag ─────────────────────────────────────────────────────────────────────
+
+def test_list_200_carries_etag(client, admin_auth):
+    r = client.get(SETTINGS_URL, headers=admin_auth)
+    assert r.status_code == 200
+    assert r.headers.get("etag", "").startswith('"')
+
+
+def test_list_304_when_if_none_match_matches(client, admin_auth):
+    first = client.get(SETTINGS_URL, headers=admin_auth)
+    etag = first.headers["etag"]
+
+    second = client.get(
+        SETTINGS_URL, headers={**admin_auth, "If-None-Match": etag}
+    )
+    assert second.status_code == 304
+    assert second.content == b""
+    assert second.headers["etag"] == etag
+
+
+def test_list_200_when_if_none_match_is_stale(client, admin_auth):
+    r = client.get(
+        SETTINGS_URL,
+        headers={**admin_auth, "If-None-Match": '"not-the-current-etag"'},
+    )
+    assert r.status_code == 200
+    assert r.json()
+
+
+def test_get_one_200_carries_etag(client, admin_auth):
+    r = client.get(f"{SETTINGS_URL}/seed_year_range", headers=admin_auth)
+    assert r.status_code == 200
+    assert r.headers.get("etag", "").startswith('"')
+
+
+def test_get_one_304_when_if_none_match_matches(client, admin_auth):
+    first = client.get(f"{SETTINGS_URL}/seed_year_range", headers=admin_auth)
+    etag = first.headers["etag"]
+
+    second = client.get(
+        f"{SETTINGS_URL}/seed_year_range",
+        headers={**admin_auth, "If-None-Match": etag},
+    )
+    assert second.status_code == 304
+    assert second.content == b""
+
+
+def test_get_one_etag_changes_after_update(client, admin_auth):
+    before = client.get(f"{SETTINGS_URL}/seed_year_range", headers=admin_auth)
+    etag = before.headers["etag"]
+
+    client.put(
+        f"{SETTINGS_URL}/seed_year_range",
+        headers=admin_auth,
+        json={"value": {"start_year": 2021, "end_year": 2035}},
+    )
+
+    after = client.get(
+        f"{SETTINGS_URL}/seed_year_range",
+        headers={**admin_auth, "If-None-Match": etag},
+    )
+    assert after.status_code == 200
+    assert after.json()["value"] == {"start_year": 2021, "end_year": 2035}
+    assert after.headers["etag"] != etag
+
+
+def test_list_etag_changes_after_update(client, admin_auth):
+    before = client.get(SETTINGS_URL, headers=admin_auth)
+    etag = before.headers["etag"]
+
+    client.put(
+        f"{SETTINGS_URL}/seed_year_range",
+        headers=admin_auth,
+        json={"value": {"start_year": 2021, "end_year": 2035}},
+    )
+
+    after = client.get(SETTINGS_URL, headers={**admin_auth, "If-None-Match": etag})
+    assert after.status_code == 200
+    assert after.headers["etag"] != etag
