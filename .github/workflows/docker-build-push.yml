@@ -9,7 +9,7 @@ on:
 env:
   IMAGE_NAME: chandiroor
   GCP_PROJECT: santhigiri-496211
-  GCP_REGION: asia-south1
+  GCP_REGION: asia-southeast1
   AR_REPO: santhigiri
 jobs:
   build-push-deploy:
