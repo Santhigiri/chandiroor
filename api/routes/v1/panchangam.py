@@ -58,6 +58,17 @@ def sunrise_sunset(
     params: Annotated[GetSunriseSunsetParams, Query()],
     service: Annotated[PanchangamService, Depends(get_service)],
 ):
+    """Sunrise/sunset (UTC) for an arbitrary coordinate and date.
+
+    Intended for clients that supply the device's live location (e.g. a
+    user moving around during the day) rather than the Santhigiri Ashram
+    default. Before computing, the submitted latitude/longitude are rounded
+    to 1 decimal degree (~11 km) server-side so nearby callers share the
+    same cached result; the accuracy cost of this is negligible (at most
+    ~14 seconds of sunrise/sunset shift, even at the solstices). The
+    response still echoes back the coordinates as submitted — only the
+    internal computation snaps to the grid.
+    """
     try:
         sunrise, sunset = service.get_sunrise_sunset(
             params.day, params.latitude, params.longitude
