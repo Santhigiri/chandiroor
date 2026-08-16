@@ -1,12 +1,14 @@
 from typing import Annotated, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
+from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
 from api.deps import get_location, get_service, require_role
 from db.database import get_session
 from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
+from schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
 from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
 from schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
@@ -82,6 +84,29 @@ def sunrise_sunset(
         sunrise=sunrise,
         sunset=sunset,
     )
+
+
+@router.get(
+    '/instant',
+    response_model=CompactPanchangamData,
+)
+def panchangam_instant(
+    params: Annotated[GetInstantPanchangamParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_service)],
+):
+    """Compact Panchangam active at an arbitrary date/time/location instant.
+
+    Intended for clients (e.g. the Starfinder page) that supply their own
+    date, time-of-day, and coordinates rather than relying on the Santhigiri
+    Ashram default. Always live-computed; no DB lookup involved.
+    """
+    try:
+        data = service.get_panchangam_at_instant(
+            params.day, params.time, params.latitude, params.longitude, params.timezone
+        )
+    except (ValueError, ZoneInfoNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return CompactPanchangamData.from_panchangam_data(data)
 
 
 @router.get(
