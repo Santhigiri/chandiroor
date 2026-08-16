@@ -6,8 +6,9 @@ back to live astronomical computation so the API never 404s on an
 un-migrated date; the DB is expected to already cover the seeded range.
 """
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from core.astronomy.tuning import AstronomyTuning
 from db.repository import PanchangamRepository
@@ -95,6 +96,36 @@ class PanchangamService:
         )
         data.santhigiri_significant_dates = match_condition_based_events(
             data, self._event_defs(), location.timezone
+        )
+        return data
+
+    def get_panchangam_at_instant(
+        self,
+        day: date,
+        time_of_day: time,
+        latitude: float,
+        longitude: float,
+        timezone: str,
+    ) -> PanchangamData:
+        """Panchangam active at an arbitrary date/time/location instant.
+
+        Live computation only (no DB lookup) — this serves the Starfinder-style
+        "what's active right now, anywhere" query, not a Santhigiri Ashram day
+        lookup. An unknown IANA timezone name raises ``ZoneInfoNotFoundError``,
+        which the route handler converts to a 400.
+        """
+        from core.calendar.panchangam import get_panchangam_data
+        from core.calendar.santhigiri_significant_dates import (
+            match_condition_based_events,
+        )
+
+        instant = datetime.combine(day, time_of_day, tzinfo=ZoneInfo(timezone))
+        data = get_panchangam_data(
+            day, latitude, longitude, timezone, self._tuning_for_year(day.year),
+            instant=instant,
+        )
+        data.santhigiri_significant_dates = match_condition_based_events(
+            data, self._event_defs(), timezone
         )
         return data
 

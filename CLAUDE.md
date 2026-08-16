@@ -298,6 +298,7 @@ The container exposes port 8000 and runs `uvicorn main:app --host 0.0.0.0 --port
 Panchangam data (public — anonymous allowed, any supplied token still validated):
 
 - `GET /api/v1/panchangam/day?day=YYYY-MM-DD` — main version; returns the compact Panchangam for a single day
+- `GET /api/v1/panchangam/instant?day=YYYY-MM-DD&time=HH:MM&latitude=..&longitude=..&timezone=..` — main version; returns the compact Panchangam active at an arbitrary date/time/location instant (always live-computed, no DB lookup)
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
 - `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
 - `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
