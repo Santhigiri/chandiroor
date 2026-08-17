@@ -7,7 +7,7 @@ un-migrated date; the DB is expected to already cover the seeded range.
 """
 import calendar
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from core.astronomy.tuning import AstronomyTuning
@@ -16,6 +16,9 @@ from schemas.panchangam_data import PanchangamData
 from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION, Location
 from utils.santhigiri_events import SanthigiriEvent
+
+if TYPE_CHECKING:
+    from core.astronomy.sunrise_sunset import SunriseSunsetResult
 
 _cal = calendar.Calendar(firstweekday=6)
 
@@ -131,23 +134,24 @@ class PanchangamService:
 
     def get_sunrise_sunset(
         self, day: date, latitude: float, longitude: float
-    ) -> Tuple[datetime, datetime]:
+    ) -> "SunriseSunsetResult":
         """Sunrise/sunset for an arbitrary coordinate, in UTC.
 
         The coordinate is snapped to a SUNRISE_SUNSET_CACHE_GRID_DEGREES grid
         before computation so that nearby callers share cache entries; this
         trades a negligible (sub-15s) accuracy cost for a much higher hit
-        rate on get_sunrise_sunset()'s @lru_cache.
+        rate on get_sunrise_sunset_status()'s @lru_cache.
 
-        Live computation only (no DB-backed table for this); raises ValueError
-        if no rising/setting is found for the given date/coordinate (e.g. polar
-        day/night).
+        Live computation only (no DB-backed table for this). Never raises for
+        a missing rising/setting event — at high latitudes the sun can stay
+        continuously up or down all day (polar day/night); the result's
+        status reflects that and sunrise/sunset are None.
         """
-        from core.astronomy.sunrise_sunset import get_sunrise_sunset
+        from core.astronomy.sunrise_sunset import get_sunrise_sunset_status
 
         latitude = round(latitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
         longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
-        return get_sunrise_sunset(day, latitude, longitude, timezone="UTC")
+        return get_sunrise_sunset_status(day, latitude, longitude, timezone="UTC")
 
     def get_by_date(
         self, day: date, location: Location = DEFAULT_LOCATION

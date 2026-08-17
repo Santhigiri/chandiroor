@@ -70,19 +70,22 @@ def sunrise_sunset(
     ~14 seconds of sunrise/sunset shift, even at the solstices). The
     response still echoes back the coordinates as submitted — only the
     internal computation snaps to the grid.
+
+    At high latitudes the sun can stay continuously above or below the
+    horizon for the whole day. When that happens, `status` is "polar_day"
+    or "polar_night" and `sunrise`/`sunset` are both null instead of a
+    computed time.
     """
-    try:
-        sunrise, sunset = service.get_sunrise_sunset(
-            params.day, params.latitude, params.longitude
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    result = service.get_sunrise_sunset(
+        params.day, params.latitude, params.longitude
+    )
     return SunriseSunsetResponse(
         latitude=params.latitude,
         longitude=params.longitude,
         day=params.day,
-        sunrise=sunrise,
-        sunset=sunset,
+        sunrise=result.sunrise,
+        sunset=result.sunset,
+        status=result.status,
     )
 
 

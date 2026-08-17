@@ -67,13 +67,39 @@ def test_sunrise_sunset_422_for_invalid_longitude(client):
     assert r.status_code == 422
 
 
-def test_sunrise_sunset_400_for_polar_night(client):
+def test_sunrise_sunset_200_for_polar_night(client):
     # Svalbard in December: polar night, no sunrise/sunset to find.
     r = client.get(
         "/api/v1/panchangam/sunrise-sunset",
         params={"latitude": 78.2, "longitude": 15.6, "day": "2026-12-21"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "polar_night"
+    assert body["sunrise"] is None
+    assert body["sunset"] is None
+
+
+def test_sunrise_sunset_200_for_polar_day(client):
+    # Svalbard in June: polar day, sun never sets.
+    r = client.get(
+        "/api/v1/panchangam/sunrise-sunset",
+        params={"latitude": 78.2, "longitude": 15.6, "day": "2026-06-21"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "polar_day"
+    assert body["sunrise"] is None
+    assert body["sunset"] is None
+
+
+def test_sunrise_sunset_200_returns_normal_status(client):
+    r = client.get(
+        "/api/v1/panchangam/sunrise-sunset",
+        params={"latitude": 8.645, "longitude": 76.938, "day": "2026-07-30"},
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "normal"
 
 
 def _parse(iso_str: str):
