@@ -14,7 +14,7 @@ from core.astronomy.nakshatra_transition import make_nakshatra_transition_fn
 from core.astronomy.thithi_transition import make_thithi_transition_fn
 from core.calendar.santhigiri_event_occurrences import compute_last_occurrence
 from schemas.app_setting import AppSettingUpdate
-from services.panchangam_service import PanchangamService, YearOutOfRange
+from features.panchangam.service import PanchangamService, YearOutOfRange
 from services.settings_service import SettingsService
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra

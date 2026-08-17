@@ -30,23 +30,45 @@ git push -u origin feature/<your-feature-name>
 
 ## Architecture Overview
 
-The codebase uses a **feature-based architecture** with a hard separation between business logic and the API layer. This is a non-negotiable constraint.
+The codebase uses a **feature-based (vertical-slice) architecture** with a hard separation between business logic and the API layer. This is a non-negotiable constraint.
+
+Each feature owns its own router, service, and request/response schemas under `features/<name>/`. Only pieces that are genuinely shared across *multiple* features — the persistence layer (`db/`), the astronomy/calendar domain logic (`core/`), cross-cutting services (`services/`), and cross-cutting schemas (`schemas/`) — live outside a feature folder.
 
 ```
 panchangam-api/
 ├── main.py                     # App factory: wires lifespan, CORS, routers
 ├── api/
-│   ├── deps.py                 # Shared Depends: get_service, get_current_principal, require_role
-│   └── routes/                 # HTTP boundary only — thin, dumb handlers
-│       └── v1/                 # Versioned routers, mounted under /api/v1 in main.py; add v2/ etc. alongside it
-│           ├── panchangam.py           # Compact panchangam + reference (thithi/nakshatra/masa/events) reads
-│           ├── santhigiri_events.py    # Admin CRUD for editable Santhigiri event definitions
-│           └── auth.py                 # login / refresh / me / users (JWT auth)
-├── services/
-│   ├── panchangam_service.py       # Reads through db/repository.py; falls back to live computation on a DB miss
-│   ├── santhigiri_event_service.py # Event-definition CRUD; commits with an ETag refresh in one transaction
-│   └── etag_service.py             # Canonical payload builders + ETag compute/refresh
-├── db/                         # Postgres persistence layer (SQLModel)
+│   ├── deps.py                 # Shared Depends: get_service, get_location, get_current_principal, require_role
+│   └── routes/                 # Only the legacy, unversioned router lives here directly
+│       └── panchangam.py       # Deprecated pre-v1 router; do not add new callers or new endpoints here
+├── features/                   # One subpackage per feature — the HTTP boundary + orchestration for that feature
+│   ├── panchangam/
+│   │   ├── router.py               # Compact panchangam + reference (thithi/nakshatra/masa/events) reads, mounted at /api/v1
+│   │   ├── generation_router.py    # POST /api/v1/panchangam/generate (admin)
+│   │   ├── service.py              # PanchangamService — reads through db/repository.py; live-computation fallback on a DB miss
+│   │   ├── generation_service.py   # PanchangamGenerationService — write path, commits with an ETag refresh
+│   │   └── schemas/                # Panchangam-only request/response schemas (one file per schema, as before)
+│   ├── santhigiri_events/
+│   │   ├── router.py    # Admin CRUD + occurrence-generation endpoints for editable Santhigiri event definitions
+│   │   ├── service.py   # SanthigiriEventService
+│   │   └── schemas.py
+│   ├── auth/
+│   │   ├── router.py    # login / refresh / me / users / Google sign-in (JWT auth)
+│   │   └── schemas.py
+│   ├── kollavarsham/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   └── schemas.py
+│   ├── guruvani/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   └── schemas.py
+│   └── settings/
+│       └── router.py    # Admin CRUD for app_setting (schema/service are shared — see below)
+├── services/                    # Only services used by 3+ features stay here — everything else moved into features/<name>/service.py
+│   ├── etag_service.py          # Canonical payload builders + ETag compute/refresh (used by every feature)
+│   └── settings_service.py      # Reads/writes app_setting; used by every feature's service plus api/deps.py
+├── db/                         # Postgres persistence layer (SQLModel) — unchanged by the feature-folder move
 │   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
 │   ├── repository.py           # PanchangamRepository — getters/setters for PanchangamData
 │   ├── reference_repository.py # Reads the enum/reference datasets (thithi, nakshatra, masa, events)
@@ -55,13 +77,17 @@ panchangam-api/
 │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
 │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
 │   └── models/                 # SQLModel table definitions
-├── core/
+├── core/                        # Unchanged by the feature-folder move — shared by every feature
 │   ├── astronomy/              # Pure astronomical computation (no HTTP, no Pydantic responses)
 │   ├── calendar/               # Domain aggregation: combines astronomy into calendar objects
 │   ├── security.py             # Password hashing + JWT mint/decode (no HTTP)
 │   ├── config.py               # Settings (JWT_SECRET_KEY etc.) via pydantic-settings
 │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
-├── schemas/                    # Pydantic request/response models
+├── schemas/                     # Only schemas used by 2+ features, or by db/ or core/, stay here
+│   ├── location.py              # LocationInfo — used by db/repository.py, core/calendar/, and multiple features
+│   ├── panchangam_data.py       # PanchangamData — returned by db/repository.py and core/calendar/panchangam.py
+│   ├── compact_panchangam_data.py  # Used by services/etag_service.py, db/reference_repository.py, and multiple features
+│   └── app_setting.py           # Used by the settings feature *and* features/santhigiri_events/service.py
 ├── utils/                      # Enums, cache tooling, event definitions
 │   ├── roles.py                # Role enum (anonymous < user < admin) for authorization
 │   ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
@@ -79,17 +105,21 @@ panchangam-api/
 
 **`core/astronomy/`** contains pure astronomical functions. They take `datetime` and coordinate/timezone values as inputs and return floats, ints, or strings. They have zero knowledge of HTTP, Pydantic models, or persistence. They are independently testable.
 
-**`core/calendar/`** aggregates astronomy into meaningful calendar objects. `panchangam.py::get_panchangam_data()` is the single orchestration point: it calls into `core/astronomy/`, builds a `PanchangamData` Pydantic object, and returns it. It is used directly by `services/panchangam_service.py` as the live-computation fallback for any date not yet in the DB.
+**`core/calendar/`** aggregates astronomy into meaningful calendar objects. `panchangam.py::get_panchangam_data()` is the single orchestration point: it calls into `core/astronomy/`, builds a `PanchangamData` Pydantic object, and returns it. It is used directly by `features/panchangam/service.py` as the live-computation fallback for any date not yet in the DB.
 
-**`services/`** sits between the routes and `db/`. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database.
+**`features/<name>/`** is a vertical slice: its `router.py` is the HTTP boundary (parses/validates query params, obtains a service via FastAPI `Depends`, delegates to it, translates domain errors to HTTP status codes) and its `service.py` sits between the router and `db/`. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database. A feature with no independent domain logic (`auth`, `settings`) may skip `service.py` and talk to `db/` directly, or lean on a shared `services/` module.
 
-**`db/`** is the Postgres persistence layer (SQLModel). The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
+**`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
 
-**`api/routes/`** is the HTTP boundary. Route handlers parse and validate query parameters, obtain a `PanchangamService` via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
+**`api/routes/panchangam.py`** is the one surviving unversioned/legacy router — everything else moved into `features/`. Route handlers (whether here or in a feature's `router.py`) parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
-**`schemas/`** holds Pydantic models. Request schemas live here (query param validation with defaults). The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
+**`schemas/`** holds only the Pydantic models shared across features (or consumed by `db/`/`core/calendar/`, which don't import from `features/`). Everything else lives in the owning feature's `schemas.py`/`schemas/` package. The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
 **`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
+
+### Versioning without a `v1/` directory
+
+Versioning is applied externally: a feature's `router.py` (or `generation_router.py`, etc.) declares only its feature-local prefix (e.g. `/panchangam/kollavarsham`), and `main.py` mounts it with `app.include_router(router, prefix="/api/v1")`. To add a `v2` of one feature's endpoints, add `features/<name>/router_v2.py` alongside the existing `router.py` and mount it with `prefix="/api/v2"` in `main.py` — no directory reshuffle needed.
 
 ### Authentication & Authorization
 
@@ -99,11 +129,11 @@ The API uses **JWT bearer authentication** with a three-tier role hierarchy: `an
 - **`require_role(minimum)`** is a dependency factory that gates an endpoint at a minimum role. Anonymous callers to a protected endpoint get `401`; authenticated callers with an insufficient role get `403`. It returns the resolved `Principal` so handlers can read the current user.
 - **Public endpoints still declare a guard** — the panchangam data routers depend on `require_role(Role.ANONYMOUS)`, which permits anonymous access but still validates (and rejects) any bearer token that *is* supplied.
 
-Auth endpoints live in `api/routes/v1/auth.py` (`/api/v1/auth/login`, `/refresh`, `/me`, `/users`). Users are stored via `db/user_repository.py`; an initial admin can be seeded at startup by setting `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`. Route handlers remain thin — credential checking, hashing, and token minting are delegated to `core/security.py`.
+Auth endpoints live in `features/auth/router.py` (`/api/v1/auth/login`, `/refresh`, `/me`, `/users`). Users are stored via `db/user_repository.py`; an initial admin can be seeded at startup by setting `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`. Route handlers remain thin — credential checking, hashing, and token minting are delegated to `core/security.py`.
 
 ### Editable Santhigiri event definitions
 
-The `santhigiri_event` table is the **authoritative, editable** definition store for event types (name, description, matching condition), seeded from `utils/santhigiri_events.py` but authoritative thereafter. It is read for the `GET /panchangam/events` reference list (via `db/reference_repository.py`) and written through `db/santhigiri_event_repository.py`. `services/santhigiri_event_service.py` orchestrates create/update/delete: each mutation commits **atomically with an ETag refresh** (`services/etag_service.py`) — always the `events` reference dataset, plus every `year` dataset whose cascade-deleted occurrences changed on a delete — so cached clients revalidate correctly. Editing a definition does **not** by itself recompute which dates the event falls on — that's a separate step, either the offline cache pipeline (see "Adding a new Santhigiri event") or the live DB-driven `POST /panchangam/events/{event_id}/occurrences` / `POST /panchangam/events/generate` endpoints (`SanthigiriEventService.generate_occurrences`/`generate_all_occurrences_streaming`), which (re)compute an event's (or every event's) occurrence dates over a year range directly from the DB's panchangam data and overwrite `santhigiri_event_dates` for that range.
+The `santhigiri_event` table is the **authoritative, editable** definition store for event types (name, description, matching condition), seeded from `utils/santhigiri_events.py` but authoritative thereafter. It is read for the `GET /panchangam/events` reference list (via `db/reference_repository.py`) and written through `db/santhigiri_event_repository.py`. `features/santhigiri_events/service.py` orchestrates create/update/delete: each mutation commits **atomically with an ETag refresh** (`services/etag_service.py`) — always the `events` reference dataset, plus every `year` dataset whose cascade-deleted occurrences changed on a delete — so cached clients revalidate correctly. Editing a definition does **not** by itself recompute which dates the event falls on — that's a separate step, either the offline cache pipeline (see "Adding a new Santhigiri event") or the live DB-driven `POST /panchangam/events/{event_id}/occurrences` / `POST /panchangam/events/generate` endpoints (`SanthigiriEventService.generate_occurrences`/`generate_all_occurrences_streaming`), which (re)compute an event's (or every event's) occurrence dates over a year range directly from the DB's panchangam data and overwrite `santhigiri_event_dates` for that range.
 
 An event definition may also set `yields_to_event_id`, pointing at another event it defers to: when generating this event's occurrences via the live path above, any date where the referenced event's condition also matches is dropped from this event's own occurrence set. This is resolved live against the same year's panchangam data on every generation run (not a static precomputed exclusion), and only affects the live generation path — it has no offline-pipeline equivalent. Used to resolve same-date collisions between events that can both plausibly claim a day, e.g. `JANMAGRIHA_THEERTHA_YATHRA` (every Chothi Nakshatra transition) yields to `NAVAPOOJITHAM` (the last Chothi-in-Chingam day) since a year's Navapoojitham date is also, incidentally, a routine Chothi transition.
 
@@ -115,11 +145,12 @@ Follow these rules without exception.
 
 ### Layer import boundaries
 
-- Route handlers in `api/routes/` must only parse HTTP params and delegate to `services/panchangam_service.py`. They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly.
-- `core/astronomy/` functions must not import from `api/`, `schemas/`, or `utils/lifespan.py`.
-- `core/calendar/` functions must not import from `api/`.
-- `db/` (models, `repository.py`) must not import from `api/` or `services/`.
-- Pydantic models belong in `schemas/`. Do not define response models inside `core/` or `utils/`.
+- Route handlers in `features/<name>/router.py` (or `api/routes/panchangam.py`) must only parse HTTP params and delegate to that feature's `service.py` (or a shared `services/` module). They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly.
+- `core/astronomy/` functions must not import from `api/`, `features/`, `schemas/`, or `utils/lifespan.py`.
+- `core/calendar/` functions must not import from `api/` or `features/`.
+- `db/` (models, `repository.py`) must not import from `api/`, `features/`, or `services/`.
+- Pydantic models belong in `schemas/` (if shared across features) or `features/<name>/schemas.py` (if feature-local). Do not define response models inside `core/` or `utils/`.
+- A feature's `service.py` may import shared `services/` modules (`etag_service`, `settings_service`) and `db/`, but other features must not import one feature's `service.py`/`router.py`/`schemas.py` directly — go through the shared layers instead.
 
 ### Business logic placement
 
@@ -146,10 +177,10 @@ Follow these rules without exception.
 
 ### Adding a new API endpoint
 
-1. Create a new file under `api/routes/<feature>.py` for unversioned endpoints, or `api/routes/<version>/<feature>.py` (e.g. `api/routes/v1/panchangam.py`) for versioned ones. Do not add endpoints to an existing route file unless they are closely related.
-2. Define request params as a Pydantic `BaseModel` in `schemas/`.
-3. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment.
-4. All domain logic the endpoint needs must be implemented in `core/` or a `services/` orchestrator — never in the handler.
+1. If the endpoint belongs to an existing feature, add it to that feature's `features/<name>/router.py` (or a new `features/<name>/<sub>_router.py` alongside it, as `panchangam` does for `generation_router.py`). For a genuinely new feature, create `features/<name>/` with `router.py` (+ `service.py`/`schemas.py`/`schemas/` as needed) following the layout of an existing feature. Do not add endpoints to an existing router file unless they are closely related to that feature.
+2. Define request params as a Pydantic `BaseModel` in `features/<name>/schemas.py` (feature-local), or in top-level `schemas/` only if the schema must also be consumed by `db/`, `core/calendar/`, or another feature.
+3. Register the new router in `main.py` using `app.include_router(...)`. For a versioned router, pass the version prefix at inclusion time, e.g. `app.include_router(router, prefix="/api/v1")` — routers themselves should not hardcode the version segment (see "Versioning without a `v1/` directory" above).
+4. All domain logic the endpoint needs must be implemented in `core/` or a `service.py` orchestrator (the feature's own, or a shared `services/` module for cross-feature concerns) — never in the handler.
 5. **Choose an authorization level with `require_role`.** Read endpoints that expose public panchangam data use `require_role(Role.ANONYMOUS)` (permits anonymous, still validates any supplied token). Any endpoint that **mutates** state must be gated at the appropriate role — event-definition writes and user management require `require_role(Role.ADMIN)`. Apply the guard per-endpoint via the decorator's `dependencies=[...]` when a router mixes privilege levels, or at the router level when they are uniform.
 
 ### Enum usage
@@ -251,7 +282,7 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 |---|---|
 | `fastapi` | HTTP framework and request validation |
 | `uvicorn[standard]` | ASGI server (uvloop/httptools for production) |
-| `python-multipart` | Parses the OAuth2 form login (`api/routes/v1/auth.py`) |
+| `python-multipart` | Parses the OAuth2 form login (`features/auth/router.py`) |
 | `skyfield` | High-precision astronomical calculations (positions, `find_discrete`) |
 | `pyswisseph` | Lahiri Ayanamsa computation via Swiss Ephemeris |
 | `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
@@ -353,7 +384,7 @@ This is the most performance-critical aspect of the system. Understand it before
 
 ### Runtime store (Postgres via `PanchangamRepository`)
 
-Both endpoints are served through `services/panchangam_service.py`, which reads via `db/repository.py::PanchangamRepository` against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-applying the SQL seed files rather than relying on organic backfill.
+Both endpoints are served through `features/panchangam/service.py`, which reads via `db/repository.py::PanchangamRepository` against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-applying the SQL seed files rather than relying on organic backfill.
 
 At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db()`, which only ensures the schema exists (idempotent). The database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to the Neon/Postgres target with `psql`; the server never seeds itself at runtime.
 
@@ -417,7 +448,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 ## What Not To Do
 
 - Do not put business logic in route handlers. If a route handler is doing anything beyond parsing params and calling `PanchangamService`, move the logic to `services/` or `core/`.
-- Do not call `core/astronomy/`, `core/calendar/`, or `db/repository.py` directly from route handlers — go through `services/panchangam_service.py`.
+- Do not call `core/astronomy/`, `core/calendar/`, or `db/repository.py` directly from route handlers — go through `features/panchangam/service.py` (or the relevant feature's `service.py`).
 - Do not define new Pydantic models inside `core/` or `db/` modules.
 - Do not modify the pickle files by hand. Always use the cache scripts, then re-run `scripts/gen_seed_sql.py` and re-apply `db/sql/*.sql` to the Postgres database.
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.

@@ -26,7 +26,7 @@ from core.security import (
 )
 from db.database import get_session
 from db.user_repository import UserRepository
-from schemas.auth import GoogleLoginRequest, ProfileUpdate, Token, UserCreate, UserRead
+from features.auth.schemas import GoogleLoginRequest, ProfileUpdate, Token, UserCreate, UserRead
 from utils.roles import Role
 
 router = APIRouter(prefix="/auth")

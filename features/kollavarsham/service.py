@@ -7,7 +7,7 @@ Kollavarsham values (``kv_day``/``kv_year``/``masa``) are part of the compact
 ``/year`` payload (see ``schemas.compact_panchangam_data.CompactKollavarshamDate``),
 so every mutation commits together with a recomputation of the affected years'
 ETags via :func:`services.etag_service.refresh_etags` — exactly as
-:class:`services.santhigiri_event_service.SanthigiriEventService` does — so
+:class:`features.santhigiri_events.service.SanthigiriEventService` does — so
 cached clients revalidate correctly.
 
 * **generate** recomputes every day in an inclusive date range from the astronomy
@@ -29,7 +29,7 @@ from sqlmodel import Session
 
 from db.kollavarsham_repository import KollavarshamRepository
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
-from schemas.kollavarsham import (
+from features.kollavarsham.schemas import (
     KollavarshamDateUpdate,
     KollavarshamGenerateRequest,
     KollavarshamGenerateResult,

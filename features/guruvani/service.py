@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from db.guruvani_repository import GuruvaniRepository
 from db.models.guruvani import Guruvani
-from schemas.guruvani import GuruvaniCreate, GuruvaniUpdate
+from features.guruvani.schemas import GuruvaniCreate, GuruvaniUpdate
 
 
 class GuruvaniNotFound(Exception):

@@ -7,7 +7,7 @@ a ``TestClient`` cookie jar, and ``cookie_secure`` forced off so cookies are
 replayed over the plain-HTTP ``testserver`` transport. Google's ID-token
 verification itself is not exercised here (it would require a real signed
 token and network access to Google) — instead
-``api.routes.v1.auth.verify_google_id_token`` is monkeypatched to return
+``features.auth.router.verify_google_id_token`` is monkeypatched to return
 canned claims, isolating this test's scope to the account
 find-or-create/cookie-issuing logic.
 """
@@ -18,7 +18,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 import db.database  # noqa: F401 — registers the FK pragma listener
 import db.models  # noqa: F401 — registers every table on SQLModel.metadata
-import api.routes.v1.auth as auth_routes
+import features.auth.router as auth_routes
 from core.config import settings
 from core.security import GoogleTokenError
 from db.database import get_session

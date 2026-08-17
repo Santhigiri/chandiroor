@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # A defensive, non-editable ceiling no admin setting can exceed — a DoS
 # backstop, not the real business rule. The actual cap is the admin-configured
-# `max_generate_span_days` setting (shared with schemas.panchangam_generation),
+# `max_generate_span_days` setting (shared with features.panchangam.schemas.panchangam_generation),
 # enforced by KollavarshamService (see services/settings_service.py).
 _HARD_SPAN_CEILING_DAYS = 3660
 

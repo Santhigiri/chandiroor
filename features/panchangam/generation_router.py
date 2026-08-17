@@ -29,11 +29,11 @@ from starlette.responses import StreamingResponse
 
 from api.deps import get_location, require_role
 from db.database import get_session
-from schemas.panchangam_generation import (
+from features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
+from features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateError,
     PanchangamGenerateRequest,
 )
-from services.panchangam_generation_service import PanchangamGenerationService, SpanTooLarge
 from utils.location import Location
 from utils.roles import Role
 

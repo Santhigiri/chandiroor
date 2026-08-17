@@ -23,8 +23,8 @@ from sqlmodel import Session
 
 from api.deps import require_role
 from db.database import get_session
-from schemas.guruvani import GuruvaniCreate, GuruvaniDetail, GuruvaniUpdate
-from services.guruvani_service import GuruvaniNotFound, GuruvaniService
+from features.guruvani.schemas import GuruvaniCreate, GuruvaniDetail, GuruvaniUpdate
+from features.guruvani.service import GuruvaniNotFound, GuruvaniService
 from utils.roles import Role
 
 router = APIRouter(prefix="/guruvani", tags=["guruvani"])

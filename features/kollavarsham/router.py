@@ -20,13 +20,13 @@ from sqlmodel import Session
 
 from api.deps import get_location, require_role
 from db.database import get_session
-from schemas.kollavarsham import (
+from features.kollavarsham.schemas import (
     KollavarshamDateRead,
     KollavarshamDateUpdate,
     KollavarshamGenerateRequest,
     KollavarshamGenerateResult,
 )
-from services.kollavarsham_service import (
+from features.kollavarsham.service import (
     KollavarshamDateNotFound,
     KollavarshamService,
     SpanTooLarge,
