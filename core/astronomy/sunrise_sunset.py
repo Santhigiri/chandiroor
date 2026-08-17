@@ -5,7 +5,7 @@ from skyfield import almanac
 from datetime import date, datetime
 import pytz
 from core.constants import DEFAULT_TIMEZONE, Coordinates
-from core.astronomy.ephemeris import ephem, ts, sun
+from core.astronomy.ephemeris import ephem, ts, sun, earth
 
 
 @lru_cache(maxsize=1000)
@@ -63,4 +63,19 @@ def get_sunrise_sunset(
     if sunrise_local is not None and sunset_local is not None:
         return sunrise_local, sunset_local
 
-    raise ValueError("Sunrise and sunset times unavailable for the given date and location.")
+    # No rising/setting event in the UTC day window: the sun stayed continuously
+    # above or below the horizon (polar day/night). Sample its altitude at
+    # midday to say which, rather than raising a generic "unavailable" error.
+    midday = ts.utc(date.year, date.month, date.day, 12)
+    observer = earth + location
+    altitude, _, _ = observer.at(midday).observe(sun).apparent().altaz()
+
+    if altitude.degrees > horizon:
+        raise ValueError(
+            "No sunrise or sunset on this date at this location: the sun does not "
+            "set (polar day / midnight sun)."
+        )
+    raise ValueError(
+        "No sunrise or sunset on this date at this location: the sun does not "
+        "rise (polar night)."
+    )
