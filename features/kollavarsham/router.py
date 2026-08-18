@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from api.deps import get_location, require_role
+from core.deps import get_location, require_role
 from db.database import get_session
 from features.kollavarsham.schemas import (
     KollavarshamDateRead,

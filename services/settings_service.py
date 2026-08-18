@@ -1,7 +1,7 @@
 """
 SettingsService — CRUD for the admin-editable ``app_setting`` table, plus
 typed getters used by the rest of the app (``services/``, offline
-``utils/cache_*.py`` tooling).
+``features/santhigiri_events/offline_cache/cache_*.py`` tooling).
 
 Every typed getter falls back to today's hardcoded constant when a key's row
 is absent (or, defensively, if a stored value somehow fails validation) — see

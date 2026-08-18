@@ -45,7 +45,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from api.deps import require_role
+from core.deps import require_role
 from db.database import get_session
 from features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
