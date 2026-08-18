@@ -1,4 +1,4 @@
-"""Tests for utils.cache_crud.load_cache_from_db.
+"""Tests for features.santhigiri_events.offline_cache.cache_crud.load_cache_from_db.
 
 Proves the offline event pipeline can source its base PanchangamData (sunrise/sunset
 + thithi transitions) from the database instead of the pickle cache, and that Pournami
@@ -11,8 +11,8 @@ import datetime
 
 from core.astronomy.transitions import ThithiTransition
 from db.repository import PanchangamRepository
-from utils.cache_crud import load_cache_from_db
-from utils.cache_navapoojitham import get_matching_dates
+from features.santhigiri_events.offline_cache.cache_crud import load_cache_from_db
+from features.santhigiri_events.offline_cache.cache_navapoojitham import get_matching_dates
 from utils.location import Location
 from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID, POURNAMI
 from utils.thithi import Thithi

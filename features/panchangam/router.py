@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
-from api.deps import get_location, get_service, require_role
+from core.deps import get_location, get_service, require_role
 from db.database import get_session
 from features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
 from features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams

@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import datetime
 
-from api.deps import get_location, get_service, require_role
+from core.deps import get_location, get_service, require_role
 from features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from features.panchangam.schemas.GetDayPanchangamParams import GetPanchangamParams
 from features.panchangam.service import PanchangamService, YearOutOfRange

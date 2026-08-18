@@ -1,11 +1,11 @@
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 from core.astronomy.pournami import is_poornima
-from utils.cache_crud import load_cache, write_cache
-from utils.cache_utils import remove_events_from_cache, shift_date_for_offset
+from features.santhigiri_events.offline_cache.cache_crud import load_cache, write_cache
+from features.santhigiri_events.offline_cache.cache_utils import remove_events_from_cache, shift_date_for_offset
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import NAVAPOOJITHAM, SISHYAPOOJITHA_BDAY, EventCondition
+from utils.santhigiri_events import NAVAPOOJITHAM, EventCondition
 from schemas.panchangam_data import PanchangamData
 
 PanchangamCache = Dict[date, PanchangamData]
@@ -13,22 +13,21 @@ PanchangamCache = Dict[date, PanchangamData]
 def get_yearly_cache(cache: PanchangamCache, year: int):
     return {k: v for k,v in cache.items() if k.year == year}
 
-def calculate_sishya_bday(
+def calculate_navapoojitham(
     yearly_cache: PanchangamCache, year: int, nazhika_cutoff: float = 7.5
 )-> date:
-    event = SISHYAPOOJITHA_BDAY
-    filtered_events  = get_matching_dates(yearly_cache, event.event_condition)
+    filtered_events  = get_matching_dates(yearly_cache, NAVAPOOJITHAM.event_condition)
     if len(filtered_events) > 0:
         dt, p_data = filtered_events[-1]
         if p_data.nazhika_from_sunrise > nazhika_cutoff:
             return dt
         else:
             return dt - timedelta(days= 1)
-    month_transitions = {dt: p_cache for dt, p_cache in yearly_cache.items() if event.event_condition.ml_month is not None and  p_cache.kv.kv_month == event.event_condition.ml_month.id}
-    nakshatra_transitions = [t for _, data in month_transitions.items() for t in data.nakshatra_transitions if t.nakshatra == event.event_condition.nakshatra]
-    if len(nakshatra_transitions) == 0:
-        raise Exception(f"No nakshatra transition in {year}")
-    last_transition = nakshatra_transitions[-1]
+    chingam_transitions = {dt: p_cache for dt, p_cache in yearly_cache.items() if p_cache.kv.kv_month == MalayalamMasa.CHINGAM.id}
+    chothi_transitions = [t for _, data in chingam_transitions.items() for t in data.nakshatra_transitions if t.nakshatra == Nakshatra.CHOTHI]
+    if len(chothi_transitions) == 0:
+        raise Exception(f"No nakshatra transition found for chothi in the month of Chingam in {year}")
+    last_transition = chothi_transitions[-1]
     return last_transition.start_time.date()
 
 
@@ -64,14 +63,14 @@ def get_matching_dates(data: PanchangamCache, event_condition: EventCondition) -
     return occurances
 
 
-def remove_sishya_bday():
+def remove_navapoojitham():
     panchangam_cache = load_cache()
-    events_to_remove = [SISHYAPOOJITHA_BDAY]
+    events_to_remove = [NAVAPOOJITHAM]
     updated_cache = remove_events_from_cache(panchangam_cache, events_to_remove)
     write_cache(updated_cache)
     
 
-def update_sishya_bday(
+def update_navapoojitham(
     panchangamCache: PanchangamCache, nazhika_cutoff: float = 7.5
 )-> PanchangamCache:
     """
@@ -84,23 +83,22 @@ def update_sishya_bday(
 
     for year in range(start_year.year, end_year.year + 1):
         yearly_data = get_yearly_cache(panchangamCache, year)
-        bday_date = calculate_sishya_bday(yearly_data, year, nazhika_cutoff)
+        navapoojitham_date = calculate_navapoojitham(yearly_data, year, nazhika_cutoff)
 
         target_date = shift_date_for_offset(
-            updated_panchangam, bday_date, SISHYAPOOJITHA_BDAY.event_condition.day_offset
+            updated_panchangam, navapoojitham_date, NAVAPOOJITHAM.event_condition.day_offset
         )
         if target_date is None:
             print(
-                f"WARNING: SHISHYAPOOJITHA_BDAY day_offset shifts {bday_date} outside "
+                f"WARNING: NAVAPOOJITHAM day_offset shifts {navapoojitham_date} outside "
                 "the loaded pickle range — skipping."
             )
             continue
 
-        print(f"SISHYA_BDAY DATE FOR {year}: {target_date}")
+        print(f"NAVAPOOJITHAM DATE FOR {year}: {target_date}")
         updated_events = updated_panchangam[target_date].santhigiri_significant_dates
-        updated_events.append(SISHYAPOOJITHA_BDAY)
-        unique = {e.id : e for e in updated_events}
-        updated_panchangam[target_date].santhigiri_significant_dates = list(unique.values())
+        updated_events.append(NAVAPOOJITHAM)
+        updated_panchangam[target_date].santhigiri_significant_dates = list(set(updated_events))
     return updated_panchangam
 
 
@@ -117,15 +115,15 @@ def _resolve_nazhika_cutoff() -> float:
         return SettingsService(s).get_event_cutoffs().nazhika_cutoff
 
 
-def cache_sishya_bday(nazhika_cutoff: Optional[float] = None):
+def cache_navapoojitham(nazhika_cutoff: Optional[float] = None):
     cutoff = nazhika_cutoff if nazhika_cutoff is not None else _resolve_nazhika_cutoff()
     cache: PanchangamCache = load_cache()
-    updated_cache = update_sishya_bday(cache, cutoff)
+    updated_cache = update_navapoojitham(cache, cutoff)
     write_cache(updated_cache)
 
 
 
-#remove_sishya_bday()
-#cache_sishya_bday()
+#remove_navapoojitham()
+#cache_navapoojitham()
 
 

@@ -3,7 +3,7 @@ Security primitives: password hashing and JWT creation/verification.
 
 Pure functions with no HTTP or FastAPI coupling — the request-time wiring
 (extracting the bearer token, resolving the principal, enforcing roles) lives in
-``api.deps``. Passwords are hashed with bcrypt; tokens are signed with the
+``core.deps``. Passwords are hashed with bcrypt; tokens are signed with the
 HS256 secret from ``core.config.settings``.
 
 Two token *types* are issued, distinguished by the ``type`` claim:

@@ -1,15 +1,15 @@
 """
 Unit tests for the offline pickle-cache day_offset shift logic:
-utils/cache_utils.py::shift_and_record/shift_date_for_offset and
-utils/cache_common_events.py::update_common_events.
+features/santhigiri_events/offline_cache/cache_utils.py::shift_and_record/shift_date_for_offset and
+features/santhigiri_events/offline_cache/cache_common_events.py::update_common_events.
 """
 from __future__ import annotations
 
 import datetime
 
-from utils import cache_common_events
-from utils.cache_common_events import update_common_events
-from utils.cache_utils import shift_and_record, shift_date_for_offset
+from features.santhigiri_events.offline_cache import cache_common_events
+from features.santhigiri_events.offline_cache.cache_common_events import update_common_events
+from features.santhigiri_events.offline_cache.cache_utils import shift_and_record, shift_date_for_offset
 from utils.santhigiri_events import EventCondition, SanthigiriEvent
 
 
