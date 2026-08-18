@@ -7,15 +7,15 @@ The full :class:`schemas.panchangam_data.PanchangamData` for each day (thithi,
 nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) is embedded in the
 compact ``/year`` payload, so every write commits together with a recomputation
 of the affected years' ETags via :func:`services.etag_service.refresh_etags` —
-exactly as :class:`services.kollavarsham_service.KollavarshamService` and
-:class:`services.santhigiri_event_service.SanthigiriEventService` do — so cached
+exactly as :class:`features.kollavarsham.service.KollavarshamService` and
+:class:`features.santhigiri_events.service.SanthigiriEventService` do — so cached
 clients revalidate correctly. Nothing commits until that single call at the end,
 so the whole range is still one atomic transaction — ``generate_streaming``
 yielding progress after each day is purely a visibility improvement, it does not
 change when the write becomes durable.
 
 This is a dedicated write-path service (constructed from a ``Session``) kept
-separate from the read-only :class:`services.panchangam_service.PanchangamService`
+separate from the read-only :class:`features.panchangam.service.PanchangamService`
 (which is built from a repository alone and has no ETag awareness).
 
 Note on Santhigiri events: :func:`core.calendar.panchangam.get_panchangam_data`
@@ -35,7 +35,7 @@ from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from db.repository import PanchangamRepository
-from schemas.panchangam_generation import (
+from features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,
     PanchangamGenerateResult,

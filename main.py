@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from api.routes.panchangam import router as panchangam_router
-from api.routes.v1.panchangam import router as panchangam_v1_router
-from api.routes.v1.auth import router as auth_v1_router
-from api.routes.v1.santhigiri_events import router as santhigiri_events_v1_router
-from api.routes.v1.kollavarsham import router as kollavarsham_v1_router
-from api.routes.v1.panchangam_generation import router as panchangam_generation_v1_router
-from api.routes.v1.guruvani import router as guruvani_v1_router
-from api.routes.v1.settings import router as settings_v1_router
+from features.auth.router import router as auth_v1_router
+from features.guruvani.router import router as guruvani_v1_router
+from features.kollavarsham.router import router as kollavarsham_v1_router
+from features.panchangam.generation_router import router as panchangam_generation_v1_router
+from features.panchangam.router import router as panchangam_v1_router
+from features.santhigiri_events.router import router as santhigiri_events_v1_router
+from features.settings.router import router as settings_v1_router
 
 from utils.lifespan import lifespan
 

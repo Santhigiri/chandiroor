@@ -3,15 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import datetime
 
 from api.deps import get_location, get_service, require_role
-from schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
-from schemas.GetDayPanchangamParams import GetPanchangamParams
-from services.panchangam_service import PanchangamService, YearOutOfRange
+from features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from features.panchangam.schemas.GetDayPanchangamParams import GetPanchangamParams
+from features.panchangam.service import PanchangamService, YearOutOfRange
 from utils.location import Location
 from utils.roles import Role
 
 
 # Public data router — validates any supplied bearer token but allows anonymous
-# access (see api/routes/v1/panchangam.py for the rationale).
+# access (see features/panchangam/router.py for the rationale).
 router = APIRouter(
     prefix='/panchangam',
     dependencies=[Depends(require_role(Role.ANONYMOUS))],

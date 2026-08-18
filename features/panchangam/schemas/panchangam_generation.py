@@ -5,7 +5,7 @@ Request/response schemas for the Panchangam generation endpoint under
 ``generate`` recomputes the full :class:`schemas.panchangam_data.PanchangamData`
 (thithi, nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) for every
 day in an inclusive date range from the astronomy code and overwrites the stored
-rows. These models mirror ``schemas.kollavarsham`` — the request carries the
+rows. These models mirror ``features.kollavarsham.schemas`` — the request carries the
 range (validated here) and the result summarizes what was written.
 
 The endpoint streams one JSON object per line (NDJSON) as it works through the
@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field, model_validator
 
 # A defensive, non-editable ceiling no admin setting can exceed — a DoS
 # backstop, not the real business rule. The actual cap is the admin-configured
-# `max_generate_span_days` setting (shared with schemas.kollavarsham),
+# `max_generate_span_days` setting (shared with features.kollavarsham.schemas),
 # enforced by PanchangamGenerationService (see services/settings_service.py).
 _HARD_SPAN_CEILING_DAYS = 3660
 

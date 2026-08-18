@@ -2,7 +2,7 @@
 Write endpoints for the editable Santhigiri event definitions.
 
 Co-located with the read-only ``GET /panchangam/events`` list (defined in
-``api/routes/v1/panchangam.py``) on the same collection URI, mounted under
+``features/panchangam/router.py``) on the same collection URI, mounted under
 ``/api/v1``:
 
 * ``POST   /api/v1/panchangam/events``                            — create an event  (admin)
@@ -34,7 +34,7 @@ definition the same way, one ``SanthigiriEventsGenerateProgress`` line per
 ``(year, event)`` pair, then a final ``SanthigiriEventsGenerateResult`` line
 (or a ``SanthigiriEventsGenerateError`` line if the run fails before any
 event-level result exists) — mirrors ``POST /panchangam/generate``
-(``api/routes/v1/panchangam_generation.py``). See ``schemas/santhigiri_event.py``
+(``features/panchangam/generation_router.py``). See ``features/santhigiri_events/schemas.py``
 for all the line shapes. The request-scoped session is captured into the
 closure and used for the whole stream — FastAPI keeps a ``yield``-based
 dependency open until the response finishes sending.
@@ -47,7 +47,7 @@ from starlette.responses import StreamingResponse
 
 from api.deps import require_role
 from db.database import get_session
-from schemas.santhigiri_event import (
+from features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
     SanthigiriEventDetail,
     SanthigiriEventOccurrences,
@@ -55,7 +55,7 @@ from schemas.santhigiri_event import (
     SanthigiriEventsGenerateRequest,
     SanthigiriEventUpdate,
 )
-from services.santhigiri_event_service import (
+from features.santhigiri_events.service import (
     EventAlreadyExists,
     EventNotFound,
     IncompleteYearData,

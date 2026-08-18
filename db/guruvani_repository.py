@@ -1,7 +1,7 @@
 """GuruvaniRepository — CRUD for the ``guruvani`` table.
 
 Following the convention of :class:`db.repository.PanchangamRepository`, the
-mutating methods do NOT commit — the caller (``services.guruvani_service``)
+mutating methods do NOT commit — the caller (``features.guruvani.service``)
 owns the transaction.
 """
 from __future__ import annotations

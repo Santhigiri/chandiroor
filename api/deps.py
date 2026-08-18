@@ -28,7 +28,7 @@ from core.security import ACCESS_TOKEN_TYPE, TokenError, decode_token
 from db.database import get_session
 from db.repository import PanchangamRepository
 from db.user_repository import UserRepository
-from services.panchangam_service import PanchangamService
+from features.panchangam.service import PanchangamService
 from services.settings_service import SettingsService
 from utils.location import Location
 from utils.roles import Role

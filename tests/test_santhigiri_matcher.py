@@ -7,7 +7,7 @@ from core.calendar.santhigiri_significant_dates import (
     match_condition_based_events,
 )
 from db.repository import PanchangamRepository
-from services.panchangam_service import PanchangamService
+from features.panchangam.service import PanchangamService
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra

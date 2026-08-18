@@ -33,8 +33,7 @@ from core.calendar.santhigiri_event_occurrences import (
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.repository import PanchangamRepository, event_row_to_event
 from db.santhigiri_event_repository import SanthigiriEventRepository
-from schemas.app_setting import EventCutoffsValue
-from schemas.santhigiri_event import (
+from features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
     SanthigiriEventGenerateProgress,
     SanthigiriEventGenerateResult,
@@ -42,6 +41,7 @@ from schemas.santhigiri_event import (
     SanthigiriEventsGenerateProgress,
     SanthigiriEventsGenerateResult,
 )
+from schemas.app_setting import EventCutoffsValue
 from services.etag_service import refresh_etags
 from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION

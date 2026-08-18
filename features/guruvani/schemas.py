@@ -1,7 +1,7 @@
 """Request/response schemas for the editable Guruvani quotes.
 
 Back the endpoints under ``/api/v1/guruvani``. Reads are public; writes
-require the ``admin`` role (see ``api/routes/v1/guruvani.py``).
+require the ``admin`` role (see ``features/guruvani/router.py``).
 """
 from __future__ import annotations
 
