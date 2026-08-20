@@ -38,12 +38,11 @@ Each feature owns its own router, service, and request/response schemas under `f
 panchangam-api/
 ├── main.py                     # App factory: wires lifespan, CORS, routers
 ├── api/
-│   ├── deps.py                 # Shared Depends: get_service, get_location, get_current_principal, require_role
-│   └── routes/                 # Only the legacy, unversioned router lives here directly
-│       └── panchangam.py       # Deprecated pre-v1 router; do not add new callers or new endpoints here
+│   └── deps.py                 # Shared Depends: get_service, get_location, get_current_principal, require_role
 ├── features/                   # One subpackage per feature — the HTTP boundary + orchestration for that feature
 │   ├── panchangam/
 │   │   ├── router.py               # Compact panchangam + reference (thithi/nakshatra/masa/events) reads, mounted at /api/v1
+│   │   ├── legacy_router.py        # Deprecated pre-v1 router (unversioned); do not add new callers or new endpoints here
 │   │   ├── generation_router.py    # POST /api/v1/panchangam/generate (admin)
 │   │   ├── service.py              # PanchangamService — reads through db/repository.py; live-computation fallback on a DB miss
 │   │   ├── generation_service.py   # PanchangamGenerationService — write path, commits with an ETag refresh
@@ -51,7 +50,15 @@ panchangam-api/
 │   ├── santhigiri_events/
 │   │   ├── router.py    # Admin CRUD + occurrence-generation endpoints for editable Santhigiri event definitions
 │   │   ├── service.py   # SanthigiriEventService
-│   │   └── schemas.py
+│   │   ├── schemas.py
+│   │   └── offline_cache/  # Single-consumer offline maintenance scripts for the pickle-cache pipeline (see "Offline cache management")
+│   │       ├── cache_crud.py                    # Reads/writes pickle files on disk
+│   │       ├── cache_common_events.py           # Populates simple (condition-based) Santhigiri events into cache
+│   │       ├── cache_navapoojitham.py           # Populates Navapoojitham (Guru birthday) into cache
+│   │       ├── cache_sishya_bday.py             # Populates Shishyapoojitha birthday into cache
+│   │       ├── cache_chothi_theerthayathra.py   # Populates pilgrimage dates into cache
+│   │       ├── cache_utils.py
+│   │       └── rebuild_events.py
 │   ├── auth/
 │   │   ├── router.py    # login / refresh / me / users / Google sign-in (JWT auth)
 │   │   └── schemas.py
@@ -88,15 +95,11 @@ panchangam-api/
 │   ├── panchangam_data.py       # PanchangamData — returned by db/repository.py and core/calendar/panchangam.py
 │   ├── compact_panchangam_data.py  # Used by services/etag_service.py, db/reference_repository.py, and multiple features
 │   └── app_setting.py           # Used by the settings feature *and* features/santhigiri_events/service.py
-├── utils/                      # Enums, cache tooling, event definitions
+├── utils/                      # Domain enums, roles, and cross-cutting helpers with no feature to own them
 │   ├── roles.py                # Role enum (anonymous < user < admin) for authorization
 │   ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
-│   ├── cache_crud.py           # Reads/writes pickle files on disk
-│   ├── cache_common_events.py  # Populates simple (condition-based) Santhigiri events into cache
-│   ├── cache_navapoojitham.py  # Populates Navapoojitham (Guru birthday) into cache
-│   ├── cache_sishya_bday.py    # Populates Shishyapoojitha birthday into cache
-│   ├── cache_chothi_theerthayathra.py  # Populates pilgrimage dates into cache
-│   └── santhigiri_events.py    # Event definitions and matching conditions
+│   └── santhigiri_events.py    # Event definitions and matching conditions — stays here (not features/) since
+│                                # core/calendar/ and db/ import it directly and must not depend on features/
 ├── scripts/gen_seed_sql.py     # Build-time tool: turns the pickle caches into db/sql/*.sql
 └── data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source for the SQL seed files
 ```
@@ -111,11 +114,11 @@ panchangam-api/
 
 **`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/repository.py`) is the only place that talks to the database — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
 
-**`api/routes/panchangam.py`** is the one surviving unversioned/legacy router — everything else moved into `features/`. Route handlers (whether here or in a feature's `router.py`) parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
+**`features/panchangam/legacy_router.py`** is the one surviving unversioned/legacy router, colocated with its v1 sibling since both belong to the same feature. Route handlers (whether here or in a feature's `router.py`) parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
 **`schemas/`** holds only the Pydantic models shared across features (or consumed by `db/`/`core/calendar/`, which don't import from `features/`). Everything else lives in the owning feature's `schemas.py`/`schemas/` package. The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
-**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) and all cache management tooling. Cache scripts (`cache_*.py`) are offline maintenance utilities — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
+**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`), `roles.py`, `lifespan.py`, and `santhigiri_events.py` — anything imported by `core/`/`db/` (which must not depend on `features/`) or genuinely shared across features. The offline pickle-cache scripts (`cache_*.py`, `rebuild_events.py`) live in `features/santhigiri_events/offline_cache/` instead, since they are single-consumer maintenance tooling for that one feature's cache pipeline, not a cross-cutting concern — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
 
 ### Versioning without a `v1/` directory
 
@@ -145,7 +148,7 @@ Follow these rules without exception.
 
 ### Layer import boundaries
 
-- Route handlers in `features/<name>/router.py` (or `api/routes/panchangam.py`) must only parse HTTP params and delegate to that feature's `service.py` (or a shared `services/` module). They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly.
+- Route handlers in `features/<name>/router.py` (or `features/panchangam/legacy_router.py`) must only parse HTTP params and delegate to that feature's `service.py` (or a shared `services/` module). They must not call `db/repository.py` or `core/astronomy/`/`core/calendar/` directly.
 - `core/astronomy/` functions must not import from `api/`, `features/`, `schemas/`, or `utils/lifespan.py`.
 - `core/calendar/` functions must not import from `api/` or `features/`.
 - `db/` (models, `repository.py`) must not import from `api/`, `features/`, or `services/`.
@@ -157,7 +160,7 @@ Follow these rules without exception.
 - All astronomical calculations go in `core/astronomy/`.
 - All calendar/domain aggregation goes in `core/calendar/`.
 - Event definitions go in `utils/santhigiri_events.py`.
-- Cache management scripts go in `utils/cache_*.py`.
+- Cache management scripts go in `features/santhigiri_events/offline_cache/cache_*.py`.
 - No business logic may live inside a route handler.
 
 ### Adding a new astronomical value
@@ -170,8 +173,8 @@ Follow these rules without exception.
 ### Adding a new Santhigiri event
 
 1. Define the event in `utils/santhigiri_events.py` with the appropriate `EventCondition`.
-2. If condition-based (fixed English/Malayalam date, Nakshatra, Thithi, or Pournami), add it to `_COMMON_EVENTS` in `utils/cache_common_events.py`.
-3. If it uses "last occurrence" logic (like Navapoojitham or Shishyapoojitha birthday), write a dedicated `utils/cache_<event_name>.py` following the pattern in `cache_navapoojitham.py`.
+2. If condition-based (fixed English/Malayalam date, Nakshatra, Thithi, or Pournami), add it to `_COMMON_EVENTS` in `features/santhigiri_events/offline_cache/cache_common_events.py`.
+3. If it uses "last occurrence" logic (like Navapoojitham or Shishyapoojitha birthday), write a dedicated `features/santhigiri_events/offline_cache/cache_<event_name>.py` following the pattern in `cache_navapoojitham.py`.
 4. Run the appropriate cache script offline to rebuild the pickle files.
 5. The event will appear in `PanchangamData.santhigiri_significant_dates` in the API response.
 
@@ -401,7 +404,7 @@ These are critical for the transition-detection logic, which calls the same func
 
 ### Offline cache management (pickle files)
 
-The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `utils/`:
+The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `features/santhigiri_events/offline_cache/`:
 
 1. `cache_crud.py::buildcache(year)` — computes all 365 days for a year and writes a pickle file.
 2. `cache_common_events.py::cache_common_events()` — reads all pickle files, matches simple event conditions, and rewrites them with `santhigiri_significant_dates` populated.

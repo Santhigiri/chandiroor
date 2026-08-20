@@ -11,7 +11,7 @@ from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
 from core.astronomy.transitions import NakshatraTransition
 from core.astronomy.tuning import AstronomyTuning
 from utils.nakshatra import Nakshatra
-from utils.utils import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
+from core.astronomy.nakshatra_calc import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
 
 
 def get_nakshatra_id(t: Time)-> int:
