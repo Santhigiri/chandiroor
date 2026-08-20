@@ -11,7 +11,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from core.deps import ACCESS_TOKEN_COOKIE, Principal, require_role
+from api.deps import ACCESS_TOKEN_COOKIE, Principal, require_role
 from core.config import settings
 from core.security import (
     REFRESH_TOKEN_TYPE,

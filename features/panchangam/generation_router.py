@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from core.deps import get_location, require_role
+from api.deps import get_location, require_role
 from db.database import get_session
 from features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
 from features.panchangam.schemas.panchangam_generation import (
