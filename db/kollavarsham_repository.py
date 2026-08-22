@@ -23,6 +23,7 @@ from sqlmodel import Session, col, select
 from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from db.models.panchangam import Panchangam as PanchangamRow
 from utils.location import Location
+from db.typing_utils import col as TypedColumn
 
 
 class KollavarshamRepository:
@@ -52,7 +53,7 @@ class KollavarshamRepository:
             return []
         existing = set(
             self._s.exec(
-                select(PanchangamRow.date).where(
+                select(column(PanchangamRow.date)).where(
                     col(PanchangamRow.date).in_(dates),
                     col(PanchangamRow.location_id) == location.id,
                 )

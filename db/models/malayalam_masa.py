@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -12,7 +11,7 @@ class MalayalamMasa(SQLModel, table=True):
 
     __tablename__ = "malayalam_masa" # pyright: ignore[reportAssignmentType]
 
-    id:   Mapped[int] = Field(primary_key=True)  # 1–12
+    id:   int = Field(primary_key=True)  # 1–12
     name: str = Field(unique=True)       # Python enum member name e.g. 'MEDAM'
     ml:   str
     en:   str

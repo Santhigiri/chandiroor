@@ -1,6 +1,5 @@
 from typing import Optional
 
-from sqlalchemy.orm import Mapped
 from sqlmodel import Field, SQLModel
 
 
@@ -12,4 +11,4 @@ class Guruvani(SQLModel, table=True):
     id:         Optional[int] = Field(default=None, primary_key=True)
     text_en:    str
     text_ml:    str
-    sort_order: Mapped[int] = Field(index=True)
+    sort_order: int = Field(index=True)

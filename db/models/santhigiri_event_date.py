@@ -2,7 +2,6 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, ForeignKey, Index, String
-from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -29,7 +28,7 @@ class SanthigiriEventDate(SQLModel, table=True):
     )
 
     id:             Optional[int]  = Field(default=None, primary_key=True)
-    panchangam_date: Mapped[datetime.date] = Field(nullable=False)
+    panchangam_date: datetime.date = Field(nullable=False)
     event_id: str = Field(
         sa_column=Column(
             String,
@@ -39,4 +38,4 @@ class SanthigiriEventDate(SQLModel, table=True):
         )
     )
 
-    event:      Mapped[Optional["SanthigiriEvent"]] = Relationship()
+    event:      Optional["SanthigiriEvent"] = Relationship()

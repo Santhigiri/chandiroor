@@ -22,6 +22,8 @@ from db.models.santhigiri_event_date import (
     SanthigiriEventDate as SanthigiriEventDateRow,
 )
 
+from db.typing_utils import col as TypedColumn
+
 
 class SanthigiriEventRepository:
     def __init__(self, session: Session) -> None:
@@ -41,7 +43,7 @@ class SanthigiriEventRepository:
         bulk occurrence generation)."""
         return list(
             self._s.exec(
-                select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
+                select(SanthigiriEventRow).order_by(TypedColumn(SanthigiriEventRow.sort_order))
             ).all()
         )
 
@@ -89,7 +91,7 @@ class SanthigiriEventRepository:
 
     def _occurrence_years(self, event_id: str) -> List[int]:
         dates = self._s.exec(
-            select(SanthigiriEventDateRow.panchangam_date).where(
+            select(TypedColumn(SanthigiriEventDateRow.panchangam_date)).where(
                 col(SanthigiriEventDateRow.event_id) == event_id
             )
         ).all()

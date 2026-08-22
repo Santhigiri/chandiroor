@@ -20,6 +20,7 @@ from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from db.models.nakshatra import Nakshatra as NakshatraRow
 from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from db.models.thithi import Thithi as ThithiRow
+from db.typing_utils import col
 from schemas.compact_panchangam_data import CompactSanthigiriEvent
 
 
@@ -30,8 +31,8 @@ class ReferenceRepository:
     def list_thithis(self) -> List[Dict[str, Any]]:
         rows = self._s.exec(
             select(ThithiRow)
-            .options(selectinload(ThithiRow.paksha))
-            .order_by(ThithiRow.id)
+            .options(selectinload(col(ThithiRow.paksha)))
+            .order_by(col(ThithiRow.id))
         ).all()
         return [
             {
@@ -52,13 +53,13 @@ class ReferenceRepository:
         ]
 
     def list_nakshatras(self) -> List[Dict[str, Any]]:
-        rows = self._s.exec(select(NakshatraRow).order_by(NakshatraRow.id)).all()
+        rows = self._s.exec(select(NakshatraRow).order_by(col(NakshatraRow.id))).all()
         return [
             {"name": n.name, "id": n.id, "ml": n.ml, "en": n.en} for n in rows
         ]
 
     def list_masas(self) -> List[Dict[str, Any]]:
-        rows = self._s.exec(select(MalayalamMasaRow).order_by(MalayalamMasaRow.id)).all()
+        rows = self._s.exec(select(MalayalamMasaRow).order_by(col(MalayalamMasaRow.id))).all()
         return [
             {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
         ]
@@ -69,7 +70,7 @@ class ReferenceRepository:
         ``name`` is the stable short code clients pass as ``?location=``.
         Location-independent, so its ETag carries no location component.
         """
-        rows = self._s.exec(select(LocationRow).order_by(LocationRow.id)).all()
+        rows = self._s.exec(select(LocationRow).order_by(col(LocationRow.id))).all()
         return [
             {
                 "code": l.name,
@@ -89,7 +90,7 @@ class ReferenceRepository:
         identical across instances.
         """
         rows = self._s.exec(
-            select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
+            select(SanthigiriEventRow).order_by(col(SanthigiriEventRow.sort_order))
         ).all()
         return [
             CompactSanthigiriEvent(id=e.id, name=e.name, description=e.description) for e in rows

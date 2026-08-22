@@ -36,6 +36,8 @@ from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import EventCondition, SanthigiriEvent
 from utils.thithi import Thithi
 
+from db.typing_utils import col as TypedColumn
+
 
 # ── SQL row → domain type conversions ────────────────────────────────────────
 
@@ -132,10 +134,10 @@ def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
 # ── Eager-load strategy used by all getters ───────────────────────────────────
 
 _LOAD_OPTIONS = (
-    selectinload(PanchangamRow.kollavarsham),
-    selectinload(PanchangamRow.sunrise_sunset),
-    selectinload(PanchangamRow.thithi_transitions),
-    selectinload(PanchangamRow.nakshatra_transitions),
+    selectinload(TypedColumn(PanchangamRow.kollavarsham)),
+    selectinload(TypedColumn(PanchangamRow.sunrise_sunset)),
+    selectinload(TypedColumn(PanchangamRow.thithi_transitions)),
+    selectinload(TypedColumn(PanchangamRow.nakshatra_transitions)),
 )
 
 
@@ -188,7 +190,7 @@ class PanchangamRepository:
                 PanchangamRow.date <= end,
                 PanchangamRow.location_id == location.id,
             )
-            .order_by(PanchangamRow.date)
+            .order_by(TypedColumn(PanchangamRow.date))
             .options(*_LOAD_OPTIONS)
         )
         rows = self._s.exec(stmt).all()
@@ -220,7 +222,7 @@ class PanchangamRepository:
         onto a day the DB does not have a pre-computed occurrence row for.
         """
         rows = self._s.exec(
-            select(SanthigiriEventRow).order_by(SanthigiriEventRow.sort_order)
+            select(SanthigiriEventRow).order_by(TypedColumn(SanthigiriEventRow.sort_order))
         ).all()
         return [event_row_to_event(row) for row in rows]
 
@@ -340,7 +342,7 @@ class PanchangamRepository:
         rows = self._s.exec(
             select(SanthigiriEventDateRow)
             .where(col(SanthigiriEventDateRow.panchangam_date).in_(set(dates)))
-            .options(selectinload(SanthigiriEventDateRow.event))
+            .options(selectinload(TypedColumn(SanthigiriEventDateRow.event)))
         ).all()
         grouped: Dict[datetime.date, List[SanthigiriEvent]] = {}
         for row in rows:

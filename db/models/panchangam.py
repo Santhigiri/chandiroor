@@ -1,7 +1,6 @@
 import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -32,20 +31,20 @@ class Panchangam(SQLModel, table=True):
 
     __tablename__ = "panchangam" # pyright: ignore[reportAssignmentType]
 
-    date:                 Mapped[datetime.date] = Field(primary_key=True)
+    date:                 datetime.date = Field(primary_key=True)
     location_id:          int           = Field(foreign_key="location.id", primary_key=True)
     thithi_id:            int           = Field(foreign_key="thithi.id")
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
     nazhika_from_sunrise: float
 
-    thithi:                Mapped[Optional["Thithi"]]           = Relationship(back_populates="panchangams")
+    thithi:                Optional["Thithi"]           = Relationship(back_populates="panchangams")
     nakshatra:             Optional["Nakshatra"]                = Relationship(back_populates="panchangams")
     location:              Optional["Location"]                 = Relationship()
-    kollavarsham:          Mapped[Optional["KollavarshamDate"]] = Relationship(back_populates="panchangam")
-    sunrise_sunset:        Mapped[Optional["SunriseSunset"]]    = Relationship(
+    kollavarsham:          Optional["KollavarshamDate"] = Relationship(back_populates="panchangam")
+    sunrise_sunset:        Optional["SunriseSunset"]    = Relationship(
         back_populates="panchangam",
         # location_id is shared with SunriseSunset.location's FK to location.
         sa_relationship_kwargs={"overlaps": "sunrise_sunsets"},
     )
-    thithi_transitions:    Mapped[List["ThithiTransition"]]     = Relationship(back_populates="panchangam")
-    nakshatra_transitions: Mapped[List["NakshatraTransition"]]  = Relationship(back_populates="panchangam")
+    thithi_transitions:    List["ThithiTransition"]     = Relationship(back_populates="panchangam")
+    nakshatra_transitions: List["NakshatraTransition"]  = Relationship(back_populates="panchangam")

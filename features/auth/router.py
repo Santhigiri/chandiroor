@@ -209,6 +209,10 @@ def me(
     session: Annotated[Session, Depends(get_session)],
 ) -> UserRead:
     """Return the currently authenticated user (requires user or admin)."""
+    if principal.username is None: 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Username is None"
+        )
     user = UserRepository(session).get_by_username(principal.username)
     if user is None:
         raise HTTPException(
@@ -224,6 +228,10 @@ def update_profile(
     session: Annotated[Session, Depends(get_session)],
 ) -> UserRead:
     """Update the caller's own profile fields (requires user or admin)."""
+    if principal.username is None: 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Username is None"
+        )
     user = UserRepository(session).update_profile(
         username=principal.username,
         full_name=payload.full_name,

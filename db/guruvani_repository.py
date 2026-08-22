@@ -12,6 +12,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from db.models.guruvani import Guruvani
+from db.typing_utils import col
 
 
 class GuruvaniRepository:
@@ -25,7 +26,7 @@ class GuruvaniRepository:
 
     def list_all(self) -> List[Guruvani]:
         return list(
-            self._s.exec(select(Guruvani).order_by(Guruvani.sort_order)).all()
+            self._s.exec(select(Guruvani).order_by(col(Guruvani.sort_order))).all()
         )
 
     def get_random(self) -> Optional[Guruvani]:
@@ -40,8 +41,6 @@ class GuruvaniRepository:
 
     def create(self, row: Guruvani) -> Guruvani:
         """Insert a new Guruvani entry. Assigns ``sort_order`` if not set. Does NOT commit."""
-        if row.sort_order is None:
-            row.sort_order = self._next_sort_order()
         self._s.add(row)
         self._s.flush()
         return row

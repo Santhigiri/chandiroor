@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -17,7 +16,7 @@ class Location(SQLModel, table=True):
 
     __tablename__ = "location" # pyright: ignore[reportAssignmentType]
 
-    id:        Mapped[int] = Field(default=None, primary_key=True)
+    id:        int = Field(default=None, primary_key=True)
     name:      str           = Field(unique=True, index=True)  # short code, e.g. 'tvm'
     label:     str           # human-readable, e.g. 'Trivandrum, Kerala, India'
     latitude:  float
