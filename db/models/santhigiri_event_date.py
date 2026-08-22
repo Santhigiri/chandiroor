@@ -29,7 +29,7 @@ class SanthigiriEventDate(SQLModel, table=True):
     )
 
     id:             Optional[int]  = Field(default=None, primary_key=True)
-    panchangam_date: datetime.date = Field(nullable=False)
+    panchangam_date: Mapped[datetime.date] = Field(nullable=False)
     event_id: str = Field(
         sa_column=Column(
             String,

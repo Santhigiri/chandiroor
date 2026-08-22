@@ -147,8 +147,8 @@ def verify_google_id_token(token: str) -> Dict[str, Any]:
     if not settings.google_client_id:
         raise GoogleTokenError("GOOGLE_CLIENT_ID is not configured")
     try:
-        return google_id_token.verify_oauth2_token(
-            token, google_requests.Request(), audience=settings.google_client_id
-        )
+        return google_id_token.verify_oauth2_token( #type: ignore
+            token, google_requests.Request(), audience=settings.google_client_id 
+        ) 
     except ValueError as exc:
         raise GoogleTokenError(str(exc)) from exc

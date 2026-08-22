@@ -104,6 +104,7 @@ def login(
     if (
         user is None
         or not user.is_active
+        or user.hashed_password is None
         or not verify_password(form.password, user.hashed_password)
     ):
         raise HTTPException(

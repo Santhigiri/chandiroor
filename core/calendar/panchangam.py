@@ -117,7 +117,7 @@ def get_panchangam(
         "calculated_ml_day": kv.kv_day,
         "calculated_ml_month": kv.kv_month_name_ml,
         "calculated_ml_year": kv.kv_year,
-        "nakshatra": nakshatra,
+        "nakshatra": nakshatra.name,
         "nakshatra_transitions": nakshatra_transition,
         "thithi": thithi,
         "thithi_transitions": thithi_transition,

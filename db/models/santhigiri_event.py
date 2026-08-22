@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class SanthigiriEvent(SQLModel, table=True):
     id:          str = Field(primary_key=True)   # event id, e.g. 'POURNAMI'
     name:        str
     description: str
-    sort_order:  int = Field(index=True)
+    sort_order:  Mapped[int] = Field(index=True)
 
     # Condition columns — NULL means "any"
     nakshatra_id: Optional[int] = Field(

@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 from functools import lru_cache
-from typing import Dict, Any
 
 from core.astronomy.calculations import (
     get_sun_sidereal_longitude,
@@ -8,27 +7,11 @@ from core.astronomy.calculations import (
 
 from core.constants import (
     DEFAULT_TIMEZONE,
-    MALAYALAM_MONTH_ML,
 )
 
 from core.astronomy.sunrise_sunset import get_sunrise_sunset
 from core.calendar.kollavarsham_models import KollavarshamDate
 from utils.malayalam_masa import MalayalamMasa
-
-MALAYALAM_MONTHS = [
-    "Medam",
-    "Edavam",
-    "Mithunam",
-    "Karkidakam",
-    "Chingam",
-    "Kanni",
-    "Thulam",
-    "Vrischikam",
-    "Dhanu",
-    "Makaram",
-    "Kumbham",
-    "Meenam"
-]
 
 
 def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:

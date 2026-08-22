@@ -1,4 +1,5 @@
 from core.constants import NAKSHATRA_BOUNDARIES, NAKSHATRA_NAMES_ML
+from utils.nakshatra import Nakshatra
 
 
 def calc_nakshatra_id_from_lon(longitude: float) -> int:
@@ -12,12 +13,12 @@ def calc_nakshatra_id_from_lon(longitude: float) -> int:
     return nakshatra_id
 
 
-def calc_nakshatra_from_lon(longitude: float) -> str:
+def calc_nakshatra_from_lon(longitude: float) -> Nakshatra:
     for i, boundary in enumerate(NAKSHATRA_BOUNDARIES):
         if longitude < boundary:
-            nakshatra = NAKSHATRA_NAMES_ML[i]
+            nakshatra =  Nakshatra.from_id(i)
             break
     else:
-        nakshatra = NAKSHATRA_NAMES_ML[-1]
+        nakshatra = Nakshatra.from_id(27)
 
     return nakshatra

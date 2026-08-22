@@ -92,6 +92,10 @@ class UserRepository:
         exists.
         """
         user = self.get_by_username(username)
+
+        if user is None:
+            raise ValueError(f"User not found: {username!r}")
+
         if full_name is not None:
             user.full_name = full_name
         if date_of_birth is not None:

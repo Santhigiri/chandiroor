@@ -1,5 +1,5 @@
 from datetime import date, datetime, time, timedelta
-from typing import List, Optional
+from typing import List
 from zoneinfo import ZoneInfo
 
 from numpy import ndarray
@@ -19,7 +19,7 @@ def get_nakshatra_id(t: Time)-> int:
     nakshatra_id = calc_nakshatra_id_from_lon(moon_sidereal_longitude)
     return nakshatra_id
 
-def get_nakshatra(t: Time):
+def get_nakshatra(t: Time)->Nakshatra:
     moon_sidereal_longitude = get_sidereal_longitude_from_time(t, "moon")
     nakshatra = calc_nakshatra_from_lon(moon_sidereal_longitude)
     return nakshatra

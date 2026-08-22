@@ -32,7 +32,7 @@ class Panchangam(SQLModel, table=True):
 
     __tablename__ = "panchangam" # pyright: ignore[reportAssignmentType]
 
-    date:                 datetime.date = Field(primary_key=True)
+    date:                 Mapped[datetime.date] = Field(primary_key=True)
     location_id:          int           = Field(foreign_key="location.id", primary_key=True)
     thithi_id:            int           = Field(foreign_key="thithi.id")
     nakshatra_id:         int           = Field(foreign_key="nakshatra.id")
