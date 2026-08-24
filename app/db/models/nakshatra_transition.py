@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import Column, ForeignKeyConstraint, Index
 from sqlmodel import Field, Relationship, SQLModel
 
-from db.models.types import UTCDateTime
+from app.db.models.types import UTCDateTime
 
 if TYPE_CHECKING:
-    from db.models.nakshatra import Nakshatra
-    from db.models.panchangam import Panchangam
+    from app.db.models.nakshatra import Nakshatra
+    from app.db.models.panchangam import Panchangam
 
 
 class NakshatraTransition(SQLModel, table=True):

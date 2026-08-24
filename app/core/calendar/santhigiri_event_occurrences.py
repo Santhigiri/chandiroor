@@ -34,11 +34,11 @@ from typing import Dict, List, Literal
 
 import pytz
 
-from core.astronomy.pournami import is_poornima_live
-from core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
-from core.constants import DEFAULT_TIMEZONE
-from schemas.panchangam_data import PanchangamData
-from utils.santhigiri_events import EventCondition
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
+from app.core.constants import DEFAULT_TIMEZONE
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.santhigiri_events import EventCondition
 
 PanchangamYear = Dict[date, PanchangamData]
 

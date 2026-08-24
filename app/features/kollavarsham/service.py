@@ -27,16 +27,16 @@ from typing import List
 
 from sqlmodel import Session
 
-from db.kollavarsham_repository import KollavarshamRepository
-from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
-from features.kollavarsham.schemas import (
+from app.db.kollavarsham_repository import KollavarshamRepository
+from app.db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from app.features.kollavarsham.schemas import (
     KollavarshamDateUpdate,
     KollavarshamGenerateRequest,
     KollavarshamGenerateResult,
 )
-from services.etag_service import refresh_etags
-from services.settings_service import SettingsService
-from utils.location import DEFAULT_LOCATION, Location
+from app.services.etag_service import refresh_etags
+from app.services.settings_service import SettingsService
+from app.utils.location import DEFAULT_LOCATION, Location
 
 
 class KollavarshamDateNotFound(Exception):

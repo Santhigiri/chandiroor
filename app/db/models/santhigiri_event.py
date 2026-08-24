@@ -4,8 +4,8 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.nakshatra import Nakshatra
-    from db.models.thithi import Thithi
+    from app.db.models.nakshatra import Nakshatra
+    from app.db.models.thithi import Thithi
 
 
 class SanthigiriEvent(SQLModel, table=True):

@@ -34,7 +34,7 @@ from typing import AsyncIterator, Union
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
-from db.repository import PanchangamRepository
+from db.panchangam_repository import PanchangamRepository
 from features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,

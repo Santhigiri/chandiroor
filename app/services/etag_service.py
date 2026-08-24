@@ -18,7 +18,7 @@ from sqlmodel import Session
 
 from db.etag_repository import EtagRepository
 from db.reference_repository import ReferenceRepository
-from db.repository import PanchangamRepository
+from db.panchangam_repository import PanchangamRepository
 from schemas.compact_panchangam_data import CompactPanchangamData
 from features.panchangam.service import PanchangamService
 from utils.content_hash import stable_hash

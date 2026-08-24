@@ -2,20 +2,20 @@ from datetime import datetime, time
 from time import perf_counter
 from typing import Any, Dict, Optional
 import pytz
-from core.astronomy.calculations import get_sun_sidereal_longitude, get_time
-from core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
-from core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
-from core.astronomy.sunrise_sunset import get_sunrise_sunset
-from core.astronomy.thithi import get_thithi
-from core.astronomy.pournami import is_poornima_live
-from core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id
-from core.astronomy.tuning import AstronomyTuning
-from core.calendar.kollavarsham import get_kollavarsham_date
+from app.core.astronomy.calculations import get_sun_sidereal_longitude, get_time
+from app.core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
+from app.core.astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.astronomy.thithi import get_thithi
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id
+from app.core.astronomy.tuning import AstronomyTuning
+from app.core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
-from core.constants import DEFAULT_TIMEZONE, Coordinates
-from schemas.location import LocationInfo
-from schemas.panchangam_data import PanchangamData
-from utils.location import Location
+from app.core.constants import DEFAULT_TIMEZONE, Coordinates
+from app.schemas.location import LocationInfo
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.location import Location
 
 def _active_at(transitions, instant):
     """Return the transition whose [start_time, end_time) interval contains `instant`.

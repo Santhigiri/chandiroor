@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy import Column
 from sqlmodel import JSON, Field, SQLModel
 
-from db.models.types import UTCDateTime
+from app.db.models.types import UTCDateTime
 
 
 class AppSetting(SQLModel, table=True):

@@ -5,9 +5,9 @@ from typing import List
 
 from sqlmodel import Session
 
-from db.guruvani_repository import GuruvaniRepository
-from db.models.guruvani import Guruvani
-from features.guruvani.schemas import GuruvaniCreate, GuruvaniUpdate
+from app.db.guruvani_repository import GuruvaniRepository
+from app.db.models.guruvani import Guruvani
+from app.features.guruvani.schemas import GuruvaniCreate, GuruvaniUpdate
 
 
 class GuruvaniNotFound(Exception):

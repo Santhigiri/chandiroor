@@ -5,7 +5,7 @@ from sqlalchemy import Column, ForeignKey, Index, String
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.santhigiri_event import SanthigiriEvent
+    from app.db.models.santhigiri_event import SanthigiriEvent
 
 
 class SanthigiriEventDate(SQLModel, table=True):

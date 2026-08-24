@@ -7,8 +7,8 @@ from sqlmodel import Field, Relationship, SQLModel
 from db.models.types import UTCDateTime
 
 if TYPE_CHECKING:
-    from db.models.panchangam import Panchangam
-    from db.models.thithi import Thithi
+    from app.db.models.panchangam import Panchangam
+    from app.db.models.thithi import Thithi
 
 
 class ThithiTransition(SQLModel, table=True):

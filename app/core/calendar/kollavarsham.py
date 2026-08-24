@@ -1,17 +1,17 @@
 from datetime import date, timedelta
 from functools import lru_cache
 
-from core.astronomy.calculations import (
+from app.core.astronomy.calculations import (
     get_sun_sidereal_longitude,
 )
 
-from core.constants import (
+from app.core.constants import (
     DEFAULT_TIMEZONE,
 )
 
-from core.astronomy.sunrise_sunset import get_sunrise_sunset
-from core.calendar.kollavarsham_models import KollavarshamDate
-from utils.malayalam_masa import MalayalamMasa
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.calendar.kollavarsham_models import KollavarshamDate
+from app.utils.malayalam_masa import MalayalamMasa
 
 
 def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:

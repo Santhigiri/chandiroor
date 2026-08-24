@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from core.astronomy.tuning import AstronomyTuning
-from db.repository import PanchangamRepository
+from db.panchangam_repository import PanchangamRepository
 from schemas.panchangam_data import PanchangamData
 from services.settings_service import SettingsService
 from utils.location import DEFAULT_LOCATION, Location

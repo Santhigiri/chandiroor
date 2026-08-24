@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy import Column
 from sqlmodel import Field, SQLModel
 
-from db.models.types import UTCDateTime
+from app.db.models.types import UTCDateTime
 
 
 class DatasetEtag(SQLModel, table=True):

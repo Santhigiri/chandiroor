@@ -20,10 +20,10 @@ from typing import List, Optional
 
 from sqlmodel import Session, col, select
 
-from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
-from db.models.panchangam import Panchangam as PanchangamRow
-from utils.location import Location
-from db.typing_utils import col as TypedColumn
+from app.db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from app.db.models.panchangam import Panchangam as PanchangamRow
+from app.utils.location import Location
+from app.db.typing_utils import col as TypedColumn
 
 
 class KollavarshamRepository:
@@ -53,7 +53,7 @@ class KollavarshamRepository:
             return []
         existing = set(
             self._s.exec(
-                select(column(PanchangamRow.date)).where(
+                select(TypedColumn(PanchangamRow.date)).where(
                     col(PanchangamRow.date).in_(dates),
                     col(PanchangamRow.location_id) == location.id,
                 )

@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.thithi import Thithi
+    from app.db.models.thithi import Thithi
 
 
 class Paksha(SQLModel, table=True):

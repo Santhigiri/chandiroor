@@ -14,22 +14,13 @@ from sqlmodel import Session
 from app.api.deps import ACCESS_TOKEN_COOKIE, Principal, get_auth_service, require_role
 from app.core.config import settings
 from app.core.security import (
-    REFRESH_TOKEN_TYPE,
-    GoogleTokenError,
-    TokenError,
     create_access_token,
     create_refresh_token,
-    decode_token,
-    hash_password,
-    verify_google_id_token,
-    verify_password,
 )
 from app.db.database import get_session
-from app.features.auth.ports import UserUpdate
-from app.features.auth.service import AuthService, InvalidTokenException
-from app.utils.nakshatra import Nakshatra
+from app.features.auth.service import AuthService, InvalidTokenException, UsernameTakenException
 from .auth_repository import AuthRepository, UserNotFoundException
-from .schemas import GoogleLoginRequest, LoginUserRequest, UpdateUserRequest, Token, CreateUserRequest, GetUserResponse
+from .schemas import LoginUserRequest, UpdateUserRequest, Token, CreateUserRequest, GetUserResponse
 from app.utils.roles import Role
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -177,21 +168,20 @@ def me(
 def update_profile(
     payload: UpdateUserRequest,
     principal: Annotated[Principal, Depends(require_role(Role.USER))],
+    service: AuthService = Depends(get_auth_service)
 ) -> GetUserResponse:
     """Update the caller's own profile fields (requires user or admin)."""
     if principal.username is None: 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Username is None"
         )
-    first_name = payload.full_name.split(" ")[0] if payload.full_name else principal.username
-    last_name = payload.full_name.split(" ")[-1] if payload.full_name else ""
-    user_profile = UserUpdate(
-        username= principal.username,
-        full_name=payload.full_name,
-        date_of_birth=payload.date_of_birth,
-        birth_nakshatra=Nakshatra[payload.birth_nakshatra] if payload.birth_nakshatra else None,
-    )
-    return _to_user_read(user_profile)
+
+    try:
+        return service.update_user(payload, principal.username)
+    except UserNotFoundException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Username is None"
+        )
 
 
 @router.post(
@@ -201,16 +191,16 @@ def update_profile(
 )
 def create_user(
     payload: CreateUserRequest,
-    session: Annotated[Session, Depends(get_session)],
     _: Annotated[Principal, Depends(require_role(Role.ADMIN))],
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> GetUserResponse:
     """Create a new user with a chosen role. Admin only."""
-    repo = AuthRepository(session)
-    if repo.exists(payload.username):
+    try:
+        user = auth_service.create_user(payload)
+    except UsernameTakenException:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A user with that username already exists",
-        )
-    
-    user = repo.create_user(payload)
-    return _to_user_read(user)
+)
+
+    return user

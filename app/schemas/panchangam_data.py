@@ -2,12 +2,12 @@ from typing import List, Optional
 from pydantic import BaseModel, field_serializer
 from datetime import date, datetime
 
-from core.astronomy.transitions import NakshatraTransition, ThithiTransition
-from core.calendar.kollavarsham_models import KollavarshamDate
-from schemas.location import LocationInfo
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import SanthigiriEvent
-from utils.thithi import Thithi
+from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from app.core.calendar.kollavarsham_models import KollavarshamDate
+from app.schemas.location import LocationInfo
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import SanthigiriEvent
+from app.utils.thithi import Thithi
 
 
 class PanchangamData(BaseModel):

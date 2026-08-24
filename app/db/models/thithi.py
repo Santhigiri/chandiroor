@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.paksha import Paksha
-    from db.models.panchangam import Panchangam
-    from db.models.thithi_transition import ThithiTransition
+    from app.db.models.paksha import Paksha
+    from app.db.models.panchangam import Panchangam
+    from app.db.models.thithi_transition import ThithiTransition
 
 
 class Thithi(SQLModel, table=True):

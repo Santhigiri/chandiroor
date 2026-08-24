@@ -5,13 +5,13 @@ from zoneinfo import ZoneInfo
 from numpy import ndarray
 from skyfield.searchlib import find_discrete
 from skyfield.api import Time
-from core.astronomy.calculations import get_time
+from app.core.astronomy.calculations import get_time
 
-from core.astronomy.thithi_transition import get_sidereal_longitude_from_time
-from core.astronomy.transitions import NakshatraTransition
-from core.astronomy.tuning import AstronomyTuning
-from utils.nakshatra import Nakshatra
-from core.astronomy.nakshatra_calc import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
+from app.core.astronomy.thithi_transition import get_sidereal_longitude_from_time
+from app.core.astronomy.transitions import NakshatraTransition
+from app.core.astronomy.tuning import AstronomyTuning
+from app.utils.nakshatra import Nakshatra
+from app.core.astronomy.nakshatra_calc import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
 
 
 def get_nakshatra_id(t: Time)-> int:

@@ -5,7 +5,7 @@ import pytz
 from pytz.exceptions import Error
 from skyfield.api import Time
 from skyfield.framelib import ecliptic_frame
-from core.astronomy.ayanamsa import get_ayanamsa
+from app.core.astronomy.ayanamsa import get_ayanamsa
 import pytz
 import logging
 from .ephemeris import sun, moon, earth, ts

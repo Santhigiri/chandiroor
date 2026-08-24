@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.kollavarsham_date import KollavarshamDate
-    from db.models.location import Location
-    from db.models.nakshatra import Nakshatra
-    from db.models.nakshatra_transition import NakshatraTransition
-    from db.models.sunrise_sunset import SunriseSunset
-    from db.models.thithi import Thithi
-    from db.models.thithi_transition import ThithiTransition
+    from app.db.models.kollavarsham_date import KollavarshamDate
+    from app.db.models.location import Location
+    from app.db.models.nakshatra import Nakshatra
+    from app.db.models.nakshatra_transition import NakshatraTransition
+    from app.db.models.sunrise_sunset import SunriseSunset
+    from app.db.models.thithi import Thithi
+    from app.db.models.thithi_transition import ThithiTransition
 
 
 class Panchangam(SQLModel, table=True):

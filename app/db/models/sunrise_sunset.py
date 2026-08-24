@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import Column, ForeignKeyConstraint, Index, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
-from db.models.types import UTCDateTime
+from app.db.models.types import UTCDateTime
 
 if TYPE_CHECKING:
-    from db.models.location import Location
-    from db.models.panchangam import Panchangam
+    from app.db.models.location import Location
+    from app.db.models.panchangam import Panchangam
 
 
 class SunriseSunset(SQLModel, table=True):

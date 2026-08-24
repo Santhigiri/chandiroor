@@ -18,23 +18,23 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from api.deps import get_location, require_role
-from db.database import get_session
-from features.kollavarsham.schemas import (
+from app.api.deps import get_location, require_role
+from app.db.database import get_session
+from app.features.kollavarsham.schemas import (
     KollavarshamDateRead,
     KollavarshamDateUpdate,
     KollavarshamGenerateRequest,
     KollavarshamGenerateResult,
 )
-from features.kollavarsham.service import (
+from app.features.kollavarsham.service import (
     KollavarshamDateNotFound,
     KollavarshamService,
     SpanTooLarge,
     UngeneratableDates,
 )
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.roles import Role
+from app.utils.location import Location
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.roles import Role
 
 router = APIRouter(prefix="/panchangam/kollavarsham", tags=["kollavarsham"])
 

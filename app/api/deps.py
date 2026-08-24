@@ -25,9 +25,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
 from app.core.ports.unit_of_work import UnitOfWork
-from app.core.security import ACCESS_TOKEN_TYPE, TokenError, decode_token
 from app.db.database import get_session
-from app.db.repository import PanchangamRepository
+from app.db.panchangam_repository import PanchangamRepository
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.auth.auth_repository import AuthRepository
 from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException

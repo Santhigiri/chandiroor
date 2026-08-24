@@ -4,10 +4,11 @@ from time import time
 from fastapi import FastAPI
 from sqlmodel import Session
 
+from app.features.auth.ports import UserCreate
 from core.config import settings
 from core.security import hash_password
 from db.database import engine, init_db
-from db.user_repository import UserRepository
+from features.auth.auth_repository import AuthRepository
 from utils.roles import Role
 
 
@@ -23,13 +24,15 @@ def _seed_admin_user() -> None:
         return
 
     with Session(engine) as session:
-        repo = UserRepository(session)
+        repo = AuthRepository(session)
         if repo.exists(username):
             return
-        repo.create(
-            username=username,
-            hashed_password=hash_password(password),
-            role=Role.ADMIN,
+        repo.create_user(
+            UserCreate(
+                username=username,
+                hashed_password=hash_password(password),
+                role=Role.ADMIN,
+            )
         )
         print(f"Seeded initial admin user {username!r}")
 

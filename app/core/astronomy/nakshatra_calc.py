@@ -1,5 +1,5 @@
-from core.constants import NAKSHATRA_BOUNDARIES, NAKSHATRA_NAMES_ML
-from utils.nakshatra import Nakshatra
+from app.core.constants import NAKSHATRA_BOUNDARIES, NAKSHATRA_NAMES_ML
+from app.utils.nakshatra import Nakshatra
 
 
 def calc_nakshatra_id_from_lon(longitude: float) -> int:

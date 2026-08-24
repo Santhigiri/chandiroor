@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, List
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.nakshatra_transition import NakshatraTransition
-    from db.models.panchangam import Panchangam
+    from app.db.models.nakshatra_transition import NakshatraTransition
+    from app.db.models.panchangam import Panchangam
 
 
 class Nakshatra(SQLModel, table=True):

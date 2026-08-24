@@ -5,8 +5,8 @@ from sqlalchemy import ForeignKeyConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.malayalam_masa import MalayalamMasa
-    from db.models.panchangam import Panchangam
+    from app.db.models.malayalam_masa import MalayalamMasa
+    from app.db.models.panchangam import Panchangam
 
 
 class KollavarshamDate(SQLModel, table=True):

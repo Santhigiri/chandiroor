@@ -18,8 +18,8 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
-from utils.location import DEFAULT_LOCATION_CODE
+from app.core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+from app.utils.location import DEFAULT_LOCATION_CODE
 
 
 class AppSettingRead(BaseModel):

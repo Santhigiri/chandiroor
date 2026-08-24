@@ -26,17 +26,17 @@ from app.db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
 from app.db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 
 # ── Domain types ──────────────────────────────────────────────────────────────
-from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
-from app.core.calendar.kollavarsham_models import KollavarshamDate
-from app.schemas.location import LocationInfo
-from app.schemas.panchangam_data import PanchangamData
-from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
-from app.utils.nakshatra import Nakshatra
-from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
-from app.utils.thithi import Thithi
+from core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from core.calendar.kollavarsham_models import KollavarshamDate
+from schemas.location import LocationInfo
+from schemas.panchangam_data import PanchangamData
+from utils.location import Location
+from utils.malayalam_masa import MalayalamMasa
+from utils.nakshatra import Nakshatra
+from utils.santhigiri_events import EventCondition, SanthigiriEvent
+from utils.thithi import Thithi
 
-from app.db.typing_utils import col as TypedColumn
+from db.typing_utils import col as TypedColumn
 
 
 # ── SQL row → domain type conversions ────────────────────────────────────────

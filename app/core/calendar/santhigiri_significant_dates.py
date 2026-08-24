@@ -23,10 +23,10 @@ from __future__ import annotations
 from datetime import datetime, time
 from typing import List
 
-from core.astronomy.pournami import is_poornima_live
-from core.constants import DEFAULT_TIMEZONE
-from schemas.panchangam_data import PanchangamData
-from utils.santhigiri_events import EventCondition, SanthigiriEvent
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.constants import DEFAULT_TIMEZONE
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 
 
 def pins_single_day(condition: EventCondition) -> bool:

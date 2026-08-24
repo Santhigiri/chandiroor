@@ -20,8 +20,8 @@ it computes them on the fly and delegates to :func:`is_poornima`.
 from datetime import date, datetime, timedelta
 from typing import Dict, Mapping, Optional, Sequence, Tuple
 
-from core.astronomy.transitions import ThithiTransition
-from utils.thithi import Thithi
+from app.core.astronomy.transitions import ThithiTransition
+from app.utils.thithi import Thithi
 
 _POURNAMI_ID = Thithi.POORNIMA.id  # 15
 

@@ -21,11 +21,11 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session
 
-from api.deps import require_role
-from db.database import get_session
-from features.guruvani.schemas import GuruvaniCreate, GuruvaniDetail, GuruvaniUpdate
-from features.guruvani.service import GuruvaniNotFound, GuruvaniService
-from utils.roles import Role
+from app.api.deps import require_role
+from app.db.database import get_session
+from app.features.guruvani.schemas import GuruvaniCreate, GuruvaniDetail, GuruvaniUpdate
+from app.features.guruvani.service import GuruvaniNotFound, GuruvaniService
+from app.utils.roles import Role
 
 router = APIRouter(prefix="/guruvani", tags=["guruvani"])
 

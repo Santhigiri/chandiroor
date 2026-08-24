@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from db.models.kollavarsham_date import KollavarshamDate
+    from app.db.models.kollavarsham_date import KollavarshamDate
 
 
 class MalayalamMasa(SQLModel, table=True):

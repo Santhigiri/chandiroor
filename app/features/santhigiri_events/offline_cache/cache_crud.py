@@ -58,7 +58,7 @@ def load_cache_from_db(
     from sqlmodel import Session
 
     from db.database import engine
-    from db.repository import PanchangamRepository
+    from db.panchangam_repository import PanchangamRepository
     from services.settings_service import SettingsService
 
     def _read(s: "Session") -> Dict[date, PanchangamData]:
