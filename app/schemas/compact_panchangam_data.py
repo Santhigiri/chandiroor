@@ -3,8 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from schemas.panchangam_data import PanchangamData
-from utils.malayalam_masa import MalayalamMasa
+from .panchangam_data import PanchangamData
+from app.utils.malayalam_masa import MalayalamMasa
 
 
 class CompactKollavarshamDate(BaseModel):

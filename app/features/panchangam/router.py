@@ -5,28 +5,28 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
-from api.deps import get_location, get_service, require_role
-from db.database import get_session
-from features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
-from features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
-from features.panchangam.schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
-from features.panchangam.schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
-from features.panchangam.schemas.SunriseSunsetResponse import SunriseSunsetResponse
-from features.panchangam.service import PanchangamService, YearOutOfRange
-from schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
-from schemas.location import LocationInfo
-from services.etag_service import (
+from app.api.deps import get_location, get_service, require_role
+from app.db.database import get_session
+from app.features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
+from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from app.features.panchangam.schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
+from app.features.panchangam.schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
+from app.features.panchangam.schemas.SunriseSunsetResponse import SunriseSunsetResponse
+from app.features.panchangam.service import PanchangamService, YearOutOfRange
+from app.schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
+from app.schemas.location import LocationInfo
+from app.services.etag_service import (
     build_enum_payload,
     build_year_payload,
     conditional_json_response,
     enum_key,
     year_key,
 )
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.roles import Role
-from utils.thithi import Thithi
+from app.utils.location import Location
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.roles import Role
+from app.utils.thithi import Thithi
 
 
 # Panchangam data is public: every endpoint on this router validates any bearer

@@ -2,12 +2,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import datetime
 
-from api.deps import get_location, get_service, require_role
-from features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
-from features.panchangam.schemas.GetDayPanchangamParams import GetPanchangamParams
-from features.panchangam.service import PanchangamService, YearOutOfRange
-from utils.location import Location
-from utils.roles import Role
+from app.api.deps import get_location, get_service, require_role
+from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
+from app.features.panchangam.schemas.GetDayPanchangamParams import GetPanchangamParams
+from app.features.panchangam.service import PanchangamService, YearOutOfRange
+from app.utils.location import Location
+from app.utils.roles import Role
 
 
 # Public data router — validates any supplied bearer token but allows anonymous

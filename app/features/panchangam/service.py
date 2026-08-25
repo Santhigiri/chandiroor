@@ -10,12 +10,12 @@ from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-from core.astronomy.tuning import AstronomyTuning
-from db.panchangam_repository import PanchangamRepository
-from schemas.panchangam_data import PanchangamData
-from services.settings_service import SettingsService
-from utils.location import DEFAULT_LOCATION, Location
-from utils.santhigiri_events import SanthigiriEvent
+from app.core.astronomy.tuning import AstronomyTuning
+from app.db.panchangam_repository import PanchangamRepository
+from app.schemas.panchangam_data import PanchangamData
+from app.services.settings_service import SettingsService
+from app.utils.location import DEFAULT_LOCATION, Location
+from app.utils.santhigiri_events import SanthigiriEvent
 
 _cal = calendar.Calendar(firstweekday=6)
 

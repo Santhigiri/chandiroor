@@ -24,16 +24,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
-from core.calendar.santhigiri_event_occurrences import (
+from app.core.calendar.santhigiri_event_occurrences import (
     OccurrenceComputationError,
     PanchangamYear,
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
     compute_occurrences,
 )
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.panchangam_repository import PanchangamRepository, event_row_to_event
-from db.santhigiri_event_repository import SanthigiriEventRepository
-from features.santhigiri_events.schemas import (
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.panchangam_repository import PanchangamRepository, event_row_to_event
+from app.db.santhigiri_event_repository import SanthigiriEventRepository
+from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
     SanthigiriEventGenerateProgress,
     SanthigiriEventGenerateResult,
@@ -41,10 +41,10 @@ from features.santhigiri_events.schemas import (
     SanthigiriEventsGenerateProgress,
     SanthigiriEventsGenerateResult,
 )
-from schemas.app_setting import EventCutoffsValue
-from services.etag_service import refresh_etags
-from services.settings_service import SettingsService
-from utils.location import DEFAULT_LOCATION
+from app.schemas.app_setting import EventCutoffsValue
+from app.services.etag_service import refresh_etags
+from app.services.settings_service import SettingsService
+from app.utils.location import DEFAULT_LOCATION
 
 
 class EventAlreadyExists(Exception):

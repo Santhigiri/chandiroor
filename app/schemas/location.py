@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from utils.location import Location
+from app.utils.location import Location
 
 
 class LocationInfo(BaseModel):

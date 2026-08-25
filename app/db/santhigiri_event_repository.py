@@ -17,12 +17,12 @@ from typing import List, Optional, Protocol
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.santhigiri_event_date import (
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.santhigiri_event_date import (
     SanthigiriEventDate as SanthigiriEventDateRow,
 )
 
-from db.typing_utils import col as TypedColumn
+from app.db.typing_utils import col as TypedColumn
 
 class SanthigiriEventRepositoryPort(Protocol):
     def get(self, event_id: str) -> Optional[SanthigiriEventRow]: ...

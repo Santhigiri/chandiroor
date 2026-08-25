@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import Column, ForeignKeyConstraint, Index
 from sqlmodel import Field, Relationship, SQLModel
 
-from db.models.types import UTCDateTime
+from app.db.models.types import UTCDateTime
 
 if TYPE_CHECKING:
     from app.db.models.panchangam import Panchangam

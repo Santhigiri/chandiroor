@@ -2,7 +2,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Dict, Tuple
 
-from core.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.constants import Coordinates, DEFAULT_TIMEZONE
 
 
 class Location(Enum):

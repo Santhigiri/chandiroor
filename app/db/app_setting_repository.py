@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from sqlmodel import Session, select
 
-from db.models.app_setting import AppSetting
+from app.db.models.app_setting import AppSetting
 
 
 class AppSettingRepository:

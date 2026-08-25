@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-from core.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.constants import Coordinates, DEFAULT_TIMEZONE
 
 class GetPanchangamParams(BaseModel):
     date_str: date = datetime.now().date()

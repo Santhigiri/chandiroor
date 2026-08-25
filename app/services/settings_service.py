@@ -22,10 +22,10 @@ from typing import Dict, Optional, Tuple, Type, TypeVar
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session
 
-from core.astronomy.tuning import AstronomyTuning
-from db.app_setting_repository import AppSettingRepository
-from db.models.app_setting import AppSetting
-from schemas.app_setting import (
+from app.core.astronomy.tuning import AstronomyTuning
+from app.db.app_setting_repository import AppSettingRepository
+from app.db.models.app_setting import AppSetting
+from app.schemas.app_setting import (
     AppSettingUpdate,
     AstronomyEpsilonsValue,
     DefaultLocationCodeValue,
@@ -35,8 +35,8 @@ from schemas.app_setting import (
     NakshatraStepDaysValue,
     SeedYearRangeValue,
 )
-from utils.location import DEFAULT_LOCATION_CODE, Location
-from utils.settings_keys import SettingKey
+from app.utils.location import DEFAULT_LOCATION_CODE, Location
+from app.utils.settings_keys import SettingKey
 
 T = TypeVar("T", bound=BaseModel)
 

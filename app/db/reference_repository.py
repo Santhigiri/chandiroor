@@ -15,13 +15,13 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from db.models.location import Location as LocationRow
-from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
-from db.models.nakshatra import Nakshatra as NakshatraRow
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.thithi import Thithi as ThithiRow
-from db.typing_utils import col
-from schemas.compact_panchangam_data import CompactSanthigiriEvent
+from app.db.models.location import Location as LocationRow
+from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.nakshatra import Nakshatra as NakshatraRow
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.thithi import Thithi as ThithiRow
+from app.db.typing_utils import col
+from app.schemas.compact_panchangam_data import CompactSanthigiriEvent
 
 
 class ReferenceRepository:

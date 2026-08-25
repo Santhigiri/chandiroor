@@ -1,9 +1,9 @@
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.thithi import Thithi
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.thithi import Thithi
 
 
 class EventCondition(BaseModel):

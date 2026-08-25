@@ -45,9 +45,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from api.deps import require_role
-from db.database import get_session
-from features.santhigiri_events.schemas import (
+from app.api.deps import require_role
+from app.db.database import get_session
+from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
     SanthigiriEventDetail,
     SanthigiriEventOccurrences,
@@ -55,7 +55,7 @@ from features.santhigiri_events.schemas import (
     SanthigiriEventsGenerateRequest,
     SanthigiriEventUpdate,
 )
-from features.santhigiri_events.service import (
+from app.features.santhigiri_events.service import (
     EventAlreadyExists,
     EventNotFound,
     IncompleteYearData,
@@ -65,7 +65,7 @@ from features.santhigiri_events.service import (
     UnsupportedEventCondition,
     YearSpanTooLarge,
 )
-from utils.roles import Role
+from app.utils.roles import Role
 
 router = APIRouter(prefix="/panchangam/events", tags=["santhigiri-events"])
 

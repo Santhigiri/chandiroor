@@ -7,21 +7,21 @@ safe — session.merge() is idempotent on rows that already exist.
 """
 from sqlmodel import Session, select
 
-from db.models.app_setting import AppSetting as AppSettingRow
-from db.models.location import Location as LocationRow
-from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
-from db.models.nakshatra import Nakshatra as NakshatraRow
-from db.models.paksha import Paksha as PakshaRow
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.thithi import Thithi as ThithiRow
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.paksha import Paksha
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.settings_keys import SettingKey
-from utils.thithi import Thithi
-from schemas.app_setting import (
+from app.db.models.app_setting import AppSetting as AppSettingRow
+from app.db.models.location import Location as LocationRow
+from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.nakshatra import Nakshatra as NakshatraRow
+from app.db.models.paksha import Paksha as PakshaRow
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.thithi import Thithi as ThithiRow
+from app.utils.location import Location
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.paksha import Paksha
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.utils.settings_keys import SettingKey
+from app.utils.thithi import Thithi
+from app.schemas.app_setting import (
     AstronomyEpsilonsValue,
     DefaultLocationCodeValue,
     EventCutoffsValue,

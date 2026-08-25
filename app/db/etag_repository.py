@@ -14,7 +14,7 @@ from typing import Optional
 
 from sqlmodel import Session
 
-from db.models.dataset_etag import DatasetEtag
+from app.db.models.dataset_etag import DatasetEtag
 
 
 class EtagRepository:

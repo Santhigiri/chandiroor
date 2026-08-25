@@ -1,5 +1,5 @@
 from pydantic import Field, BaseModel
-from core.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.constants import Coordinates, DEFAULT_TIMEZONE
 
 # A defensive sanity ceiling only — not the real business rule. The actual
 # accepted range is the admin-configured `seed_year_range` setting, enforced

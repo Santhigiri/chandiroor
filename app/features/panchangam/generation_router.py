@@ -27,15 +27,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from api.deps import get_location, require_role
-from db.database import get_session
-from features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
-from features.panchangam.schemas.panchangam_generation import (
+from app.api.deps import get_location, require_role
+from app.db.database import get_session
+from app.features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
+from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateError,
     PanchangamGenerateRequest,
 )
-from utils.location import Location
-from utils.roles import Role
+from app.utils.location import Location
+from app.utils.roles import Role
 
 router = APIRouter(prefix="/panchangam", tags=["panchangam-generation"])
 

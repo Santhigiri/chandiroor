@@ -16,14 +16,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
-from db.etag_repository import EtagRepository
-from db.reference_repository import ReferenceRepository
-from db.panchangam_repository import PanchangamRepository
-from schemas.compact_panchangam_data import CompactPanchangamData
-from features.panchangam.service import PanchangamService
-from utils.content_hash import stable_hash
-from utils.etag import if_none_match_satisfied
-from utils.location import DEFAULT_LOCATION, Location
+from app.db.etag_repository import EtagRepository
+from app.db.reference_repository import ReferenceRepository
+from app.db.panchangam_repository import PanchangamRepository
+from app.schemas.compact_panchangam_data import CompactPanchangamData
+from app.features.panchangam.service import PanchangamService
+from app.utils.content_hash import stable_hash
+from app.utils.etag import if_none_match_satisfied
+from app.utils.location import DEFAULT_LOCATION, Location
 
 # Enum reference datasets exposed by the API, keyed by route name → the
 # ReferenceRepository method that reads each one from the database. These are all

@@ -10,7 +10,7 @@ from app.features.panchangam.router import router as panchangam_v1_router
 from app.features.santhigiri_events.router import router as santhigiri_events_v1_router
 from app.features.settings.router import router as settings_v1_router
 
-from utils.lifespan import lifespan
+from app.utils.lifespan import lifespan
 
 app = FastAPI(lifespan=lifespan)
 

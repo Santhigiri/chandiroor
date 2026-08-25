@@ -11,8 +11,8 @@ from typing import List, Optional
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from db.models.guruvani import Guruvani
-from db.typing_utils import col
+from app.db.models.guruvani import Guruvani
+from app.db.typing_utils import col
 
 
 class GuruvaniRepository:

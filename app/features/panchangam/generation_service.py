@@ -34,15 +34,15 @@ from typing import AsyncIterator, Union
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
-from db.panchangam_repository import PanchangamRepository
-from features.panchangam.schemas.panchangam_generation import (
+from app.db.panchangam_repository import PanchangamRepository
+from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,
     PanchangamGenerateResult,
 )
-from services.etag_service import refresh_etags
-from services.settings_service import SettingsService
-from utils.location import DEFAULT_LOCATION, Location
+from app.services.etag_service import refresh_etags
+from app.services.settings_service import SettingsService
+from app.utils.location import DEFAULT_LOCATION, Location
 
 
 class SpanTooLarge(Exception):

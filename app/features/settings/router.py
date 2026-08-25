@@ -31,12 +31,12 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import Session
 
-from api.deps import require_role
-from db.database import get_session
-from schemas.app_setting import AppSettingRead, AppSettingUpdate
-from services.etag_service import etag_json_response
-from services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
-from utils.roles import Role
+from app.api.deps import require_role
+from app.db.database import get_session
+from app.schemas.app_setting import AppSettingRead, AppSettingUpdate
+from app.services.etag_service import etag_json_response
+from app.services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
+from app.utils.roles import Role
 
 router = APIRouter(
     prefix="/settings",

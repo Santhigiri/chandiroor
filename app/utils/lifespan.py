@@ -5,11 +5,11 @@ from fastapi import FastAPI
 from sqlmodel import Session
 
 from app.features.auth.ports import UserCreate
-from core.config import settings
-from core.security import hash_password
-from db.database import engine, init_db
-from features.auth.auth_repository import AuthRepository
-from utils.roles import Role
+from app.core.config import settings
+from app.core.security import hash_password
+from app.db.database import engine, init_db
+from app.features.auth.auth_repository import AuthRepository
+from app.utils.roles import Role
 
 
 def _seed_admin_user() -> None:

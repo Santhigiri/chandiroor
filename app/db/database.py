@@ -69,6 +69,6 @@ def get_session() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    import db.models  # noqa: F401 — registers all model classes with SQLModel metadata
+    import app.db.models  # noqa: F401 — registers all model classes with SQLModel metadata
     SQLModel.metadata.create_all(engine)
     print("Database schema ensured")
