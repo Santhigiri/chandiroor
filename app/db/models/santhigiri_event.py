@@ -1,7 +1,14 @@
+from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.features.santhigiri_events.ports import SanthigiriEventBase, SanthigiriEventGet
+
+
+from app.utils.nakshatra import Nakshatra as NakshatraEnum
+from app.utils.thithi import Thithi as ThithiEnum
 
 if TYPE_CHECKING:
     from app.db.models.nakshatra import Nakshatra
@@ -78,3 +85,51 @@ class SanthigiriEvent(SQLModel, table=True):
 
     nakshatra: Optional["Nakshatra"] = Relationship()
     thithi:    Optional["Thithi"]    = Relationship()
+    
+
+
+    @classmethod
+    def from_dto(cls, event_id: str, event: SanthigiriEventBase)-> SanthigiriEvent:
+        nakshatra_id : Optional[int] = event.nakshatra.id if event.nakshatra is not None else None
+        thithi_id : Optional[int] = event.thithi.id if event.thithi is not None else None
+        yields_to_event_id: Optional[str] = event.yields_to_event
+        return SanthigiriEvent(
+            id = event_id,
+            name = event.name,
+            description= event.description,
+            sort_order= event.sort_order,
+            nakshatra_id= nakshatra_id,
+            thithi_id = thithi_id,
+            ml_day=event.ml_day,
+            ml_month=event.ml_month,
+            ml_year=event.ml_year,
+            en_day=event.en_day,
+            en_month=event.en_month,
+            en_year=event.en_year,
+            occurance=event.occurance,
+            is_poornima=event.is_poornima,
+            last_occurance=event.last_occurance,
+            day_offset=event.day_offset,
+            yields_to_event_id=yields_to_event_id,
+        )
+
+    def to_dto(self)-> SanthigiriEventGet:
+        return SanthigiriEventGet(
+            id=self.id,
+            name=self.name,
+            description=self.description,
+            sort_order=self.sort_order,
+            nakshatra=NakshatraEnum.from_id(self.nakshatra_id) if self.nakshatra_id is not None else None,
+            thithi=ThithiEnum.from_id(self.thithi_id) if self.thithi_id is not None else None,
+            ml_day=self.ml_day,
+            ml_month=self.ml_month,
+            ml_year=self.ml_year,
+            en_day=self.en_day,
+            en_month=self.en_month,
+            en_year=self.en_year,
+            occurance=self.occurance,
+            is_poornima=self.is_poornima,
+            last_occurance=self.last_occurance,
+            day_offset=self.day_offset,
+            yields_to_event=self.yields_to_event_id,
+        )

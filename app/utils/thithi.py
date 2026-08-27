@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum
 from functools import lru_cache
 from typing import Dict
@@ -48,12 +49,12 @@ class Thithi(Enum):
 
     @classmethod
     @lru_cache()
-    def _lookup(cls) -> Dict[int, "Thithi"]:
+    def _lookup(cls) -> Dict[int, Thithi]:
         return {item.id: item for item in cls}
 
 
     @classmethod
-    def from_id(cls, id: int)-> "Thithi":
+    def from_id(cls, id: int)-> Thithi:
         return cls._lookup()[id]
 
     def to_dict(self):
@@ -64,3 +65,13 @@ class Thithi(Enum):
             "ml": self.ml,
             "en": self.en
         }
+
+    @classmethod
+    def get_or_none(cls, thithi: str | None) -> Thithi | None:
+        if thithi is None: 
+            return None
+        try:
+            return cls[thithi]
+        except KeyError:
+            return None
+        
