@@ -1,11 +1,10 @@
-from typing import Annotated, Dict, List
+from typing import Annotated, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
 from zoneinfo import ZoneInfoNotFoundError
 
 from app.api.deps import (
     EtagRepositoryDep,
-    ReferenceRepositoryDep,
     UnitOfWorkDep,
     get_location,
     get_panchangam_service,
@@ -17,20 +16,14 @@ from app.features.panchangam.schemas.GetSunriseSunsetParams import GetSunriseSun
 from app.features.panchangam.schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
 from app.features.panchangam.schemas.SunriseSunsetResponse import SunriseSunsetResponse
 from app.features.panchangam.service import PanchangamService, YearOutOfRange
-from app.schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
-from app.schemas.location import LocationInfo
+from app.schemas.compact_panchangam_data import CompactPanchangamData
 from app.features.etag.service import (
-    build_enum_payload,
     build_year_payload,
     conditional_json_response,
-    enum_key,
     year_key,
 )
 from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
-from app.utils.nakshatra import Nakshatra
 from app.utils.roles import Role
-from app.utils.thithi import Thithi
 
 
 # Panchangam data is public: every endpoint on this router validates any bearer
@@ -159,92 +152,4 @@ def panchangam_yearly(
         )
     except YearOutOfRange as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-
-
-
-# The enum reference datasets are read from the database (not the Python enums)
-# so DB edits — e.g. to Santhigiri event names/descriptions — are reflected.
-# Each is served ETag-validated so the frontend can revalidate cheaply and reuse
-# its cached copy on a 304. See features.etag.service for the payloads.
-
-def _reference_response(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-    name: str,
-) -> Response:
-    return conditional_json_response(
-        request,
-        etag_repository,
-        unit_of_work,
-        enum_key(name),
-        lambda: build_enum_payload(reference_repository, name),
-    )
-
-
-@router.get(
-    '/thithi',
-    response_model= List[Thithi]
-)
-def thithi_reference(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-) -> Response:
-    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "thithi")
-
-
-@router.get(
-    '/nakshatra',
-    response_model= List[Nakshatra]
-)
-def nakshatra_reference(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-) -> Response:
-    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "nakshatra")
-
-
-@router.get(
-    '/masa',
-    response_model= List[MalayalamMasa]
-)
-def masa_reference(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-) -> Response:
-    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "masa")
-
-
-@router.get(
-    '/events',
-    response_model= List[CompactSanthigiriEvent]
-)
-def events_reference(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-) -> Response:
-    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "events")
-
-
-@router.get(
-    '/locations',
-    response_model= List[LocationInfo]
-)
-def locations_reference(
-    request: Request,
-    reference_repository: ReferenceRepositoryDep,
-    etag_repository: EtagRepositoryDep,
-    unit_of_work: UnitOfWorkDep,
-) -> Response:
-    # The list of locations a client can request via ?location=<code>.
-    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "locations")
 

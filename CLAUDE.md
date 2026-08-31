@@ -45,7 +45,7 @@ panchangam-api/
     │   └── deps.py                 # Shared Depends: get_*_service, get_location, get_current_principal, require_role — also where every port gets bound to its concrete adapter
     ├── features/                   # One subpackage per feature — the HTTP boundary + orchestration for that feature
     │   ├── panchangam/                  # Migrated to ports & adapters (see "Ports & adapters" below)
-    │   │   ├── router.py               # Compact panchangam + reference (thithi/nakshatra/masa/events) reads, mounted at /api/v1
+    │   │   ├── router.py               # Compact panchangam reads (day/instant/month/year/sunrise-sunset), mounted at /api/v1
     │   │   ├── legacy_router.py        # Deprecated pre-v1 router (unversioned); do not add new callers or new endpoints here
     │   │   ├── generation_router.py    # POST /api/v1/panchangam/generate (admin)
     │   │   ├── service.py              # PanchangamService — reads through PanchangamRepositoryPort; live-computation fallback on a DB miss
@@ -69,6 +69,14 @@ panchangam-api/
     │   │   ├── router.py
     │   │   ├── service.py
     │   │   └── schemas.py
+    │   ├── reference/                   # No ports.py of its own — see core/ports/reference_repository.py below
+    │   │   └── router.py     # thithi/nakshatra/masa/events/locations reads, mounted under the /panchangam URL
+    │   │                      # prefix for backward compatibility even though it's its own feature package.
+    │   │                      # Depends on core/ports/reference_repository.py's ReferenceRepositoryPort (bound to
+    │   │                      # db/reference_repository.py::ReferenceRepository in api/deps.py) and on
+    │   │                      # features/etag/service.py's build_enum_payload/conditional_json_response — no
+    │   │                      # service.py of its own, same as how panchangam/router.py calls etag/service.py
+    │   │                      # directly for its /year endpoint.
     │   ├── settings/                    # Migrated to ports & adapters — service.py now lives here too, see below
     │   │   ├── ports.py      # AppSettingRepositoryPort (Protocol) + AppSettingGet DTO
     │   │   ├── repository.py # AppSettingRepository — concrete adapter implementing the port against SQLModel
@@ -109,10 +117,10 @@ panchangam-api/
     │   │   │                          # features/etag/service.py depends on instead of importing PanchangamService directly
     │   │   └── reference_repository.py # ReferenceRepositoryPort (Protocol) — list_thithis/list_nakshatras/list_masas/
     │   │                                # list_locations/list_events, the subset of db/reference_repository.py::ReferenceRepository
-    │   │                                # that features/etag/service.py and features/panchangam/router.py depend on. Lives here
-    │   │                                # rather than a feature-local ports.py because ReferenceRepository backs the reference
-    │   │                                # endpoints and is also consumed directly by features/etag/service.py, same reasoning
-    │   │                                # as SettingsServicePort.
+    │   │                                # that features/etag/service.py and features/reference/router.py depend on. Lives here
+    │   │                                # rather than features/reference/ports.py because ReferenceRepository is a genuine
+    │   │                                # cross-feature dependency — also consumed directly by features/etag/service.py — same
+    │   │                                # reasoning as SettingsServicePort.
     │   ├── security.py             # Password hashing + JWT mint/decode (no HTTP)
     │   ├── config.py               # Settings (JWT_SECRET_KEY etc.) via pydantic-settings
     │   └── constants.py            # Shared domain constants (names, coordinates, timezone)
@@ -484,7 +492,8 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
 - `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, and `features/panchangam/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `guruvani` still has its `service.py` talk to a concrete `db/*_repository.py` class directly.
-- There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/panchangam/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
+- There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
+- The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
 - The whole `tests/` suite predates the move of the codebase under `app/` and still imports top-level modules (`import db.database`, `from core.calendar...`, etc.) that no longer exist at that path — every test file needs its imports updated to `app.db...`/`app.core...` before the suite can run again. This is a large, mechanical, repo-wide fix that has not been done yet.
 
 ---
