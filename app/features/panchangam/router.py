@@ -5,7 +5,13 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
-from app.api.deps import get_location, get_panchangam_service, require_role
+from app.api.deps import (
+    EtagRepositoryDep,
+    UnitOfWorkDep,
+    get_location,
+    get_panchangam_service,
+    require_role,
+)
 from app.db.database import get_session
 from app.features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
 from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
@@ -138,7 +144,8 @@ def panchangam_yearly(
     params: Annotated[GetYearlyPanchangamParams, Query()],
     service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
-    session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
     # ETag-validated: unchanged years return 304 so the frontend skips the
     # full-year download. The ETag key includes the location code so different
@@ -147,7 +154,8 @@ def panchangam_yearly(
     try:
         return conditional_json_response(
             request,
-            session,
+            etag_repository,
+            unit_of_work,
             year_key(params.year, location.code),
             lambda: build_year_payload(service, params.year, location),
         )
@@ -161,9 +169,19 @@ def panchangam_yearly(
 # Each is served ETag-validated so the frontend can revalidate cheaply and reuse
 # its cached copy on a 304. See services.etag_service for the payloads.
 
-def _reference_response(request: Request, session: Session, name: str) -> Response:
+def _reference_response(
+    request: Request,
+    session: Session,
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
+    name: str,
+) -> Response:
     return conditional_json_response(
-        request, session, enum_key(name), lambda: build_enum_payload(session, name)
+        request,
+        etag_repository,
+        unit_of_work,
+        enum_key(name),
+        lambda: build_enum_payload(session, name),
     )
 
 
@@ -174,8 +192,10 @@ def _reference_response(request: Request, session: Session, name: str) -> Respon
 def thithi_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, "thithi")
+    return _reference_response(request, session, etag_repository, unit_of_work, "thithi")
 
 
 @router.get(
@@ -185,8 +205,10 @@ def thithi_reference(
 def nakshatra_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, "nakshatra")
+    return _reference_response(request, session, etag_repository, unit_of_work, "nakshatra")
 
 
 @router.get(
@@ -196,8 +218,10 @@ def nakshatra_reference(
 def masa_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, "masa")
+    return _reference_response(request, session, etag_repository, unit_of_work, "masa")
 
 
 @router.get(
@@ -207,8 +231,10 @@ def masa_reference(
 def events_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, "events")
+    return _reference_response(request, session, etag_repository, unit_of_work, "events")
 
 
 @router.get(
@@ -218,7 +244,9 @@ def events_reference(
 def locations_reference(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> Response:
     # The list of locations a client can request via ?location=<code>.
-    return _reference_response(request, session, "locations")
+    return _reference_response(request, session, etag_repository, unit_of_work, "locations")
 

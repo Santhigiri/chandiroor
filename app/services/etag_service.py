@@ -16,9 +16,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
-from app.db.etag_repository import EtagRepository
+from app.core.ports.unit_of_work import UnitOfWork
 from app.db.reference_repository import ReferenceRepository
 from app.db.panchangam_repository import PanchangamRepository
+from app.features.etag.ports import EtagRepositoryPort
 from app.schemas.compact_panchangam_data import CompactPanchangamData
 from app.features.panchangam.service import PanchangamService
 from app.utils.content_hash import stable_hash
@@ -95,7 +96,8 @@ def etag_json_response(request: Request, payload: Any) -> Response:
 
 def conditional_json_response(
     request: Request,
-    session: Session,
+    etag_repository: EtagRepositoryPort,
+    unit_of_work: UnitOfWork,
     key: str,
     payload_builder: Callable[[], Any],
 ) -> Response:
@@ -108,8 +110,7 @@ def conditional_json_response(
     ``ETag`` header, computing and persisting the ETag on the way if it was not
     already stored (e.g. a year outside the pre-seeded range).
     """
-    etag_repo = EtagRepository(session)
-    etag = etag_repo.get(key)
+    etag = etag_repository.get(key)
 
     if etag and if_none_match_satisfied(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"ETag": etag})
@@ -117,14 +118,17 @@ def conditional_json_response(
     encoded = jsonable_encoder(payload_builder())
     if etag is None:
         etag = '"' + stable_hash(encoded) + '"'
-        etag_repo.set(key, etag)
-        session.commit()
+        with unit_of_work as uow:
+            etag_repository.set(key, etag)
+            uow.commit()
 
     return JSONResponse(content=encoded, headers={"ETag": etag})
 
 
 def refresh_etags(
     session: Session,
+    etag_repository: EtagRepositoryPort,
+    unit_of_work: UnitOfWork,
     years: Iterable[int],
     locations: Optional[Iterable[Location]] = None,
 ) -> None:
@@ -135,20 +139,28 @@ def refresh_etags(
     seeding) so they stay in lockstep with the data; the read path also fills any
     missing ETag lazily on first request. ``locations`` defaults to every known
     location. Commits once at the end.
+
+    *session* is still needed directly here (rather than going entirely
+    through ports) because it builds the year/enum payloads via
+    ``PanchangamRepository``/``ReferenceRepository``, neither of which has
+    been migrated to ports & adapters yet — only the ETag persistence itself
+    goes through *etag_repository*/*unit_of_work*.
     """
-    etag_repo = EtagRepository(session)
     service = PanchangamService(PanchangamRepository(session))
 
     years = list(years)
     locs = list(locations) if locations is not None else list(Location)
-    for location in locs:
-        for year in years:
-            etag_repo.set(
-                year_key(year, location.code),
-                compute_etag(build_year_payload(service, year, location)),
+    with unit_of_work as uow:
+        for location in locs:
+            for year in years:
+                etag_repository.set(
+                    year_key(year, location.code),
+                    compute_etag(build_year_payload(service, year, location)),
+                )
+
+        for name in ENUM_NAMES:
+            etag_repository.set(
+                enum_key(name), compute_etag(build_enum_payload(session, name))
             )
 
-    for name in ENUM_NAMES:
-        etag_repo.set(enum_key(name), compute_etag(build_enum_payload(session, name)))
-
-    session.commit()
+        uow.commit()

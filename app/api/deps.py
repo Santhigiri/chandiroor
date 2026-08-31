@@ -33,6 +33,8 @@ from app.db.unit_of_work import SqlUnitOfWork
 from app.features.auth.auth_repository import AuthRepository
 from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
 from app.features.auth.service import AuthService, InvalidTokenException
+from app.features.etag.ports import EtagRepositoryPort
+from app.features.etag.repository import EtagRepository
 from app.features.panchangam.service import PanchangamService
 from app.features.santhigiri_events.ports import SanthigiriEventsRepositoryPort
 from app.features.santhigiri_events.repository import SanthigiriEventRepository
@@ -73,6 +75,13 @@ def get_settings_service(
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
 
 
+def get_etag_repository(session: SessionDep) -> EtagRepositoryPort:
+    return EtagRepository(session)
+
+
+EtagRepositoryDep = Annotated[EtagRepositoryPort, Depends(get_etag_repository)]
+
+
 def get_panchangam_repository(
     session: SessionDep,
 ) -> PanchangamRepository:
@@ -98,6 +107,7 @@ SanthigiriEventRepositoryDep = Annotated[
 def get_santhigiri_event_service(
     panchangam_repository: PanchangamRepositoryDep,
     event_repository: SanthigiriEventRepositoryDep,
+    etag_repository: EtagRepositoryDep,
     session: SessionDep,
     settings_service: SettingsServiceDep,
     unit_of_work: UnitOfWorkDep,
@@ -105,6 +115,7 @@ def get_santhigiri_event_service(
     return SanthigiriEventService(
         session=session,
         event_repository=event_repository,
+        etag_repository=etag_repository,
         panchangam_repo=panchangam_repository,
         settings=settings_service,
         unit_of_work=unit_of_work,
