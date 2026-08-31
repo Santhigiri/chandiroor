@@ -21,7 +21,7 @@ from app.utils.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from app.utils.settings_keys import SettingKey
 from app.utils.thithi import Thithi
-from app.schemas.app_setting import (
+from app.shared.schemas.app_setting import (
     AstronomyEpsilonsValue,
     DefaultLocationCodeValue,
     EventCutoffsValue,
@@ -77,7 +77,7 @@ def seed_santhigiri_events_if_empty(session: Session) -> bool:
 def seed_app_settings(session: Session) -> None:
     """Insert every known app setting with its default value — identical to
     today's hardcoded constants, so applying this is behaviorally a no-op
-    until an admin edits a value (see ``services.settings_service``).
+    until an admin edits a value (see ``shared.services.settings_service``).
 
     Does NOT commit — callers batch this with the rest of a seed transaction.
     """

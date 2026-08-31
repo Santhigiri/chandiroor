@@ -13,8 +13,8 @@ from app.core.astronomy.tuning import AstronomyTuning
 from app.core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
 from app.core.constants import DEFAULT_TIMEZONE, Coordinates
-from app.schemas.location import LocationInfo
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.location import LocationInfo
+from app.shared.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
 
 def _active_at(transitions, instant):

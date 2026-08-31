@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
 from app.core.calendar.kollavarsham_models import KollavarshamDate
-from app.schemas.location import LocationInfo
+from app.shared.schemas.location import LocationInfo
 from app.utils.nakshatra import Nakshatra
 from app.utils.santhigiri_events import SanthigiriEvent
 from app.utils.thithi import Thithi

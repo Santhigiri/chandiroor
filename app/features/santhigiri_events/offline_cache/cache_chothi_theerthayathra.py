@@ -7,7 +7,7 @@ from app.features.santhigiri_events.offline_cache.cache_utils import get_yearly_
 from app.utils.malayalam_masa import MalayalamMasa
 from app.utils.nakshatra import Nakshatra
 from app.utils.santhigiri_events import JANMAGRIHA_THEERTHA_YATHRA, NAVAPOOJITHAM, EventCondition, SanthigiriEvent
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.panchangam_data import PanchangamData
 
 PanchangamCache = Dict[date, PanchangamData]
 
@@ -83,13 +83,13 @@ def update_chothi_theerthayathra(
 def _resolve_transition_hour_cutoff() -> float:
     """The admin-configured event transition-hour cutoff, resolved from the
     DB (falls back to 3.0 if unset/unavailable — see
-    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    ``shared.services.settings_service.SettingsService.get_event_cutoffs``)."""
     from sqlmodel import Session
 
     from app.db.database import engine
     from app.db.unit_of_work import SqlUnitOfWork
     from app.features.settings.repository import AppSettingRepository
-    from app.services.settings_service import SettingsService
+    from app.shared.services.settings_service import SettingsService
 
     with Session(engine) as s:
         service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

@@ -3,7 +3,7 @@ SanthigiriEventService — orchestrates create/read/update/delete of the editabl
 Santhigiri event definitions and keeps the affected dataset ETags in lockstep.
 
 Every mutation is committed together with a recomputation of the affected ETags
-(via :func:`services.etag_service.refresh_etags`), so a cached client always
+(via :func:`shared.services.etag_service.refresh_etags`), so a cached client always
 revalidates correctly:
 
 * the ``events`` reference dataset changes on every create/update/delete;
@@ -49,9 +49,9 @@ from app.features.santhigiri_events.schemas import (
     SanthigiriEventUpdate as SanthigiriEventUpdateRequest,
 )
 
-from app.schemas.app_setting import EventCutoffsValue
-from app.services.etag_service import refresh_etags
-from app.services.settings_service import SettingsService
+from app.shared.schemas.app_setting import EventCutoffsValue
+from app.shared.services.etag_service import refresh_etags
+from app.shared.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION
 from app.utils.malayalam_masa import MalayalamMasa
 from app.utils.nakshatra import Nakshatra

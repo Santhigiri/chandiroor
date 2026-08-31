@@ -2,7 +2,7 @@
 
 These Pydantic models describe a Thithi/Nakshatra interval within a day. They are
 kept free of any Skyfield/ephemeris imports so that the API response schema
-(``schemas.panchangam_data``) and the DB repository can import them without
+(``shared.schemas.panchangam_data``) and the DB repository can import them without
 pulling in the heavy astronomy stack. The compute modules
 (``core.astronomy.thithi_transition`` / ``nakshatra_transition``) import these
 classes back and populate them; that stack loads only when live computation is

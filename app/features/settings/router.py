@@ -9,7 +9,7 @@ Unlike the public-read Santhigiri event definitions, every endpoint here
 requires the ``admin`` role, including reads — these are internal
 tuning/ops knobs (calendar year bounds, generation caps, astronomy search
 tuning), not ashram-facing reference data. See ``utils.settings_keys.SettingKey``
-for the known keys and ``schemas.app_setting`` for each key's expected
+for the known keys and ``shared.schemas.app_setting`` for each key's expected
 ``value`` shape.
 
 Changing a setting here never retroactively rewrites already-stored
@@ -20,7 +20,7 @@ regeneration. See CLAUDE.md's existing warning about
 instead of code-driven.
 
 Both GET endpoints are ETag-validated via
-``services.etag_service.etag_json_response``: the ETag is computed fresh from
+``shared.services.etag_service.etag_json_response``: the ETag is computed fresh from
 the response on every request (unlike the year/enum reference endpoints,
 these payloads are cheap enough that there's no benefit to persisting a
 stored ETag), so a matching ``If-None-Match`` gets a ``304`` and any write
@@ -31,9 +31,9 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.deps import get_settings_service, require_role
-from app.schemas.app_setting import AppSettingRead, AppSettingUpdate
-from app.services.etag_service import etag_json_response
-from app.services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
+from app.shared.schemas.app_setting import AppSettingRead, AppSettingUpdate
+from app.shared.services.etag_service import etag_json_response
+from app.shared.services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
 from app.utils.roles import Role
 
 router = APIRouter(

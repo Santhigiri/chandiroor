@@ -2,7 +2,7 @@
 Request/response schemas for the Panchangam generation endpoint under
 ``/api/v1/panchangam/generate``.
 
-``generate`` recomputes the full :class:`schemas.panchangam_data.PanchangamData`
+``generate`` recomputes the full :class:`shared.schemas.panchangam_data.PanchangamData`
 (thithi, nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) for every
 day in an inclusive date range from the astronomy code and overwrites the stored
 rows. The request carries the range (validated here) and the result summarizes
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field, model_validator
 # A defensive, non-editable ceiling no admin setting can exceed — a DoS
 # backstop, not the real business rule. The actual cap is the admin-configured
 # `max_generate_span_days` setting, enforced by PanchangamGenerationService
-# (see services/settings_service.py).
+# (see shared/services/settings_service.py).
 _HARD_SPAN_CEILING_DAYS = 3660
 
 

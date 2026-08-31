@@ -34,7 +34,7 @@ from pydantic import BaseModel, ValidationError
 from app.core.astronomy.tuning import AstronomyTuning
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.settings.ports import AppSettingGet, AppSettingRepositoryPort
-from app.schemas.app_setting import (
+from app.shared.schemas.app_setting import (
     AppSettingUpdate,
     AstronomyEpsilonsValue,
     DefaultLocationCodeValue,

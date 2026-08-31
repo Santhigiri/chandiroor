@@ -28,8 +28,8 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
 from app.core.calendar.kollavarsham_models import KollavarshamDate
-from app.schemas.location import LocationInfo
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.location import LocationInfo
+from app.shared.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
 from app.utils.malayalam_masa import MalayalamMasa
 from app.utils.nakshatra import Nakshatra

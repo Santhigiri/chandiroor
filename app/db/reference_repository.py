@@ -21,7 +21,7 @@ from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
 from app.db.typing_utils import col
-from app.schemas.compact_panchangam_data import CompactSanthigiriEvent
+from app.shared.schemas.compact_panchangam_data import CompactSanthigiriEvent
 
 
 class ReferenceRepository:

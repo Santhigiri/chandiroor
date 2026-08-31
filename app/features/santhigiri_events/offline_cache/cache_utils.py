@@ -2,7 +2,7 @@
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Set
 
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import SanthigiriEvent
 
 

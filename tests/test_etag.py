@@ -21,7 +21,7 @@ from db.etag_repository import EtagRepository
 from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from main import app
-from services.etag_service import refresh_etags, year_key
+from shared.services.etag_service import refresh_etags, year_key
 from utils.content_hash import stable_hash
 from utils.etag import if_none_match_satisfied
 from utils.location import Location

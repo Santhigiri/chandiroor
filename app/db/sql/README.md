@@ -11,7 +11,7 @@ Python pickle-import path. Apply them in order:
    - Lookup tables (`paksha`, `nakshatra`, `thithi`, `malayalam_masa`,
      `location`, `santhigiri_event`) from the Python enums / event definitions.
    - Default `app_setting` rows (admin-editable settings — see
-     `services/settings_service.py`), one per known `utils.settings_keys.SettingKey`,
+     `shared/services/settings_service.py`), one per known `utils.settings_keys.SettingKey`,
      each seeded with a value identical to the hardcoded constant it replaces.
    - 10 years of Panchangam data (2021-01-01 … 2030-12-31, 3652 days):
      `panchangam`, `kollavarsham_date`, `sunrise_sunset`,

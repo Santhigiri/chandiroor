@@ -1,5 +1,5 @@
 -- Adds the app_setting table: DB-backed, admin-editable application settings
--- (see services/settings_service.py, api/routes/v1/settings.py). Every key is
+-- (see shared/services/settings_service.py, api/routes/v1/settings.py). Every key is
 -- seeded with a value identical to the hardcoded constant it replaces, so
 -- applying this migration is behaviorally a no-op until an admin edits a
 -- value through the API.

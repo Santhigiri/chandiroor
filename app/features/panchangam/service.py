@@ -12,8 +12,8 @@ from zoneinfo import ZoneInfo
 
 from app.core.astronomy.tuning import AstronomyTuning
 from app.db.panchangam_repository import PanchangamRepository
-from app.schemas.panchangam_data import PanchangamData
-from app.services.settings_service import SettingsService
+from app.shared.schemas.panchangam_data import PanchangamData
+from app.shared.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION, Location
 from app.utils.santhigiri_events import SanthigiriEvent
 
@@ -30,7 +30,7 @@ SUNRISE_SUNSET_CACHE_GRID_DEGREES = 1
 
 class YearOutOfRange(Exception):
     """Raised when a requested year falls outside the admin-configured
-    ``seed_year_range`` setting (see ``services.settings_service``)."""
+    ``seed_year_range`` setting (see ``shared.services.settings_service``)."""
 
     def __init__(self, year: int, start_year: int, end_year: int) -> None:
         self.year = year
@@ -66,7 +66,7 @@ class PanchangamService:
     def _check_year_in_range(self, year: int) -> None:
         """Enforce the admin-configured ``seed_year_range`` setting, if a
         ``SettingsService`` is available. No-op otherwise (e.g. internal
-        callers like ``services.etag_service`` that build a
+        callers like ``shared.services.etag_service`` that build a
         ``PanchangamService`` from a repository alone)."""
         if self._settings is None:
             return

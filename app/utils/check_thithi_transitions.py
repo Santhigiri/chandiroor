@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Dict, List
 from app.core.astronomy.thithi_transition import ThithiTransition
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.panchangam_data import PanchangamData
 
 
 def check_thithi_transitions_miss(cache: Dict[date, PanchangamData]):

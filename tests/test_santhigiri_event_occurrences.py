@@ -33,7 +33,7 @@ from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
 from main import app
-from services.etag_service import refresh_etags, year_key
+from shared.services.etag_service import refresh_etags, year_key
 from utils.location import Location
 from utils.roles import Role
 

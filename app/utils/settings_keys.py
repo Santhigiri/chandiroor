@@ -3,7 +3,7 @@ Known ``app_setting`` keys.
 
 A plain string ``Enum`` (mirrors ``utils.roles.Role``) so call sites reference
 a named constant instead of a magic string. Each member's value shape is
-defined by the matching Pydantic model in ``schemas/app_setting.py``.
+defined by the matching Pydantic model in ``shared/schemas/app_setting.py``.
 """
 from __future__ import annotations
 

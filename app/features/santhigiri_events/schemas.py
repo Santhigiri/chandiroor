@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # A defensive, non-editable ceiling no admin setting can exceed — a DoS
 # backstop, not the real business rule. The actual cap is the admin-configured
 # `max_event_generate_year_span` setting, enforced by SanthigiriEventService
-# (see services/settings_service.py). Shared by both the single-event and
+# (see shared/services/settings_service.py). Shared by both the single-event and
 # all-events occurrence generation endpoints — see SanthigiriEventsGenerateRequest
 # below.
 _HARD_YEAR_SPAN_CEILING = 200

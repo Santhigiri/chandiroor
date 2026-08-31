@@ -6,7 +6,7 @@ from app.features.santhigiri_events.offline_cache.cache_utils import remove_even
 from app.utils.malayalam_masa import MalayalamMasa
 from app.utils.nakshatra import Nakshatra
 from app.utils.santhigiri_events import NAVAPOOJITHAM, EventCondition
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.panchangam_data import PanchangamData
 
 PanchangamCache = Dict[date, PanchangamData]
 
@@ -105,13 +105,13 @@ def update_navapoojitham(
 def _resolve_nazhika_cutoff() -> float:
     """The admin-configured event Nazhika cutoff, resolved from the DB
     (falls back to 7.5 if unset/unavailable — see
-    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    ``shared.services.settings_service.SettingsService.get_event_cutoffs``)."""
     from sqlmodel import Session
 
     from app.db.database import engine
     from app.db.unit_of_work import SqlUnitOfWork
     from app.features.settings.repository import AppSettingRepository
-    from app.services.settings_service import SettingsService
+    from app.shared.services.settings_service import SettingsService
 
     with Session(engine) as s:
         service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

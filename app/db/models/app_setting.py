@@ -15,9 +15,9 @@ class AppSetting(SQLModel, table=True):
     ``"seed_year_range"`` or ``"nakshatra_transition_step_days"`` — see
     ``utils.settings_keys.SettingKey``), holding an arbitrary JSON ``value``
     whose shape is validated against a dedicated Pydantic model in
-    ``schemas.app_setting`` before it is ever written here. This table is a
+    ``shared.schemas.app_setting`` before it is ever written here. This table is a
     generic, reusable store — it has no opinion about what any given key
-    means; that lives entirely in ``schemas/`` and ``services/settings_service.py``.
+    means; that lives entirely in ``shared/schemas/`` and ``shared/services/settings_service.py``.
 
     A row absent from this table is not an error: every reader falls back to
     the equivalent hardcoded constant (see ``SettingsService``), so a fresh

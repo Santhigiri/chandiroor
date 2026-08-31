@@ -25,7 +25,7 @@ from typing import List
 
 from app.core.astronomy.pournami import is_poornima_live
 from app.core.constants import DEFAULT_TIMEZONE
-from app.schemas.panchangam_data import PanchangamData
+from app.shared.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 
 

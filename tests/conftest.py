@@ -32,8 +32,8 @@ from db.seed import seed_lookup_tables
 from core.astronomy.nakshatra_transition import NakshatraTransition
 from core.astronomy.thithi_transition import ThithiTransition
 from core.calendar.kollavarsham import KollavarshamDate
-from schemas.location import LocationInfo
-from schemas.panchangam_data import PanchangamData
+from shared.schemas.location import LocationInfo
+from shared.schemas.panchangam_data import PanchangamData
 from utils.location import Location
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra

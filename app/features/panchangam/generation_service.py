@@ -3,10 +3,10 @@ PanchangamGenerationService — computes panchangam data for a date range from t
 astronomy code and writes it to the DB, overwriting any existing rows, while
 keeping the affected years' ETags in lockstep.
 
-The full :class:`schemas.panchangam_data.PanchangamData` for each day (thithi,
+The full :class:`shared.schemas.panchangam_data.PanchangamData` for each day (thithi,
 nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) is embedded in the
 compact ``/year`` payload, so every write commits together with a recomputation
-of the affected years' ETags via :func:`services.etag_service.refresh_etags` —
+of the affected years' ETags via :func:`shared.services.etag_service.refresh_etags` —
 exactly as :class:`features.santhigiri_events.service.SanthigiriEventService` does — so cached
 clients revalidate correctly. Nothing commits until that single call at the end,
 so the whole range is still one atomic transaction — ``generate_streaming``
@@ -41,8 +41,8 @@ from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateResult,
 )
 from app.features.settings.repository import AppSettingRepository
-from app.services.etag_service import refresh_etags
-from app.services.settings_service import SettingsService
+from app.shared.services.etag_service import refresh_etags
+from app.shared.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION, Location
 
 
