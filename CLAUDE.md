@@ -58,15 +58,7 @@ panchangam-api/
     │   │   ├── repository.py # SanthigiriEventRepository — concrete adapter implementing the port against SQLModel
     │   │   ├── router.py     # Admin CRUD + occurrence-generation endpoints for editable Santhigiri event definitions
     │   │   ├── service.py    # SanthigiriEventService — depends on the port + UnitOfWork, not the concrete adapter
-    │   │   ├── schemas.py    # Flat request/response schemas (HTTP boundary shape, distinct from ports.py's nested DTOs)
-    │   │   └── offline_cache/  # Single-consumer offline maintenance scripts for the pickle-cache pipeline (see "Offline cache management")
-    │   │       ├── cache_crud.py                    # Reads/writes pickle files on disk
-    │   │       ├── cache_common_events.py           # Populates simple (condition-based) Santhigiri events into cache
-    │   │       ├── cache_navapoojitham.py           # Populates Navapoojitham (Guru birthday) into cache
-    │   │       ├── cache_sishya_bday.py             # Populates Shishyapoojitha birthday into cache
-    │   │       ├── cache_chothi_theerthayathra.py   # Populates pilgrimage dates into cache
-    │   │       ├── cache_utils.py
-    │   │       └── rebuild_events.py
+    │   │   └── schemas.py    # Flat request/response schemas (HTTP boundary shape, distinct from ports.py's nested DTOs)
     │   ├── auth/                        # Migrated to ports & adapters (the canonical example — see below)
     │   │   ├── ports.py           # AuthRepositoryPort (Protocol) + DTOs (UserGet/Create/Update/WithCredentials) + UserNotFoundException
     │   │   ├── auth_repository.py # AuthRepository — concrete adapter implementing the port against SQLModel
@@ -125,8 +117,6 @@ panchangam-api/
         ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
         └── santhigiri_events.py    # Event definitions and matching conditions — stays here (not features/) since
                                      # core/calendar/ and db/ import it directly and must not depend on features/
-scripts/gen_seed_sql.py     # Build-time tool: turns the pickle caches into db/sql/*.sql — at the repo root, not under app/
-data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source for the SQL seed files — at the repo root, not under app/
 ```
 
 ### Why this structure exists
@@ -143,7 +133,7 @@ data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source f
 
 **`schemas/`** holds only the Pydantic models shared across features (or consumed by `db/`/`core/calendar/`, which don't import from `features/`). Everything else lives in the owning feature's `schemas.py`/`schemas/` package. The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
-**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`), `roles.py`, `lifespan.py`, and `santhigiri_events.py` — anything imported by `core/`/`db/` (which must not depend on `features/`) or genuinely shared across features. The offline pickle-cache scripts (`cache_*.py`, `rebuild_events.py`) live in `features/santhigiri_events/offline_cache/` instead, since they are single-consumer maintenance tooling for that one feature's cache pipeline, not a cross-cutting concern — they are run manually to rebuild the pickle files, which are then read by `scripts/gen_seed_sql.py` to regenerate the `db/sql/*.sql` seed files. They are not called at runtime.
+**`utils/`** holds domain enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`), `roles.py`, `lifespan.py`, and `santhigiri_events.py` — anything imported by `core/`/`db/` (which must not depend on `features/`) or genuinely shared across features.
 
 ### Ports & adapters
 
@@ -210,7 +200,6 @@ Follow these rules without exception.
 - All astronomical calculations go in `core/astronomy/`.
 - All calendar/domain aggregation goes in `core/calendar/`.
 - Event definitions go in `utils/santhigiri_events.py`.
-- Cache management scripts go in `features/santhigiri_events/offline_cache/cache_*.py`.
 - No business logic may live inside a route handler.
 
 ### Adding a new astronomical value
@@ -222,11 +211,10 @@ Follow these rules without exception.
 
 ### Adding a new Santhigiri event
 
-1. Define the event in `utils/santhigiri_events.py` with the appropriate `EventCondition`.
-2. If condition-based (fixed English/Malayalam date, Nakshatra, Thithi, or Pournami), add it to `_COMMON_EVENTS` in `features/santhigiri_events/offline_cache/cache_common_events.py`.
-3. If it uses "last occurrence" logic (like Navapoojitham or Shishyapoojitha birthday), write a dedicated `features/santhigiri_events/offline_cache/cache_<event_name>.py` following the pattern in `cache_navapoojitham.py`.
-4. Run the appropriate cache script offline to rebuild the pickle files.
-5. The event will appear in `PanchangamData.santhigiri_significant_dates` in the API response.
+1. Create the event definition via the admin `POST /api/v1/panchangam/events` endpoint (or directly through `SanthigiriEventService`), with the appropriate `EventCondition`. This is now the authoritative source — `utils/santhigiri_events.py` only seeds the initial rows.
+2. `core/calendar/santhigiri_event_occurrences.py::classify_condition()` must be able to resolve the condition to a set of days: a single-day pin, a `last_occurance` condition (with a Malayalam-month + Nakshatra fallback), or a bare-Nakshatra transition series. Any other shape raises `UnsupportedEventCondition`.
+3. Call `POST /api/v1/panchangam/events/{event_id}/occurrences` (or `POST /api/v1/panchangam/events/generate` to recompute every event) to (re)compute the event's occurrence dates over a year range directly from the DB's panchangam data and write them to `santhigiri_event_dates`, refreshing ETags atomically.
+4. The event will appear in `PanchangamData.santhigiri_significant_dates` in the API response.
 
 ### Adding a new API endpoint
 
@@ -323,9 +311,9 @@ This ensures Pournami is attributed to exactly one calendar day. Implemented in 
 
 ### Santhigiri Events
 
-Santhigiri Ashram observes events tied to specific dates in either the English or Malayalam calendar, or to astronomical conditions (Nakshatra, Thithi, Pournami). Events are modeled as `SanthigiriEvent` with an `EventCondition` that specifies the matching criteria. Events are pre-computed offline and stored in the pickle cache in `PanchangamData.santhigiri_significant_dates`.
+Santhigiri Ashram observes events tied to specific dates in either the English or Malayalam calendar, or to astronomical conditions (Nakshatra, Thithi, Pournami). Events are modeled as `SanthigiriEvent` with an `EventCondition` that specifies the matching criteria. Occurrence dates are computed against the DB's panchangam data via `core/calendar/santhigiri_event_occurrences.py` and stored in `santhigiri_event_dates`, surfaced in `PanchangamData.santhigiri_significant_dates`.
 
-Some events use a "last occurrence" rule: for example, Navapoojitham falls on the last Chothi Nakshatra in the month of Chingam (with the 7.5 Nazhika rule to handle edge cases at sunrise). This logic is too dynamic to reduce to a simple `EventCondition` and lives in dedicated cache scripts.
+Some events use a "last occurrence" rule: for example, Navapoojitham falls on the last Chothi Nakshatra in the month of Chingam (with the 7.5 Nazhika rule to handle edge cases at sunrise). `compute_last_occurrence()` in `core/calendar/santhigiri_event_occurrences.py` handles this generically off the event's `EventCondition`.
 
 ---
 
@@ -452,23 +440,14 @@ Several functions in `core/astronomy/` and `core/calendar/` are decorated with `
 
 These are critical for the transition-detection logic, which calls the same function for the previous day, current day, and next day. Without LRU caching these would be redundantly recalculated.
 
-### Offline cache management (pickle files)
+### Regenerating data (live, DB-driven — no offline pipeline)
 
-The `data/panchangam_YYYY.pkl` files are pre-computed offline using scripts in `features/santhigiri_events/offline_cache/`:
+There is no offline pickle-cache pipeline anymore; both base panchangam data and Santhigiri event occurrences are (re)computed directly against Postgres through admin endpoints:
 
-1. `cache_crud.py::buildcache(year)` — computes all 365 days for a year and writes a pickle file.
-2. `cache_common_events.py::cache_common_events()` — reads all pickle files, matches simple event conditions, and rewrites them with `santhigiri_significant_dates` populated.
-3. `cache_navapoojitham.py::cache_navapoojitham()` — same for Guru birthday.
-4. `cache_sishya_bday.py::cache_sishya_bday()` — same for Shishyapoojitha birthday.
-5. `cache_chothi_theerthayathra.py::cache_chothi_theerthayathra()` — same for Chothi pilgrimage dates.
+1. **Base panchangam data** — `POST /api/v1/panchangam/generate` (admin, `PanchangamGenerationService`) recomputes a date range from the astronomy code and overwrites the corresponding rows, streaming NDJSON progress. Use this after changing computation logic in `core/astronomy/`/`core/calendar/`.
+2. **Santhigiri event occurrences** — `POST /api/v1/panchangam/events/{event_id}/occurrences` (one event) or `POST /api/v1/panchangam/events/generate` (all events) recompute occurrence dates for a year range from the DB's panchangam data (via `core/calendar/santhigiri_event_occurrences.py`) and overwrite `santhigiri_event_dates`. Use this after adding/editing an event definition.
 
-**When to rebuild:** If you change computation logic in `core/astronomy/` or `core/calendar/`, or add/modify Santhigiri events, regenerate the pickle files offline, commit them, then re-run `scripts/gen_seed_sql.py` to regenerate `db/sql/*.sql` and apply those files to the target Neon/Postgres database with `psql`. The server never writes pickle files or the DB at runtime.
-
-### Cache rebuild order
-
-1. Run `buildcache(year)` for each affected year.
-2. Run event caching scripts in any order — they are independent of each other.
-3. Re-run `scripts/gen_seed_sql.py` and apply the regenerated `db/sql/*.sql` to the Neon/Postgres database (`DATABASE_URL`) — this is the step that actually changes what the API serves.
+Both paths commit atomically with an ETag refresh (`features/etag/service.py`) so cached clients revalidate correctly. Neither writes to disk or requires a separate seed-regeneration step.
 
 ---
 
@@ -490,7 +469,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 
 ## Known Issues and Active Work
 
-- `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only (seeded offline from the pickle cache), so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
+- `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only, so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
@@ -506,7 +485,6 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - Do not put business logic in route handlers. If a route handler is doing anything beyond parsing params and calling `PanchangamService`, move the logic to that feature's `service.py` or `core/`.
 - Do not call `core/astronomy/`, `core/calendar/`, or a concrete `db/` repository directly from route handlers — go through `features/panchangam/service.py` (or the relevant feature's `service.py`).
 - Do not define new Pydantic models inside `core/` or `db/` modules.
-- Do not modify the pickle files by hand. Always use the cache scripts, then re-run `scripts/gen_seed_sql.py` and re-apply `db/sql/*.sql` to the Postgres database.
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
 - Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.

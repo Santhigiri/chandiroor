@@ -21,9 +21,8 @@ class EventCondition:
     is_poornima: Optional[bool] = None
     last_occurance: Optional[bool] = None
     # Shift the day the other condition fields match by N days. None/0 = no
-    # shift; positive = N days after; negative = N days before. Honored
-    # identically by the offline pickle pipeline (features/santhigiri_events/offline_cache/cache_*.py) and the
-    # live DB pipeline (core/calendar/santhigiri_event_occurrences.py).
+    # shift; positive = N days after; negative = N days before. Honored by
+    # the live DB pipeline (core/calendar/santhigiri_event_occurrences.py).
     day_offset: Optional[int] = None
 
 class SanthigiriEvent(BaseModel):

@@ -49,9 +49,16 @@ Timestamps are stored as UTC, matching the `TIMESTAMPTZ` columns.
 
 ## Regenerating
 
-Both files are produced by `scripts/gen_seed_sql.py` (a build-time tool, not
-imported at runtime). Re-run it after changing the `db/models/` schema, the
-domain enums, the event definitions, or the `data/panchangam_*.pkl` caches.
+These files are a one-time bootstrap snapshot; there is no build-time tool in
+this repo that regenerates them anymore (the old `scripts/gen_seed_sql.py` /
+pickle-cache pipeline has been removed — base panchangam data and Santhigiri
+event occurrences are now (re)computed live against an already-running
+Postgres database via the admin `POST /api/v1/panchangam/generate` and
+`POST /api/v1/panchangam/events/{event_id}/occurrences` / `.../events/generate`
+endpoints, not by regenerating and re-applying SQL files). Standing up a new
+database from scratch still uses `01_schema.sql` + `02_seed.sql` as-is; a
+`db/models/` schema change only needs a hand-written migration (see below), not
+a full regeneration of these files.
 
 ## Migrations
 
