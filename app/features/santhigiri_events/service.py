@@ -22,7 +22,6 @@ from time import perf_counter
 from typing import AsyncIterator, Dict, Iterable, List, Set, Union
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.calendar.santhigiri_event_occurrences import (
@@ -32,6 +31,7 @@ from app.core.calendar.santhigiri_event_occurrences import (
     compute_occurrences,
 )
 from app.core.ports.panchangam_service import PanchangamServicePort
+from app.core.ports.reference_repository import ReferenceRepositoryPort
 from app.core.ports.settings_service import SettingsServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.panchangam.ports import PanchangamRepositoryPort
@@ -92,7 +92,7 @@ UnsupportedEventCondition = UnsupportedOccurrenceCondition
 
 @dataclass(frozen=True)
 class SanthigiriEventService:
-    session: Session
+    reference_repository: ReferenceRepositoryPort
     event_repository: SanthigiriEventsRepositoryPort
     etag_repository: EtagRepositoryPort
     panchangam_repo: PanchangamRepositoryPort
@@ -502,7 +502,7 @@ class SanthigiriEventService:
         # single transaction. It always refreshes every enum dataset — including
         # ``events`` — and any years passed here.
         refresh_etags(
-            self.session,
+            self.reference_repository,
             self.panchangam_service_for_etag_refresh,
             self.etag_repository,
             self.unit_of_work,
