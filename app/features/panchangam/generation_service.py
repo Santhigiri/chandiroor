@@ -13,9 +13,12 @@ so the whole range is still one atomic transaction — ``generate_streaming``
 yielding progress after each day is purely a visibility improvement, it does not
 change when the write becomes durable.
 
-This is a dedicated write-path service (constructed from a ``Session``) kept
-separate from the read-only :class:`features.panchangam.service.PanchangamService`
-(which is built from a repository alone and has no ETag awareness).
+This is a dedicated write-path service (a frozen dataclass built from the
+``PanchangamRepositoryPort``, ``SettingsService``, ``EtagRepositoryPort``, and
+``UnitOfWork`` ports, plus the raw ``Session`` that ``refresh_etags`` needs to
+build payloads) kept separate from the read-only
+:class:`features.panchangam.service.PanchangamService` (which is built from a
+repository alone and has no ETag awareness).
 
 Note on Santhigiri events: :func:`core.calendar.panchangam.get_panchangam_data`
 returns an **empty** ``santhigiri_significant_dates``, and
@@ -26,6 +29,7 @@ from the offline cache pipeline, matching the current architecture.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import timedelta
 from time import perf_counter
 from typing import AsyncIterator, Union
@@ -33,15 +37,14 @@ from typing import AsyncIterator, Union
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.db.panchangam_repository import PanchangamRepository
-from app.db.unit_of_work import SqlUnitOfWork
-from app.features.etag.repository import EtagRepository
+from app.core.ports.unit_of_work import UnitOfWork
+from app.features.etag.ports import EtagRepositoryPort
+from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,
     PanchangamGenerateResult,
 )
-from app.features.settings.repository import AppSettingRepository
 from app.services.etag_service import refresh_etags
 from app.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION, Location
@@ -57,13 +60,13 @@ class SpanTooLarge(Exception):
         super().__init__(f"date range too large: {span} days (max {max_days})")
 
 
+@dataclass(frozen=True)
 class PanchangamGenerationService:
-    def __init__(self, session: Session) -> None:
-        self._s = session
-        self._repo = PanchangamRepository(session)
-        self._settings = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
-        self._etag_repository = EtagRepository(session)
-        self._uow = SqlUnitOfWork(session)
+    session: Session
+    repository: PanchangamRepositoryPort
+    settings: SettingsService
+    etag_repository: EtagRepositoryPort
+    unit_of_work: UnitOfWork
 
     def validate_span(self, req: PanchangamGenerateRequest) -> None:
         """Raise :class:`SpanTooLarge` if *req*'s span exceeds the
@@ -74,7 +77,7 @@ class PanchangamGenerationService:
         :meth:`generate_streaming`, which also enforces this as defense in
         depth for any other caller)."""
         span = (req.end_date - req.start_date).days + 1
-        max_days = self._settings.get_max_generate_span_days()
+        max_days = self.settings.get_max_generate_span_days()
         if span > max_days:
             raise SpanTooLarge(span, max_days)
 
@@ -110,9 +113,9 @@ class PanchangamGenerationService:
                 location.latitude,
                 location.longitude,
                 location.timezone,
-                self._settings.get_astronomy_tuning(day.year),
+                self.settings.get_astronomy_tuning(day.year),
             )
-            self._repo.upsert(data, location)  # does NOT commit
+            self.repository.upsert(data, location)  # does NOT commit
             yield PanchangamGenerateProgress(
                 completed=i,
                 total=span,
@@ -122,7 +125,7 @@ class PanchangamGenerationService:
             )
 
         years = sorted({d.year for d in dates})
-        refresh_etags(self._s, self._etag_repository, self._uow, years, [location])  # commits
+        refresh_etags(self.session, self.etag_repository, self.unit_of_work, years, [location])  # commits
 
         yield PanchangamGenerateResult(
             start_date=req.start_date,

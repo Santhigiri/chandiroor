@@ -28,13 +28,15 @@ from sqlmodel import Session
 
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.database import get_session
-from app.db.panchangam_repository import PanchangamRepository
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.auth.auth_repository import AuthRepository
 from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
 from app.features.auth.service import AuthService, InvalidTokenException
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.etag.repository import EtagRepository
+from app.features.panchangam.generation_service import PanchangamGenerationService
+from app.features.panchangam.ports import PanchangamRepositoryPort
+from app.features.panchangam.repository import PanchangamRepository
 from app.features.panchangam.service import PanchangamService
 from app.features.santhigiri_events.ports import SanthigiriEventsRepositoryPort
 from app.features.santhigiri_events.repository import SanthigiriEventRepository
@@ -84,12 +86,12 @@ EtagRepositoryDep = Annotated[EtagRepositoryPort, Depends(get_etag_repository)]
 
 def get_panchangam_repository(
     session: SessionDep,
-) -> PanchangamRepository:
+) -> PanchangamRepositoryPort:
     return PanchangamRepository(session=session)
 
 
 PanchangamRepositoryDep = Annotated[
-    PanchangamRepository, Depends(get_panchangam_repository)
+    PanchangamRepositoryPort, Depends(get_panchangam_repository)
 ]
 
 
@@ -123,10 +125,26 @@ def get_santhigiri_event_service(
 
 
 def get_panchangam_service(
-    session: SessionDep,
+    panchangam_repository: PanchangamRepositoryDep,
     settings_service: SettingsServiceDep,
 ) -> PanchangamService:
-    return PanchangamService(PanchangamRepository(session), settings_service)
+    return PanchangamService(panchangam_repository, settings_service)
+
+
+def get_panchangam_generation_service(
+    session: SessionDep,
+    panchangam_repository: PanchangamRepositoryDep,
+    settings_service: SettingsServiceDep,
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
+) -> PanchangamGenerationService:
+    return PanchangamGenerationService(
+        session=session,
+        repository=panchangam_repository,
+        settings=settings_service,
+        etag_repository=etag_repository,
+        unit_of_work=unit_of_work,
+    )
 
 
 def get_auth_repository(session: SessionDep) -> AuthRepositoryPort:

@@ -1,5 +1,6 @@
 """
-PanchangamRepository — get and set PanchangamData via the Postgres database.
+PanchangamRepository — the concrete adapter implementing PanchangamRepositoryPort
+against Postgres: get/set PanchangamData via SQLModel.
 
 SQL model classes are imported with a ``Row`` suffix throughout this module to
 avoid name collisions with the identically-named domain types from
@@ -28,6 +29,7 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
 from app.core.calendar.kollavarsham_models import KollavarshamDate
+from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
@@ -143,7 +145,7 @@ _LOAD_OPTIONS = (
 
 # ── Repository ────────────────────────────────────────────────────────────────
 
-class PanchangamRepository:
+class PanchangamRepository(PanchangamRepositoryPort):
     """
     Getters and setters for PanchangamData backed by Postgres.
 
