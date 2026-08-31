@@ -17,7 +17,7 @@ from schemas.app_setting import AppSettingUpdate
 from db.unit_of_work import SqlUnitOfWork
 from features.panchangam.service import PanchangamService, YearOutOfRange
 from features.settings.repository import AppSettingRepository
-from services.settings_service import SettingsService
+from features.settings.service import SettingsService
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
 from utils.santhigiri_events import EventCondition

@@ -21,7 +21,7 @@ from app.features.panchangam.schemas.SunriseSunsetResponse import SunriseSunsetR
 from app.features.panchangam.service import PanchangamService, YearOutOfRange
 from app.schemas.compact_panchangam_data import CompactPanchangamData, CompactSanthigiriEvent
 from app.schemas.location import LocationInfo
-from app.services.etag_service import (
+from app.features.etag.service import (
     build_enum_payload,
     build_year_payload,
     conditional_json_response,
@@ -150,7 +150,7 @@ def panchangam_yearly(
     # ETag-validated: unchanged years return 304 so the frontend skips the
     # full-year download. The ETag key includes the location code so different
     # locations don't collide. The stored ETag is refreshed whenever the data is
-    # reloaded (see services.etag_service), or computed lazily on first request.
+    # reloaded (see features.etag.service), or computed lazily on first request.
     try:
         return conditional_json_response(
             request,
@@ -167,7 +167,7 @@ def panchangam_yearly(
 # The enum reference datasets are read from the database (not the Python enums)
 # so DB edits — e.g. to Santhigiri event names/descriptions — are reflected.
 # Each is served ETag-validated so the frontend can revalidate cheaply and reuse
-# its cached copy on a 304. See services.etag_service for the payloads.
+# its cached copy on a 304. See features.etag.service for the payloads.
 
 def _reference_response(
     request: Request,

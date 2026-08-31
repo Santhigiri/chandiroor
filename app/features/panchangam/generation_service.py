@@ -6,7 +6,7 @@ keeping the affected years' ETags in lockstep.
 The full :class:`schemas.panchangam_data.PanchangamData` for each day (thithi,
 nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) is embedded in the
 compact ``/year`` payload, so every write commits together with a recomputation
-of the affected years' ETags via :func:`services.etag_service.refresh_etags` —
+of the affected years' ETags via :func:`features.etag.service.refresh_etags` —
 exactly as :class:`features.santhigiri_events.service.SanthigiriEventService` does — so cached
 clients revalidate correctly. Nothing commits until that single call at the end,
 so the whole range is still one atomic transaction — ``generate_streaming``
@@ -14,9 +14,9 @@ yielding progress after each day is purely a visibility improvement, it does not
 change when the write becomes durable.
 
 This is a dedicated write-path service (a frozen dataclass built from the
-``PanchangamRepositoryPort``, ``SettingsService``, ``EtagRepositoryPort``, and
-``UnitOfWork`` ports, plus the raw ``Session`` that ``refresh_etags`` needs to
-build payloads) kept separate from the read-only
+``PanchangamRepositoryPort``, ``SettingsServicePort``, ``EtagRepositoryPort``,
+and ``UnitOfWork`` ports, plus the raw ``Session`` that ``refresh_etags``
+needs to build payloads) kept separate from the read-only
 :class:`features.panchangam.service.PanchangamService` (which is built from a
 repository alone and has no ETag awareness).
 
@@ -37,6 +37,7 @@ from typing import AsyncIterator, Union
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.core.ports.settings_service import SettingsServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.panchangam.ports import PanchangamRepositoryPort
@@ -45,8 +46,7 @@ from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateRequest,
     PanchangamGenerateResult,
 )
-from app.services.etag_service import refresh_etags
-from app.services.settings_service import SettingsService
+from app.features.etag.service import refresh_etags
 from app.utils.location import DEFAULT_LOCATION, Location
 
 
@@ -64,7 +64,7 @@ class SpanTooLarge(Exception):
 class PanchangamGenerationService:
     session: Session
     repository: PanchangamRepositoryPort
-    settings: SettingsService
+    settings: SettingsServicePort
     etag_repository: EtagRepositoryPort
     unit_of_work: UnitOfWork
 

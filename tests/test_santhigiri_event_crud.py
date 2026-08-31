@@ -28,7 +28,7 @@ from db.unit_of_work import SqlUnitOfWork
 from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
 from main import app
-from services.etag_service import enum_key, refresh_etags
+from features.etag.service import enum_key, refresh_etags
 from utils.roles import Role
 
 EVENTS_URL = "/api/v1/panchangam/events"

@@ -44,7 +44,7 @@ def load_cache_from_db(
     the other event derivations run on the DB's values.
 
     ``start``/``end`` default to the admin-configured ``seed_year_range`` setting
-    (see ``services.settings_service.SettingsService.get_seed_year_range``),
+    (see ``features.settings.service.SettingsService.get_seed_year_range``),
     falling back to 2021-01-01..2030-12-31 if no row is stored yet. ``session``
     defaults to a fresh session on the module-level Postgres engine; pass an
     explicit session (e.g. the in-memory SQLite session used in ``tests/db/``)
@@ -61,7 +61,7 @@ def load_cache_from_db(
     from app.db.unit_of_work import SqlUnitOfWork
     from app.features.panchangam.repository import PanchangamRepository
     from app.features.settings.repository import AppSettingRepository
-    from app.services.settings_service import SettingsService
+    from app.features.settings.service import SettingsService
 
     def _read(s: "Session") -> Dict[date, PanchangamData]:
         if start is None or end is None:
@@ -108,7 +108,7 @@ def buildcache(year: int, tuning: Optional[AstronomyTuning] = None):
     """Compute a full year's PanchangamData and write it to the pickle cache.
 
     ``tuning`` defaults to the admin-configured per-year astronomy tuning
-    (see ``services.settings_service.SettingsService.get_astronomy_tuning``),
+    (see ``features.settings.service.SettingsService.get_astronomy_tuning``),
     resolved from the DB automatically — this is the data-driven replacement
     for the old manual-code-edit workflow for years like 2028 that need a
     coarser Nakshatra transition step (see CLAUDE.md). Pass an explicit
@@ -121,7 +121,7 @@ def buildcache(year: int, tuning: Optional[AstronomyTuning] = None):
         from app.db.database import engine
         from app.db.unit_of_work import SqlUnitOfWork
         from app.features.settings.repository import AppSettingRepository
-        from app.services.settings_service import SettingsService
+        from app.features.settings.service import SettingsService
 
         with Session(engine) as s:
             settings_service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

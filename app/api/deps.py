@@ -43,7 +43,7 @@ from app.features.santhigiri_events.repository import SanthigiriEventRepository
 from app.features.santhigiri_events.service import SanthigiriEventService
 from app.features.settings.ports import AppSettingRepositoryPort
 from app.features.settings.repository import AppSettingRepository
-from app.services.settings_service import SettingsService
+from app.features.settings.service import SettingsService
 from app.utils.location import Location
 from app.utils.roles import Role
 
