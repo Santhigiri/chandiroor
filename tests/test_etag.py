@@ -21,8 +21,9 @@ from features.etag.repository import EtagRepository
 from db.unit_of_work import SqlUnitOfWork
 from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
+from features.panchangam.service import PanchangamService
 from main import app
-from services.etag_service import refresh_etags, year_key
+from features.etag.service import refresh_etags, year_key
 from utils.content_hash import stable_hash
 from utils.etag import if_none_match_satisfied
 from utils.location import Location
@@ -80,7 +81,7 @@ def api_engine():
         with open(PICKLE_2022, "rb") as f:
             cache = pickle.load(f)
         PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
-        refresh_etags(s, EtagRepository(s), SqlUnitOfWork(s), [YEAR])
+        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [YEAR])
     try:
         yield engine
     finally:

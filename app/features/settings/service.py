@@ -1,6 +1,6 @@
 """
 SettingsService — CRUD for the admin-editable ``app_setting`` table, plus
-typed getters used by the rest of the app (``services/``, offline
+typed getters used by the rest of the app (other features' services, offline
 ``features/santhigiri_events/offline_cache/cache_*.py`` tooling).
 
 Every typed getter falls back to today's hardcoded constant when a key's row
@@ -15,13 +15,14 @@ only this service does, translating a stored JSON value into the plain
 scalars/dataclasses that ``core/astronomy`` and ``core/calendar`` accept as
 function parameters.
 
-This module stays in ``services/`` (not ``features/settings/service.py``)
-because, unlike ``AuthService``/``SanthigiriEventService``, it is used
-directly by 3+ other features' own services (see CLAUDE.md's "services/"
-section) — but it is otherwise built the same way as a migrated feature's
-service: a frozen dataclass depending on ``AppSettingRepositoryPort`` (from
+Built the same way as any other migrated feature's service: a frozen
+dataclass depending on ``AppSettingRepositoryPort`` (from
 ``features/settings/ports.py``) and a ``UnitOfWork``, never on the concrete
-adapter class.
+adapter class. Other features' services do not import this class directly —
+they depend on ``core.ports.settings_service.SettingsServicePort`` instead
+(this class satisfies it structurally), which is what lets this service live
+inside ``features/settings/`` without violating the rule that one feature
+must not import another's ``service.py`` directly.
 """
 from __future__ import annotations
 

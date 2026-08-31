@@ -83,13 +83,13 @@ def update_chothi_theerthayathra(
 def _resolve_transition_hour_cutoff() -> float:
     """The admin-configured event transition-hour cutoff, resolved from the
     DB (falls back to 3.0 if unset/unavailable — see
-    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    ``features.settings.service.SettingsService.get_event_cutoffs``)."""
     from sqlmodel import Session
 
     from app.db.database import engine
     from app.db.unit_of_work import SqlUnitOfWork
     from app.features.settings.repository import AppSettingRepository
-    from app.services.settings_service import SettingsService
+    from app.features.settings.service import SettingsService
 
     with Session(engine) as s:
         service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

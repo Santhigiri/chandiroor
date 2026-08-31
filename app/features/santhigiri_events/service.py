@@ -3,7 +3,7 @@ SanthigiriEventService — orchestrates create/read/update/delete of the editabl
 Santhigiri event definitions and keeps the affected dataset ETags in lockstep.
 
 Every mutation is committed together with a recomputation of the affected ETags
-(via :func:`services.etag_service.refresh_etags`), so a cached client always
+(via :func:`features.etag.service.refresh_etags`), so a cached client always
 revalidates correctly:
 
 * the ``events`` reference dataset changes on every create/update/delete;
@@ -31,6 +31,8 @@ from app.core.calendar.santhigiri_event_occurrences import (
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
     compute_occurrences,
 )
+from app.core.ports.panchangam_service import PanchangamServicePort
+from app.core.ports.settings_service import SettingsServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.features.etag.ports import EtagRepositoryPort
@@ -51,8 +53,7 @@ from app.features.santhigiri_events.schemas import (
 )
 
 from app.schemas.app_setting import EventCutoffsValue
-from app.services.etag_service import refresh_etags
-from app.services.settings_service import SettingsService
+from app.features.etag.service import refresh_etags
 from app.utils.location import DEFAULT_LOCATION
 from app.utils.malayalam_masa import MalayalamMasa
 from app.utils.nakshatra import Nakshatra
@@ -95,7 +96,8 @@ class SanthigiriEventService:
     event_repository: SanthigiriEventsRepositoryPort
     etag_repository: EtagRepositoryPort
     panchangam_repo: PanchangamRepositoryPort
-    settings: SettingsService
+    settings: SettingsServicePort
+    panchangam_service_for_etag_refresh: PanchangamServicePort
     unit_of_work: UnitOfWork
 
 
@@ -499,4 +501,10 @@ class SanthigiriEventService:
         # state and commits once, so the data change and its ETags land in a
         # single transaction. It always refreshes every enum dataset — including
         # ``events`` — and any years passed here.
-        refresh_etags(self.session, self.etag_repository, self.unit_of_work, years)
+        refresh_etags(
+            self.session,
+            self.panchangam_service_for_etag_refresh,
+            self.etag_repository,
+            self.unit_of_work,
+            years,
+        )

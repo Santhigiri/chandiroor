@@ -105,13 +105,13 @@ def update_navapoojitham(
 def _resolve_nazhika_cutoff() -> float:
     """The admin-configured event Nazhika cutoff, resolved from the DB
     (falls back to 7.5 if unset/unavailable — see
-    ``services.settings_service.SettingsService.get_event_cutoffs``)."""
+    ``features.settings.service.SettingsService.get_event_cutoffs``)."""
     from sqlmodel import Session
 
     from app.db.database import engine
     from app.db.unit_of_work import SqlUnitOfWork
     from app.features.settings.repository import AppSettingRepository
-    from app.services.settings_service import SettingsService
+    from app.features.settings.service import SettingsService
 
     with Session(engine) as s:
         service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

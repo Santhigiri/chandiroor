@@ -33,8 +33,9 @@ from db.unit_of_work import SqlUnitOfWork
 from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
+from features.panchangam.service import PanchangamService
 from main import app
-from services.etag_service import refresh_etags, year_key
+from features.etag.service import refresh_etags, year_key
 from utils.location import Location
 from utils.roles import Role
 
@@ -59,7 +60,7 @@ def api_engine():
         with open(PICKLE_2022, "rb") as f:
             cache = pickle.load(f)
         PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
-        refresh_etags(s, EtagRepository(s), SqlUnitOfWork(s), [YEAR])
+        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [YEAR])
         repo = UserRepository(s)
         repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
         repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)

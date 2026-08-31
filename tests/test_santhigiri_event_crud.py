@@ -25,10 +25,12 @@ from core.security import hash_password
 from db.database import get_session
 from features.etag.repository import EtagRepository
 from db.unit_of_work import SqlUnitOfWork
+from db.repository import PanchangamRepository
 from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
+from features.panchangam.service import PanchangamService
 from main import app
-from services.etag_service import enum_key, refresh_etags
+from features.etag.service import enum_key, refresh_etags
 from utils.roles import Role
 
 EVENTS_URL = "/api/v1/panchangam/events"
@@ -46,7 +48,7 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        refresh_etags(s, EtagRepository(s), SqlUnitOfWork(s), [])  # precompute enum ETags exactly as db.migrate does
+        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [])  # precompute enum ETags exactly as db.migrate does
         repo = UserRepository(s)
         repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
         repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)

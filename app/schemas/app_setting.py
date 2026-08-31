@@ -5,7 +5,7 @@ Request/response schemas for the admin-editable ``app_setting`` table
 
 ``AppSettingRead``/``AppSettingUpdate`` are the generic envelope; the actual
 shape of ``value`` depends on the key (see ``utils.settings_keys.SettingKey``)
-and is validated by ``services.settings_service.SettingsService`` against one
+and is validated by ``features.settings.service.SettingsService`` against one
 of the models below before a write is ever persisted. Each model's field
 defaults intentionally mirror today's hardcoded constants, so constructing one
 with no arguments reproduces current behavior exactly — the fallback

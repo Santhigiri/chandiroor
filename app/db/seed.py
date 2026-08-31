@@ -77,7 +77,7 @@ def seed_santhigiri_events_if_empty(session: Session) -> bool:
 def seed_app_settings(session: Session) -> None:
     """Insert every known app setting with its default value — identical to
     today's hardcoded constants, so applying this is behaviorally a no-op
-    until an admin edits a value (see ``services.settings_service``).
+    until an admin edits a value (see ``features.settings.service``).
 
     Does NOT commit — callers batch this with the rest of a seed transaction.
     """

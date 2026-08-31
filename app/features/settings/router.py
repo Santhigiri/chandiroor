@@ -20,7 +20,7 @@ regeneration. See CLAUDE.md's existing warning about
 instead of code-driven.
 
 Both GET endpoints are ETag-validated via
-``services.etag_service.etag_json_response``: the ETag is computed fresh from
+``features.etag.service.etag_json_response``: the ETag is computed fresh from
 the response on every request (unlike the year/enum reference endpoints,
 these payloads are cheap enough that there's no benefit to persisting a
 stored ETag), so a matching ``If-None-Match`` gets a ``304`` and any write
@@ -32,8 +32,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.deps import get_settings_service, require_role
 from app.schemas.app_setting import AppSettingRead, AppSettingUpdate
-from app.services.etag_service import etag_json_response
-from app.services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
+from app.features.etag.service import etag_json_response
+from app.features.settings.service import InvalidSettingValue, SettingNotFound, SettingsService
 from app.utils.roles import Role
 
 router = APIRouter(
