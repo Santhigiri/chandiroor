@@ -3,12 +3,9 @@ Compute which calendar days in a given year a Santhigiri event's condition
 matches, generalized over *any* :class:`EventCondition` rather than hardcoded
 to one event.
 
-This is a live, DB-data-driven counterpart to the offline scripts
-(``features/santhigiri_events/offline_cache/cache_navapoojitham.py``, ``features/santhigiri_events/offline_cache/cache_sishya_bday.py``,
-``features/santhigiri_events/offline_cache/cache_chothi_theerthayathra.py``) that compute the same three classes
-of condition against the pickle cache. It is intentionally *pure*: it imports
-only domain/schema types — never ``db/`` or ``api/`` — so it respects the
-layer boundaries and stays independently testable.
+It is intentionally *pure*: it imports only domain/schema types — never
+``db/`` or ``api/`` — so it respects the layer boundaries and stays
+independently testable.
 
 Conditions fall into three algorithm classes:
 
@@ -127,9 +124,6 @@ def compute_last_occurrence(
     Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
     into ``condition.nakshatra`` within ``condition.ml_month`` if no day in
     the year matches directly.
-
-    Generalizes ``features.santhigiri_events.offline_cache.cache_sishya_bday.calculate_sishya_bday`` to run off
-    any condition instead of a hardcoded event.
     """
     matches = sorted(
         d for d, data in yearly_data.items() if _matches_fields(condition, data)
@@ -175,11 +169,6 @@ def compute_transition_series(
 ) -> List[date]:
     """Every Nakshatra-transition into ``condition.nakshatra`` during the
     year, applying the hours-after-sunrise cutoff rule.
-
-    Generalizes
-    ``features.santhigiri_events.offline_cache.cache_chothi_theerthayathra.calculate_chothi_theerthayathra_for_year``
-    to run off ``condition.nakshatra`` instead of the hardcoded Chothi
-    nakshatra.
     """
     transitions = {
         (t.start_time, t.end_time): t

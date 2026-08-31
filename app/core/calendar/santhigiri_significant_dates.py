@@ -1,11 +1,9 @@
 """
 Match editable Santhigiri event definitions against a single computed day.
 
-This is the live-computation counterpart to the offline cache pipeline
-(``features/santhigiri_events/offline_cache/cache_common_events.py``). It lets the ``PanchangamService`` fallback
-overlay condition-based events onto a date the DB has no pre-computed occurrence
-row for, so events added via the admin CRUD show up automatically on
-live-fallback dates.
+It lets the ``PanchangamService`` fallback overlay condition-based events onto
+a date the DB has no pre-computed occurrence row for, so events added via the
+admin CRUD show up automatically on live-fallback dates.
 
 It is intentionally *pure*: it imports only domain/astronomy helpers and the
 response schema — never ``db/`` or ``api/`` — so it respects the layer
@@ -52,10 +50,8 @@ def event_matches(
 ) -> bool:
     """Return True if *data*'s day satisfies every set field of *condition*.
 
-    Mirrors the field-by-field equality used offline in
-    ``features.santhigiri_events.offline_cache.cache_navapoojitham.get_matching_dates``. "Last occurrence" events
-    and conditions that pin no single day never match here (see the module
-    docstring).
+    "Last occurrence" events and conditions that pin no single day never
+    match here (see the module docstring).
     """
     if condition.last_occurance:
         return False

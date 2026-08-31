@@ -5,13 +5,7 @@ counterpart ``POST /api/v1/panchangam/events/generate``.
 
 Seeds an in-memory DB from the real 2022 pickle cache (same fixture pattern as
 ``tests/test_etag.py``), so occurrences are computed against real astronomical
-data rather than synthetic fixtures. The pickle's own
-``santhigiri_significant_dates`` were themselves derived by the offline cache
-pipeline (``features/santhigiri_events/offline_cache/cache_common_events.py``, ``cache_navapoojitham.py``,
-``cache_sishya_bday.py``, ``cache_chothi_theerthayathra.py``), so re-deriving
-the same dates via the new endpoint is a strong cross-check that the
-generalized algorithms in ``core/calendar/santhigiri_event_occurrences.py``
-agree with the bespoke offline ones.
+data rather than synthetic fixtures.
 """
 from __future__ import annotations
 
