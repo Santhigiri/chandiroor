@@ -1,6 +1,6 @@
 """GuruvaniRepository — CRUD for the ``guruvani`` table.
 
-Following the convention of :class:`db.repository.PanchangamRepository`, the
+Following the convention of :class:`features.panchangam.repository.PanchangamRepository`, the
 mutating methods do NOT commit — the caller (``features.guruvani.service``)
 owns the transaction.
 """

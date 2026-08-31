@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from app.api.deps import get_location, require_role
+from app.api.deps import get_location, get_panchangam_generation_service, require_role
 from app.db.database import get_session
 from app.features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
 from app.features.panchangam.schemas.panchangam_generation import (
@@ -48,17 +48,17 @@ async def generate_panchangam(
     payload: PanchangamGenerateRequest,
     session: Annotated[Session, Depends(get_session)],
     location: Annotated[Location, Depends(get_location)],
+    service: Annotated[PanchangamGenerationService, Depends(get_panchangam_generation_service)],
 ) -> StreamingResponse:
     # Validated before the stream opens so an oversized range gets a real 422
     # instead of a 200 with an NDJSON error line — once StreamingResponse
     # starts, the status code can no longer change.
     try:
-        PanchangamGenerationService(session).validate_span(payload)
+        service.validate_span(payload)
     except SpanTooLarge as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     async def _stream():
-        service = PanchangamGenerationService(session)
         try:
             async for event in service.generate_streaming(payload, location):
                 yield event.model_dump_json() + "\n"

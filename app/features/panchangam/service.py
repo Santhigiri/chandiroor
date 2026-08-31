@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from app.core.astronomy.tuning import AstronomyTuning
-from app.db.panchangam_repository import PanchangamRepository
+from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.panchangam_data import PanchangamData
 from app.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION, Location
@@ -44,7 +44,7 @@ class YearOutOfRange(Exception):
 class PanchangamService:
     def __init__(
         self,
-        repository: PanchangamRepository,
+        repository: PanchangamRepositoryPort,
         settings: Optional[SettingsService] = None,
     ) -> None:
         self._repo = repository

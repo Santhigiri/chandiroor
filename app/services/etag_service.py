@@ -18,7 +18,7 @@ from sqlmodel import Session
 
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.reference_repository import ReferenceRepository
-from app.db.panchangam_repository import PanchangamRepository
+from app.features.panchangam.repository import PanchangamRepository
 from app.features.etag.ports import EtagRepositoryPort
 from app.schemas.compact_panchangam_data import CompactPanchangamData
 from app.features.panchangam.service import PanchangamService
@@ -141,10 +141,12 @@ def refresh_etags(
     location. Commits once at the end.
 
     *session* is still needed directly here (rather than going entirely
-    through ports) because it builds the year/enum payloads via
-    ``PanchangamRepository``/``ReferenceRepository``, neither of which has
-    been migrated to ports & adapters yet — only the ETag persistence itself
-    goes through *etag_repository*/*unit_of_work*.
+    through ports) because it builds the year/enum payloads via a
+    session-constructed ``PanchangamRepository``/``ReferenceRepository`` —
+    ``ReferenceRepository`` has not been migrated to ports & adapters yet, and
+    this helper predates dependency-injecting ``PanchangamRepositoryPort`` in
+    from the caller — only the ETag persistence itself goes through
+    *etag_repository*/*unit_of_work*.
     """
     service = PanchangamService(PanchangamRepository(session))
 

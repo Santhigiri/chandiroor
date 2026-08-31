@@ -32,7 +32,7 @@ from app.core.calendar.santhigiri_event_occurrences import (
     compute_occurrences,
 )
 from app.core.ports.unit_of_work import UnitOfWork
-from app.db.panchangam_repository import PanchangamRepository
+from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.santhigiri_events.ports import (
     SanthigiriEventCreate as SanthigiriEventCreatePort,
@@ -94,7 +94,7 @@ class SanthigiriEventService:
     session: Session
     event_repository: SanthigiriEventsRepositoryPort
     etag_repository: EtagRepositoryPort
-    panchangam_repo: PanchangamRepository
+    panchangam_repo: PanchangamRepositoryPort
     settings: SettingsService
     unit_of_work: UnitOfWork
 

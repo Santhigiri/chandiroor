@@ -58,8 +58,8 @@ def load_cache_from_db(
     from sqlmodel import Session
 
     from app.db.database import engine
-    from app.db.panchangam_repository import PanchangamRepository
     from app.db.unit_of_work import SqlUnitOfWork
+    from app.features.panchangam.repository import PanchangamRepository
     from app.features.settings.repository import AppSettingRepository
     from app.services.settings_service import SettingsService
 
