@@ -1,13 +1,13 @@
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
-from core.astronomy.nakshatra import get_duration_from_sunrise
-from features.santhigiri_events.offline_cache.cache_crud import load_cache, write_cache
-from features.santhigiri_events.offline_cache.cache_navapoojitham import calculate_navapoojitham, get_matching_dates
-from features.santhigiri_events.offline_cache.cache_utils import get_yearly_cache, remove_events_from_cache, shift_date_for_offset
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import JANMAGRIHA_THEERTHA_YATHRA, NAVAPOOJITHAM, EventCondition, SanthigiriEvent
-from schemas.panchangam_data import PanchangamData
+from app.core.astronomy.nakshatra import get_duration_from_sunrise
+from app.features.santhigiri_events.offline_cache.cache_crud import load_cache, write_cache
+from app.features.santhigiri_events.offline_cache.cache_navapoojitham import calculate_navapoojitham, get_matching_dates
+from app.features.santhigiri_events.offline_cache.cache_utils import get_yearly_cache, remove_events_from_cache, shift_date_for_offset
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import JANMAGRIHA_THEERTHA_YATHRA, NAVAPOOJITHAM, EventCondition, SanthigiriEvent
+from app.schemas.panchangam_data import PanchangamData
 
 PanchangamCache = Dict[date, PanchangamData]
 
@@ -86,10 +86,10 @@ def _resolve_transition_hour_cutoff() -> float:
     ``services.settings_service.SettingsService.get_event_cutoffs``)."""
     from sqlmodel import Session
 
-    from db.database import engine
-    from db.unit_of_work import SqlUnitOfWork
-    from features.settings.repository import AppSettingRepository
-    from services.settings_service import SettingsService
+    from app.db.database import engine
+    from app.db.unit_of_work import SqlUnitOfWork
+    from app.features.settings.repository import AppSettingRepository
+    from app.services.settings_service import SettingsService
 
     with Session(engine) as s:
         service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))

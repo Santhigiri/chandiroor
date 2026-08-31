@@ -97,7 +97,7 @@ class PanchangamGenerationService:
 
         # Imported lazily: pulls in the Skyfield/ephemeris stack only when a
         # generate actually runs, keeping app startup free of it.
-        from core.calendar.panchangam import get_panchangam_data
+        from app.core.calendar.panchangam import get_panchangam_data
 
         start = perf_counter()
         for i, day in enumerate(dates, start=1):

@@ -127,8 +127,8 @@ def is_poornima_live(localdt: datetime, timezone: str) -> bool:
     """
     # Imported lazily so importing this module for the pure, data-driven path does
     # not drag in the ephemeris stack.
-    from core.astronomy.sunrise_sunset import get_sunrise_sunset
-    from core.astronomy.thithi_transition import calc_thithi_transition_for_date
+    from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+    from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
 
     target = localdt.date()
     thithi_transitions_by_date: Dict[date, Sequence[ThithiTransition]] = {}

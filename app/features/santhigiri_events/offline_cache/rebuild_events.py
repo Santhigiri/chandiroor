@@ -14,13 +14,13 @@ recomputed occurrences.
 
 Run offline (requires ``DATABASE_URL`` set and the DB seeded with base data):
 
-    python -c "from features.santhigiri_events.offline_cache.rebuild_events import rebuild_events_from_db; rebuild_events_from_db()"
+    python -c "from app.features.santhigiri_events.offline_cache.rebuild_events import rebuild_events_from_db; rebuild_events_from_db()"
 """
-from features.santhigiri_events.offline_cache.cache_common_events import update_common_events
-from features.santhigiri_events.offline_cache.cache_chothi_theerthayathra import update_chothi_theerthayathra
-from features.santhigiri_events.offline_cache.cache_crud import load_cache_from_db, write_cache
-from features.santhigiri_events.offline_cache.cache_navapoojitham import update_navapoojitham
-from features.santhigiri_events.offline_cache.cache_sishya_bday import update_sishya_bday
+from app.features.santhigiri_events.offline_cache.cache_common_events import update_common_events
+from app.features.santhigiri_events.offline_cache.cache_chothi_theerthayathra import update_chothi_theerthayathra
+from app.features.santhigiri_events.offline_cache.cache_crud import load_cache_from_db, write_cache
+from app.features.santhigiri_events.offline_cache.cache_navapoojitham import update_navapoojitham
+from app.features.santhigiri_events.offline_cache.cache_sishya_bday import update_sishya_bday
 
 
 def rebuild_events_from_db() -> None:

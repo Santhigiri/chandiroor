@@ -2,8 +2,8 @@
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Set
 
-from schemas.panchangam_data import PanchangamData
-from utils.santhigiri_events import SanthigiriEvent
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.santhigiri_events import SanthigiriEvent
 
 
 PanchangamCache = Dict[date, PanchangamData]

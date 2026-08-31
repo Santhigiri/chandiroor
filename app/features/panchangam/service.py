@@ -82,8 +82,8 @@ class PanchangamService:
         Santhigiri events are overlaid from the editable DB definitions so a
         live-computed day still carries its condition-based events.
         """
-        from core.calendar.panchangam import get_panchangam_data
-        from core.calendar.santhigiri_significant_dates import (
+        from app.core.calendar.panchangam import get_panchangam_data
+        from app.core.calendar.santhigiri_significant_dates import (
             match_condition_based_events,
         )
 
@@ -114,8 +114,8 @@ class PanchangamService:
         lookup. An unknown IANA timezone name raises ``ZoneInfoNotFoundError``,
         which the route handler converts to a 400.
         """
-        from core.calendar.panchangam import get_panchangam_data
-        from core.calendar.santhigiri_significant_dates import (
+        from app.core.calendar.panchangam import get_panchangam_data
+        from app.core.calendar.santhigiri_significant_dates import (
             match_condition_based_events,
         )
 
@@ -143,7 +143,7 @@ class PanchangamService:
         if no rising/setting is found for the given date/coordinate (e.g. polar
         day/night).
         """
-        from core.astronomy.sunrise_sunset import get_sunrise_sunset
+        from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
 
         latitude = round(latitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
         longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)

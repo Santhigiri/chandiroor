@@ -4,10 +4,10 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
-from core.astronomy.tuning import AstronomyTuning
-from core.calendar.panchangam import get_panchangam_data
-from schemas.panchangam_data import PanchangamData
-from utils.location import DEFAULT_LOCATION, Location
+from app.core.astronomy.tuning import AstronomyTuning
+from app.core.calendar.panchangam import get_panchangam_data
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.location import DEFAULT_LOCATION, Location
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -57,11 +57,11 @@ def load_cache_from_db(
     # forces DATABASE_URL resolution or a database connection.
     from sqlmodel import Session
 
-    from db.database import engine
-    from db.panchangam_repository import PanchangamRepository
-    from db.unit_of_work import SqlUnitOfWork
-    from features.settings.repository import AppSettingRepository
-    from services.settings_service import SettingsService
+    from app.db.database import engine
+    from app.db.panchangam_repository import PanchangamRepository
+    from app.db.unit_of_work import SqlUnitOfWork
+    from app.features.settings.repository import AppSettingRepository
+    from app.services.settings_service import SettingsService
 
     def _read(s: "Session") -> Dict[date, PanchangamData]:
         if start is None or end is None:
@@ -118,10 +118,10 @@ def buildcache(year: int, tuning: Optional[AstronomyTuning] = None):
     if tuning is None:
         from sqlmodel import Session
 
-        from db.database import engine
-        from db.unit_of_work import SqlUnitOfWork
-        from features.settings.repository import AppSettingRepository
-        from services.settings_service import SettingsService
+        from app.db.database import engine
+        from app.db.unit_of_work import SqlUnitOfWork
+        from app.features.settings.repository import AppSettingRepository
+        from app.services.settings_service import SettingsService
 
         with Session(engine) as s:
             settings_service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))
