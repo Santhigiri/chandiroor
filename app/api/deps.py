@@ -15,10 +15,12 @@ Two concerns live here:
   expired, or wrong-type token is rejected outright (401) rather than being
   downgraded to anonymous.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Callable, Optional
+from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -32,40 +34,100 @@ from app.features.auth.auth_repository import AuthRepository
 from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
 from app.features.auth.service import AuthService, InvalidTokenException
 from app.features.panchangam.service import PanchangamService
+from app.features.santhigiri_events.ports import SanthigiriEventsRepositoryPort
+from app.features.santhigiri_events.repository import SanthigiriEventRepository
+from app.features.santhigiri_events.service import SanthigiriEventService
 from app.services.settings_service import SettingsService
 from app.utils.location import Location
 from app.utils.roles import Role
 
+SessionDep = Annotated[Session, Depends(get_session)]
+
 
 # ── Service wiring ────────────────────────────────────────────────────────────
+def get_unit_of_work(session: Annotated[Session, Depends(get_session)]) -> UnitOfWork:
+    return SqlUnitOfWork(session)
+
+
+UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
+
 
 def get_settings_service(
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ) -> SettingsService:
     return SettingsService(session)
 
 
-def get_service(
-    session: Annotated[Session, Depends(get_session)],
-    settings_service: Annotated[SettingsService, Depends(get_settings_service)],
+SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
+
+
+def get_panchangam_repository(
+    session: SessionDep,
+) -> PanchangamRepository:
+    return PanchangamRepository(session=session)
+
+
+PanchangamRepositoryDep = Annotated[
+    PanchangamRepository, Depends(get_panchangam_repository)
+]
+
+
+def get_santhigiri_event_repository(
+    session: SessionDep,
+) -> SanthigiriEventsRepositoryPort:
+    return SanthigiriEventRepository(session=session)
+
+
+SanthigiriEventRepositoryDep = Annotated[
+    SanthigiriEventsRepositoryPort, Depends(get_santhigiri_event_repository)
+]
+
+
+def get_santhigiri_event_service(
+    panchangam_repository: PanchangamRepositoryDep,
+    event_repository: SanthigiriEventRepositoryDep,
+    session: SessionDep,
+    settings_service: SettingsServiceDep,
+    unit_of_work: UnitOfWorkDep,
+) -> SanthigiriEventService:
+    return SanthigiriEventService(
+        session=session,
+        event_repository=event_repository,
+        panchangam_repo=panchangam_repository,
+        settings=settings_service,
+        unit_of_work=unit_of_work,
+    )
+
+
+def get_panchangam_service(
+    session: SessionDep,
+    settings_service: SettingsServiceDep,
 ) -> PanchangamService:
     return PanchangamService(PanchangamRepository(session), settings_service)
 
-def get_unit_of_work(session: Session = Depends(get_session))-> UnitOfWork:
-    return SqlUnitOfWork(session)
 
-def get_auth_repository(session: Session = Depends(get_session))-> AuthRepositoryPort:
+def get_auth_repository(session: SessionDep) -> AuthRepositoryPort:
     return AuthRepository(session)
 
-def get_auth_service(repository: AuthRepositoryPort = Depends(get_auth_repository), uow: UnitOfWork = Depends(get_unit_of_work)) -> AuthService:
-    return AuthService(repository, uow)
+
+AuthRepositoryDep = Annotated[AuthRepositoryPort, Depends(get_auth_repository)]
+
+
+def get_auth_service(
+    auth_repository: AuthRepositoryDep,
+    uow: UnitOfWorkDep,
+) -> AuthService:
+    return AuthService(auth_repository, uow)
 
 
 # ── Location selection ────────────────────────────────────────────────────────
 
+
 def get_location(
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
-    location: Annotated[Optional[str], Query(description="Location code, e.g. 'tvm'")] = None,
+    location: Annotated[
+        str | None, Query(description="Location code, e.g. 'tvm'")
+    ] = None,
 ) -> Location:
     """Resolve the ``?location=`` query param (a location code) to a ``Location``.
 
@@ -73,7 +135,11 @@ def get_location(
     ashram, ``tvm``, unless changed) when omitted. An unknown code is a 404 —
     the caller asked for a location the API does not serve.
     """
-    code = location if location is not None else settings_service.get_default_location_code()
+    code = (
+        location
+        if location is not None
+        else settings_service.get_default_location_code()
+    )
     try:
         return Location.from_code(code)
     except KeyError:
@@ -85,12 +151,13 @@ def get_location(
 
 # ── Principal ─────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class Principal:
     """The authenticated (or anonymous) identity behind a request."""
 
     role: Role
-    username: Optional[str] = None
+    username: str | None = None
 
     @property
     def is_authenticated(self) -> bool:
@@ -109,9 +176,9 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_principal(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)],
-    access_token: Annotated[Optional[str], Cookie()] = None,
-    auth_service: AuthService = Depends(get_auth_service)
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    access_token: Annotated[str | None, Cookie()] = None,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Principal:
     """
     Resolve the request's identity from its access token.
@@ -171,5 +238,3 @@ def _unauthorized(detail: str) -> HTTPException:
         detail=detail,
         headers={"WWW-Authenticate": "Bearer"},
     )
-
-

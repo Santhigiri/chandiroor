@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import datetime
 
-from app.api.deps import get_location, get_service, require_role
+from app.api.deps import get_location, get_panchangam_service, require_role
 from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from app.features.panchangam.schemas.GetDayPanchangamParams import GetPanchangamParams
 from app.features.panchangam.service import PanchangamService, YearOutOfRange
@@ -21,7 +21,7 @@ router = APIRouter(
 @router.get('/')
 def panchangam(
     params: Annotated[GetPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
     try:
@@ -35,7 +35,7 @@ def panchangam(
 @router.get('/monthly')
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
     try:

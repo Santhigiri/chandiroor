@@ -42,11 +42,10 @@ dependency open until the response finishes sending.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlmodel import Session
 from starlette.responses import StreamingResponse
 
-from app.api.deps import require_role
-from app.db.database import get_session
+from app.api.deps import get_santhigiri_event_service, require_role
+from app.features.santhigiri_events.ports import EventNotFoundException
 from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
     SanthigiriEventDetail,
@@ -56,24 +55,19 @@ from app.features.santhigiri_events.schemas import (
     SanthigiriEventUpdate,
 )
 from app.features.santhigiri_events.service import (
-    EventAlreadyExists,
-    EventNotFound,
-    IncompleteYearData,
-    InvalidEventReference,
+    EventAlreadyExistsException,
+    IncompleteYearDataException,
+    InvalidEventReferenceException,
     OccurrenceComputationError,
     SanthigiriEventService,
     UnsupportedEventCondition,
-    YearSpanTooLarge,
+    YearSpanTooLargeException,
 )
 from app.utils.roles import Role
 
 router = APIRouter(prefix="/panchangam/events", tags=["santhigiri-events"])
 
-
-def _get_service(
-    session: Annotated[Session, Depends(get_session)],
-) -> SanthigiriEventService:
-    return SanthigiriEventService(session)
+ServiceDep = Annotated[SanthigiriEventService, Depends(get_santhigiri_event_service)]
 
 
 @router.post(
@@ -82,20 +76,16 @@ def _get_service(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
-def create_event(
-    payload: SanthigiriEventCreate,
-    service: Annotated[SanthigiriEventService, Depends(_get_service)],
-) -> SanthigiriEventDetail:
+def create_event(payload: SanthigiriEventCreate, service: ServiceDep) -> SanthigiriEventDetail:
     try:
-        row = service.create(payload)
-    except EventAlreadyExists:
+        return service.create_event(payload)
+    except EventAlreadyExistsException:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"Event '{payload.id}' already exists.",
         )
-    except InvalidEventReference as exc:
+    except InvalidEventReferenceException as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return SanthigiriEventDetail.model_validate(row)
 
 
 @router.get(
@@ -103,17 +93,13 @@ def create_event(
     response_model=SanthigiriEventDetail,
     dependencies=[Depends(require_role(Role.ANONYMOUS))],
 )
-def get_event(
-    event_id: str,
-    service: Annotated[SanthigiriEventService, Depends(_get_service)],
-) -> SanthigiriEventDetail:
+def get_event(event_id: str, service: ServiceDep) -> SanthigiriEventDetail:
     try:
-        row = service.get(event_id)
-    except EventNotFound:
+        return service.get_event_by_id(event_id)
+    except EventNotFoundException:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
         )
-    return SanthigiriEventDetail.model_validate(row)
 
 
 @router.put(
@@ -122,19 +108,16 @@ def get_event(
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def update_event(
-    event_id: str,
-    payload: SanthigiriEventUpdate,
-    service: Annotated[SanthigiriEventService, Depends(_get_service)],
+    event_id: str, payload: SanthigiriEventUpdate, service: ServiceDep
 ) -> SanthigiriEventDetail:
     try:
-        row = service.update(event_id, payload)
-    except EventNotFound:
+        return service.update(event_id, payload)
+    except EventNotFoundException:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
         )
-    except InvalidEventReference as exc:
+    except InvalidEventReferenceException as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return SanthigiriEventDetail.model_validate(row)
 
 
 @router.delete(
@@ -142,13 +125,10 @@ def update_event(
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
-def delete_event(
-    event_id: str,
-    service: Annotated[SanthigiriEventService, Depends(_get_service)],
-) -> Response:
+def delete_event(event_id: str, service: ServiceDep) -> Response:
     try:
         service.delete(event_id)
-    except EventNotFound:
+    except EventNotFoundException:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
         )
@@ -161,9 +141,7 @@ def delete_event(
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def generate_event_occurrences(
-    event_id: str,
-    payload: SanthigiriEventsGenerateRequest,
-    service: Annotated[SanthigiriEventService, Depends(_get_service)],
+    event_id: str, payload: SanthigiriEventsGenerateRequest, service: ServiceDep
 ) -> SanthigiriEventOccurrences:
     """(Re)compute *event_id*'s occurrence dates across
     ``[payload.start_year, payload.end_year]`` from the DB's panchangam data
@@ -172,17 +150,17 @@ def generate_event_occurrences(
         occurrences = service.generate_occurrences(
             event_id, payload.start_year, payload.end_year
         )
-    except EventNotFound:
+    except EventNotFoundException:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"Event '{event_id}' not found."
         )
-    except IncompleteYearData as exc:
+    except IncompleteYearDataException as exc:
         year = exc.args[0]
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Panchangam data for {year} is not fully seeded.",
         )
-    except (UnsupportedEventCondition, OccurrenceComputationError, YearSpanTooLarge) as exc:
+    except (UnsupportedEventCondition, OccurrenceComputationError, YearSpanTooLargeException) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return SanthigiriEventOccurrences(
         event_id=event_id,
@@ -197,9 +175,7 @@ def generate_event_occurrences(
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 async def generate_event_occurrences_streaming(
-    event_id: str,
-    payload: SanthigiriEventsGenerateRequest,
-    session: Annotated[Session, Depends(get_session)],
+    event_id: str, payload: SanthigiriEventsGenerateRequest, service: ServiceDep
 ) -> StreamingResponse:
     """Streaming sibling of ``POST /{event_id}/occurrences``: (re)compute
     *event_id*'s occurrence dates across ``[payload.start_year, payload.end_year]``,
@@ -208,35 +184,32 @@ async def generate_event_occurrences_streaming(
     # instead of a 200 with an NDJSON error line — once StreamingResponse
     # starts, the status code can no longer change.
     try:
-        SanthigiriEventService(session).validate_year_span(
-            payload.start_year, payload.end_year
-        )
-    except YearSpanTooLarge as exc:
+        service.validate_year_span(payload.start_year, payload.end_year)
+    except YearSpanTooLargeException as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     async def _stream():
-        service = SanthigiriEventService(session)
         try:
             async for event in service.generate_occurrences_streaming(
                 event_id, payload.start_year, payload.end_year
             ):
                 yield event.model_dump_json() + "\n"
-        except EventNotFound:
-            session.rollback()
+        except EventNotFoundException:
+            service.session.rollback()
             yield SanthigiriEventsGenerateError(
                 detail=f"Event '{event_id}' not found."
             ).model_dump_json() + "\n"
-        except IncompleteYearData as exc:
-            session.rollback()
+        except IncompleteYearDataException as exc:
+            service.session.rollback()
             year = exc.args[0]
             yield SanthigiriEventsGenerateError(
                 detail=f"Panchangam data for {year} is not fully seeded."
             ).model_dump_json() + "\n"
         except (UnsupportedEventCondition, OccurrenceComputationError) as exc:
-            session.rollback()
+            service.session.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
         except Exception as exc:
-            session.rollback()
+            service.session.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
@@ -247,8 +220,7 @@ async def generate_event_occurrences_streaming(
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 async def generate_all_event_occurrences(
-    payload: SanthigiriEventsGenerateRequest,
-    session: Annotated[Session, Depends(get_session)],
+    payload: SanthigiriEventsGenerateRequest, service: ServiceDep
 ) -> StreamingResponse:
     """(Re)compute every event definition's occurrence dates across
     ``[payload.start_year, payload.end_year]`` from the DB's panchangam data,
@@ -257,27 +229,24 @@ async def generate_all_event_occurrences(
     # instead of a 200 with an NDJSON error line — once StreamingResponse
     # starts, the status code can no longer change.
     try:
-        SanthigiriEventService(session).validate_year_span(
-            payload.start_year, payload.end_year
-        )
-    except YearSpanTooLarge as exc:
+        service.validate_year_span(payload.start_year, payload.end_year)
+    except YearSpanTooLargeException as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     async def _stream():
-        service = SanthigiriEventService(session)
         try:
             async for event in service.generate_all_occurrences_streaming(
                 payload.start_year, payload.end_year
             ):
                 yield event.model_dump_json() + "\n"
-        except IncompleteYearData as exc:
-            session.rollback()
+        except IncompleteYearDataException as exc:
+            service.session.rollback()
             year = exc.args[0]
             yield SanthigiriEventsGenerateError(
                 detail=f"Panchangam data for {year} is not fully seeded."
             ).model_dump_json() + "\n"
         except Exception as exc:
-            session.rollback()
+            service.session.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")

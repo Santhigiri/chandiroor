@@ -16,7 +16,8 @@ status codes.
 """
 from __future__ import annotations
 
-import datetime
+from dataclasses import dataclass
+from datetime import date
 from time import perf_counter
 from typing import AsyncIterator, Dict, Iterable, List, Set, Union
 
@@ -30,42 +31,49 @@ from app.core.calendar.santhigiri_event_occurrences import (
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
     compute_occurrences,
 )
-from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from app.db.panchangam_repository import PanchangamRepository, event_row_to_event
-from app.db.santhigiri_event_repository import SanthigiriEventRepository
+from app.core.ports.unit_of_work import UnitOfWork
+from app.db.panchangam_repository import PanchangamRepository
+from app.features.santhigiri_events.ports import (
+    SanthigiriEventCreate as SanthigiriEventCreatePort,
+    SanthigiriEventGet,
+    SanthigiriEventUdpate as SanthigiriEventUpdatePort,
+    SanthigiriEventsRepositoryPort,
+)
 from app.features.santhigiri_events.schemas import (
-    SanthigiriEventCreate,
+    SanthigiriEventCreate as SanthigiriEventCreateRequest,
+    SanthigiriEventDetail,
     SanthigiriEventGenerateProgress,
     SanthigiriEventGenerateResult,
-    SanthigiriEventUpdate,
     SanthigiriEventsGenerateProgress,
     SanthigiriEventsGenerateResult,
+    SanthigiriEventUpdate as SanthigiriEventUpdateRequest,
 )
+
 from app.schemas.app_setting import EventCutoffsValue
 from app.services.etag_service import refresh_etags
 from app.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import EventCondition
+from app.utils.thithi import Thithi
 
 
-class EventAlreadyExists(Exception):
+class EventAlreadyExistsException(Exception):
     """Raised when creating an event whose id is already taken."""
 
 
-class EventNotFound(Exception):
-    """Raised when updating/deleting/reading an event id that does not exist."""
-
-
-class InvalidEventReference(Exception):
+class InvalidEventReferenceException(Exception):
     """Raised when a condition foreign key (e.g. nakshatra_id) does not resolve."""
 
 
-class IncompleteYearData(Exception):
+class IncompleteYearDataException(Exception):
     """Raised when *year* is not fully present in the DB, so occurrences
     (especially last-occurrence/transition-series ones) cannot be safely
     computed."""
 
 
-class YearSpanTooLarge(Exception):
+class YearSpanTooLargeException(Exception):
     """Raised when a generate request's year span exceeds the admin-configured
     ``max_event_generate_year_span`` setting."""
 
@@ -80,12 +88,14 @@ class YearSpanTooLarge(Exception):
 UnsupportedEventCondition = UnsupportedOccurrenceCondition
 
 
+@dataclass(frozen=True)
 class SanthigiriEventService:
-    def __init__(self, session: Session) -> None:
-        self._s = session
-        self._repo = SanthigiriEventRepository(session)
-        self._panchangam_repo = PanchangamRepository(session)
-        self._settings = SettingsService(session)
+    session: Session
+    event_repository: SanthigiriEventsRepositoryPort
+    panchangam_repo: PanchangamRepository
+    settings: SettingsService
+    unit_of_work: UnitOfWork
+
 
     def validate_year_span(self, start_year: int, end_year: int) -> None:
         """Raise :class:`YearSpanTooLarge` if the span exceeds the
@@ -96,55 +106,71 @@ class SanthigiriEventService:
         below also enforce this themselves as defense in depth for any other
         caller."""
         span = end_year - start_year + 1
-        max_years = self._settings.get_max_event_generate_year_span()
+        max_years = self.settings.get_max_event_generate_year_span()
         if span > max_years:
-            raise YearSpanTooLarge(span, max_years)
+            raise YearSpanTooLargeException(span, max_years)
 
     # ── Read ────────────────────────────────────────────────────────────────────
 
-    def get(self, event_id: str) -> SanthigiriEventRow:
-        row = self._repo.get(event_id)
-        if row is None:
-            raise EventNotFound(event_id)
-        return row
+    def get_event_by_id(self, event_id: str) -> SanthigiriEventDetail:
+        event = self.event_repository.get_event_by_id(event_id)
+        return self._to_detail(event)
 
     # ── Write ───────────────────────────────────────────────────────────────────
 
-    def create(self, payload: SanthigiriEventCreate) -> SanthigiriEventRow:
-        if self._repo.exists(payload.id):
-            raise EventAlreadyExists(payload.id)
-        row = SanthigiriEventRow(**payload.model_dump())
+    def create_event(self, payload: SanthigiriEventCreateRequest) -> SanthigiriEventDetail:
+        if self.event_repository.event_exists(payload.id):
+            raise EventAlreadyExistsException(payload.id)
+        port_event = SanthigiriEventCreatePort(
+            id=payload.id,
+            name=payload.name,
+            description=payload.description,
+            sort_order=payload.sort_order,  # type: ignore[arg-type]  # None → repository assigns the next sort_order
+            event_condition=self._event_condition_from_request(payload),
+            yields_to_event_id=payload.yields_to_event_id,
+        )
         try:
-            self._repo.create(row)
-            self._commit_with_etags([])
+            with self.unit_of_work:
+                new_event = self.event_repository.create_event(port_event)
+                self._commit_with_etags([])
         except IntegrityError as exc:
-            self._s.rollback()
-            raise InvalidEventReference(str(exc.orig)) from exc
-        return row
+            raise InvalidEventReferenceException(str(exc.orig)) from exc
+        return self._to_detail(new_event)
 
-    def update(self, event_id: str, payload: SanthigiriEventUpdate) -> SanthigiriEventRow:
-        row = self.get(event_id)
+    def update(self, event_id: str, payload: SanthigiriEventUpdateRequest) -> SanthigiriEventDetail:
+        existing = self._to_detail(self.event_repository.get_event_by_id(event_id))
         changes = payload.model_dump(exclude_unset=True)
         if changes.get("yields_to_event_id") == event_id:
-            raise InvalidEventReference(
+            raise InvalidEventReferenceException(
                 f"yields_to_event_id cannot reference the event's own id ({event_id!r})"
             )
+        merged = self._merge_update_request(existing, changes)
+        port_event = SanthigiriEventUpdatePort(
+            name=merged["name"],
+            description=merged["description"],
+            sort_order=merged["sort_order"],
+            event_condition=self._event_condition_from_request(merged),
+            yields_to_event_id=merged["yields_to_event_id"],
+        )
         try:
-            self._repo.update(row, changes)
-            self._commit_with_etags([])
+            with self.unit_of_work:
+                updated_event = self.event_repository.update_event(port_event, event_id)
+                self._commit_with_etags([])
         except IntegrityError as exc:
-            self._s.rollback()
-            raise InvalidEventReference(str(exc.orig)) from exc
-        return row
+            raise InvalidEventReferenceException(str(exc.orig)) from exc
+        return self._to_detail(updated_event)
 
-    def delete(self, event_id: str) -> None:
-        row = self.get(event_id)
-        affected_years = self._repo.delete(row)
-        self._commit_with_etags(affected_years)
+    def delete(self, event_id: str) -> SanthigiriEventDetail:
+        event = self.event_repository.get_event_by_id(event_id)
+        affected_years = self.event_repository.occurrence_years_before_delete(event_id)
+        with self.unit_of_work:
+            deleted_event = self.event_repository.delete_event(event)
+            self._commit_with_etags(affected_years)
+        return self._to_detail(deleted_event)
 
     def generate_occurrences(
         self, event_id: str, start_year: int, end_year: int
-    ) -> Dict[int, List[datetime.date]]:
+    ) -> Dict[int, List[date]]:
         """(Re)compute *event_id*'s occurrence dates across the inclusive
         ``[start_year, end_year]`` range and replace whatever was previously
         stored for that event in each of those years.
@@ -160,30 +186,30 @@ class SanthigiriEventService:
         rolls back years already processed.
         """
         self.validate_year_span(start_year, end_year)
-        row = self.get(event_id)
-        condition = event_row_to_event(row).event_condition
-        cutoffs = self._settings.get_event_cutoffs()
+        event = self.event_repository.get_event_by_id(event_id)
+        condition = event.event_condition
+        cutoffs = self.settings.get_event_cutoffs()
 
         years = list(range(start_year, end_year + 1))
-        results: Dict[int, List[datetime.date]] = {}
+        results: Dict[int, List[date]] = {}
         for year in years:
-            start = datetime.date(year, 1, 1)
-            end = datetime.date(year, 12, 31)
-            yearly_data = self._panchangam_repo.get_by_date_range(
+            start = date(year, 1, 1)
+            end = date(year, 12, 31)
+            yearly_data = self.panchangam_repo.get_by_date_range(
                 start, end, DEFAULT_LOCATION
             )
             expected_days = (end - start).days + 1
             if len(yearly_data) != expected_days:
-                raise IncompleteYearData(year)
+                raise IncompleteYearDataException(year)
 
             occurrences = compute_occurrences(
                 condition, yearly_data, year,
                 cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
             )
-            excluded = self._excluded_dates_for_yield(row, yearly_data, year, cutoffs)
+            excluded = self._excluded_dates_for_yield(event, yearly_data, year, cutoffs)
             if excluded:
                 occurrences = [d for d in occurrences if d not in excluded]
-            self._panchangam_repo.set_event_occurrences_for_year(
+            self.event_repository.set_event_occurrences_for_year(
                 event_id, year, occurrences
             )
             results[year] = occurrences
@@ -212,36 +238,36 @@ class SanthigiriEventService:
         otherwise block the event loop.
         """
         self.validate_year_span(start_year, end_year)
-        row = self.get(event_id)
-        condition = event_row_to_event(row).event_condition
-        cutoffs = self._settings.get_event_cutoffs()
+        event = self.event_repository.get_event_by_id(event_id)
+        condition = event.event_condition
+        cutoffs = self.settings.get_event_cutoffs()
 
         years = list(range(start_year, end_year + 1))
         total = len(years)
         completed = 0
-        results: Dict[int, List[datetime.date]] = {}
+        results: Dict[int, List[date]] = {}
 
         clock = perf_counter()
         for year in years:
-            start = datetime.date(year, 1, 1)
-            end = datetime.date(year, 12, 31)
-            yearly_data = self._panchangam_repo.get_by_date_range(
+            start = date(year, 1, 1)
+            end = date(year, 12, 31)
+            yearly_data = self.panchangam_repo.get_by_date_range(
                 start, end, DEFAULT_LOCATION
             )
             expected_days = (end - start).days + 1
             if len(yearly_data) != expected_days:
-                raise IncompleteYearData(year)
+                raise IncompleteYearDataException(year)
 
             occurrences = await run_in_threadpool(
                 compute_occurrences, condition, yearly_data, year,
                 cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
             )
             excluded = await run_in_threadpool(
-                self._excluded_dates_for_yield, row, yearly_data, year, cutoffs
+                self._excluded_dates_for_yield, event, yearly_data, year, cutoffs
             )
             if excluded:
                 occurrences = [d for d in occurrences if d not in excluded]
-            self._panchangam_repo.set_event_occurrences_for_year(
+            self.event_repository.set_event_occurrences_for_year(
                 event_id, year, occurrences
             )
             results[year] = occurrences
@@ -273,8 +299,8 @@ class SanthigiriEventService:
         :class:`SanthigiriEventsGenerateProgress` line after each
         ``(year, event)`` pair, then a final :class:`SanthigiriEventsGenerateResult`.
 
-        Raises :class:`IncompleteYearData` for the first year in the range
-        whose panchangam data is not fully present in the DB — the same
+        Raises :class:`IncompleteYearDataException` for the first year in the
+        range whose panchangam data is not fully present in the DB — the same
         precondition :meth:`generate_occurrences` enforces per-year — which
         aborts the whole range (nothing has committed yet, so no year's
         writes stick). An individual event whose condition can't be resolved
@@ -293,26 +319,26 @@ class SanthigiriEventService:
         """
         self.validate_year_span(start_year, end_year)
         years = list(range(start_year, end_year + 1))
-        rows = self._repo.list_all()
+        rows = self.event_repository.get_all_events()
         total = len(rows) * len(years)
         generated = skipped = errors = 0
         completed = 0
-        cutoffs = self._settings.get_event_cutoffs()
+        cutoffs = self.settings.get_event_cutoffs()
 
         clock = perf_counter()
         for year in years:
-            start = datetime.date(year, 1, 1)
-            end = datetime.date(year, 12, 31)
-            yearly_data = self._panchangam_repo.get_by_date_range(
+            start = date(year, 1, 1)
+            end = date(year, 12, 31)
+            yearly_data = self.panchangam_repo.get_by_date_range(
                 start, end, DEFAULT_LOCATION
             )
             expected_days = (end - start).days + 1
             if len(yearly_data) != expected_days:
-                raise IncompleteYearData(year)
+                raise IncompleteYearDataException(year)
 
             for row in rows:
                 completed += 1
-                condition = event_row_to_event(row).event_condition
+                condition = row.event_condition
                 count = 0
                 status = "generated"
                 detail = None
@@ -326,15 +352,12 @@ class SanthigiriEventService:
                 except OccurrenceComputationError as exc:
                     status, errors, detail = "error", errors + 1, str(exc)
                 else:
-                    if row.yields_to_event_id is None:
-                        excluded: Set[datetime.date] = set()
-                    else:
-                        excluded = await run_in_threadpool(
-                            self._excluded_dates_for_yield, row, yearly_data, year, cutoffs
-                        )
+                    excluded = await run_in_threadpool(
+                        self._excluded_dates_for_yield, row, yearly_data, year, cutoffs
+                    )
                     if excluded:
                         occurrences = [d for d in occurrences if d not in excluded]
-                    self._panchangam_repo.set_event_occurrences_for_year(
+                    self.event_repository.set_event_occurrences_for_year(
                         row.id, year, occurrences
                     )
                     generated += 1
@@ -367,13 +390,76 @@ class SanthigiriEventService:
 
     # ── Internal ─────────────────────────────────────────────────────────────────
 
+    def _to_detail(self, event: SanthigiriEventGet) -> SanthigiriEventDetail:
+        """Flatten the port's nested ``event_condition`` into the flat
+        request/response schema shape used at the HTTP boundary."""
+        ec = event.event_condition
+        return SanthigiriEventDetail(
+            id=event.id,
+            name=event.name,
+            description=event.description,
+            sort_order=event.sort_order,
+            nakshatra_id=ec.nakshatra.id if ec.nakshatra is not None else None,
+            thithi_id=ec.thithi.id if ec.thithi is not None else None,
+            ml_day=ec.ml_day,
+            ml_month=ec.ml_month.id if ec.ml_month is not None else None,
+            ml_year=ec.ml_year,
+            en_day=ec.en_day,
+            en_month=ec.en_month,
+            en_year=ec.en_year,
+            occurance=ec.occurance,
+            is_poornima=ec.is_poornima,
+            last_occurance=ec.last_occurance,
+            day_offset=ec.day_offset,
+            yields_to_event_id=event.yields_to_event_id,
+        )
+
+    def _event_condition_from_request(self, fields) -> EventCondition:
+        """Build the nested ``EventCondition`` from the flat id-based fields
+        on a create/merged-update request. ``fields`` supports both attribute
+        access (a schema instance) and dict-style ``["key"]`` access (the
+        merged dict :meth:`_merge_update_request` produces)."""
+        get = fields.__getitem__ if isinstance(fields, dict) else fields.__getattribute__
+        nakshatra_id = get("nakshatra_id")
+        thithi_id = get("thithi_id")
+        ml_month = get("ml_month")
+        return EventCondition(
+            nakshatra=Nakshatra.from_id(nakshatra_id) if nakshatra_id is not None else None,
+            thithi=Thithi.from_id(thithi_id) if thithi_id is not None else None,
+            ml_day=get("ml_day"),
+            ml_month=MalayalamMasa.from_id(ml_month) if ml_month is not None else None,
+            ml_year=get("ml_year"),
+            en_day=get("en_day"),
+            en_month=get("en_month"),
+            en_year=get("en_year"),
+            occurance=get("occurance"),
+            is_poornima=get("is_poornima"),
+            last_occurance=get("last_occurance"),
+            day_offset=get("day_offset"),
+        )
+
+    _UPDATE_FIELDS = (
+        "name", "description", "sort_order", "nakshatra_id", "thithi_id",
+        "ml_day", "ml_month", "ml_year", "en_day", "en_month", "en_year",
+        "occurance", "is_poornima", "last_occurance", "day_offset",
+        "yields_to_event_id",
+    )
+
+    def _merge_update_request(
+        self, existing: SanthigiriEventDetail, changes: dict
+    ) -> dict:
+        """Apply the partial ``changes`` (from ``model_dump(exclude_unset=True)``)
+        on top of *existing*'s current values, since the port's update DTO
+        (unlike the request schema) requires every field."""
+        return {field: changes.get(field, getattr(existing, field)) for field in self._UPDATE_FIELDS}
+
     def _excluded_dates_for_yield(
         self,
-        row: SanthigiriEventRow,
+        row: SanthigiriEventGet,
         yearly_data: PanchangamYear,
         year: int,
         cutoffs: EventCutoffsValue,
-    ) -> Set[datetime.date]:
+    ) -> Set[date]:
         """Dates *row* must NOT occur on for *year* because it "yields to"
         another event whose condition also matches those dates.
 
@@ -392,10 +478,10 @@ class SanthigiriEventService:
         """
         if row.yields_to_event_id is None:
             return set()
-        sibling = self._repo.get(row.yields_to_event_id)
+        sibling = self.event_repository.get_event_by_id(row.yields_to_event_id)
         if sibling is None:
             return set()
-        sibling_condition = event_row_to_event(sibling).event_condition
+        sibling_condition = sibling.event_condition
         try:
             return set(
                 compute_occurrences(
@@ -411,4 +497,4 @@ class SanthigiriEventService:
         # state and commits once, so the data change and its ETags land in a
         # single transaction. It always refreshes every enum dataset — including
         # ``events`` — and any years passed here.
-        refresh_etags(self._s, years)
+        refresh_etags(self.session, years)

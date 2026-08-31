@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -6,7 +7,8 @@ from app.utils.nakshatra import Nakshatra
 from app.utils.thithi import Thithi
 
 
-class EventCondition(BaseModel):
+@dataclass(frozen=True)
+class EventCondition:
     nakshatra: Optional[Nakshatra] = None
     thithi: Optional[Thithi] = None
     ml_day: Optional[int] = None

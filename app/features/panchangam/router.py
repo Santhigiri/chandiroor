@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from sqlmodel import Session
 
-from app.api.deps import get_location, get_service, require_role
+from app.api.deps import get_location, get_panchangam_service, require_role
 from app.db.database import get_session
 from app.features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
 from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
@@ -44,7 +44,7 @@ router = APIRouter(
 )
 def panchangam(
     day: Annotated[date, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
 
@@ -58,7 +58,7 @@ def panchangam(
 )
 def sunrise_sunset(
     params: Annotated[GetSunriseSunsetParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
 ):
     """Sunrise/sunset (UTC) for an arbitrary coordinate and date.
 
@@ -92,7 +92,7 @@ def sunrise_sunset(
 )
 def panchangam_instant(
     params: Annotated[GetInstantPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
 ):
     """Compact Panchangam active at an arbitrary date/time/location instant.
 
@@ -115,7 +115,7 @@ def panchangam_instant(
 )
 def panchangam_monthly(
     params: Annotated[GetMonthlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
 ):
     try:
@@ -136,7 +136,7 @@ def panchangam_monthly(
 def panchangam_yearly(
     request: Request,
     params: Annotated[GetYearlyPanchangamParams, Query()],
-    service: Annotated[PanchangamService, Depends(get_service)],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
     location: Annotated[Location, Depends(get_location)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:

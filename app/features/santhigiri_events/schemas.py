@@ -100,6 +100,8 @@ class SanthigiriEventUpdate(BaseModel):
     day_offset: Optional[int] = None
     yields_to_event_id: Optional[str] = None
 
+class SanthigiriEventResponse(SanthigiriEventBase):
+    id: str
 
 class SanthigiriEventDetail(SanthigiriEventBase):
     """Full event definition, including its matching condition."""

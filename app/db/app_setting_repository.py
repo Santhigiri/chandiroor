@@ -1,8 +1,9 @@
 """
 AppSettingRepository — get/list/upsert for the ``app_setting`` table.
 
-Following the convention of ``PanchangamRepository``/``SanthigiriEventRepository``,
-mutating methods do NOT commit — the caller owns the transaction.
+Following the convention of ``PanchangamRepository``/
+``features.santhigiri_events.repository.SanthigiriEventRepository``, mutating
+methods do NOT commit — the caller owns the transaction.
 """
 from __future__ import annotations
 

@@ -8,10 +8,10 @@ exist where a panchangam row already exists for that location —
 :meth:`missing_panchangam_dates` lets the service reject a generate request
 up-front instead of failing on an insert.
 
-Following :class:`db.repository.PanchangamRepository` and
-:class:`db.santhigiri_event_repository.SanthigiriEventRepository`, the mutating
-methods flush but do NOT commit — the caller owns the transaction so a matching
-ETag refresh can be batched into the same commit.
+Following :class:`db.panchangam_repository.PanchangamRepository` and
+:class:`features.santhigiri_events.repository.SanthigiriEventRepository`, the
+mutating methods flush but do NOT commit — the caller owns the transaction so
+a matching ETag refresh can be batched into the same commit.
 """
 from __future__ import annotations
 
