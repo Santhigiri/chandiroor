@@ -26,6 +26,7 @@ from fastapi import Cookie, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
+from app.core.ports.panchangam_service import PanchangamServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.database import get_session
 from app.db.unit_of_work import SqlUnitOfWork
@@ -112,6 +113,7 @@ def get_santhigiri_event_service(
     etag_repository: EtagRepositoryDep,
     session: SessionDep,
     settings_service: SettingsServiceDep,
+    panchangam_service_for_etag_refresh: PanchangamServiceForEtagRefreshDep,
     unit_of_work: UnitOfWorkDep,
 ) -> SanthigiriEventService:
     return SanthigiriEventService(
@@ -120,6 +122,7 @@ def get_santhigiri_event_service(
         etag_repository=etag_repository,
         panchangam_repo=panchangam_repository,
         settings=settings_service,
+        panchangam_service_for_etag_refresh=panchangam_service_for_etag_refresh,
         unit_of_work=unit_of_work,
     )
 
@@ -131,11 +134,34 @@ def get_panchangam_service(
     return PanchangamService(panchangam_repository, settings_service)
 
 
+def get_panchangam_service_for_etag_refresh(
+    panchangam_repository: PanchangamRepositoryDep,
+) -> PanchangamServicePort:
+    """A ``PanchangamService`` built *without* a ``SettingsServicePort`` — the
+    binding ``features/etag/service.py::refresh_etags`` gets injected for its
+    year-payload rebuild.
+
+    Deliberately settings-free: refresh_etags runs right after a write (bulk
+    seed, admin generate, event-occurrence regeneration) that may target a
+    year outside the currently configured ``seed_year_range``, and refreshing
+    that year's ETag must not fail with ``YearOutOfRange`` the way a normal
+    ``/year`` read would. This preserves the range-check-free behaviour the
+    bulk ETag refresh has always had.
+    """
+    return PanchangamService(panchangam_repository)
+
+
+PanchangamServiceForEtagRefreshDep = Annotated[
+    PanchangamServicePort, Depends(get_panchangam_service_for_etag_refresh)
+]
+
+
 def get_panchangam_generation_service(
     session: SessionDep,
     panchangam_repository: PanchangamRepositoryDep,
     settings_service: SettingsServiceDep,
     etag_repository: EtagRepositoryDep,
+    panchangam_service_for_etag_refresh: PanchangamServiceForEtagRefreshDep,
     unit_of_work: UnitOfWorkDep,
 ) -> PanchangamGenerationService:
     return PanchangamGenerationService(
@@ -143,6 +169,7 @@ def get_panchangam_generation_service(
         repository=panchangam_repository,
         settings=settings_service,
         etag_repository=etag_repository,
+        panchangam_service_for_etag_refresh=panchangam_service_for_etag_refresh,
         unit_of_work=unit_of_work,
     )
 

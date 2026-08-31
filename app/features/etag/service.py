@@ -16,12 +16,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
+from app.core.ports.panchangam_service import PanchangamServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.reference_repository import ReferenceRepository
-from app.features.panchangam.repository import PanchangamRepository
 from app.features.etag.ports import EtagRepositoryPort
 from app.schemas.compact_panchangam_data import CompactPanchangamData
-from app.features.panchangam.service import PanchangamService
 from app.utils.content_hash import stable_hash
 from app.utils.etag import if_none_match_satisfied
 from app.utils.location import DEFAULT_LOCATION, Location
@@ -53,7 +52,7 @@ def enum_key(name: str) -> str:
 # ── Payload builders ──────────────────────────────────────────────────────────
 
 def build_year_payload(
-    service: PanchangamService, year: int, location: Location = DEFAULT_LOCATION
+    service: PanchangamServicePort, year: int, location: Location = DEFAULT_LOCATION
 ) -> Dict[str, CompactPanchangamData]:
     """Return the compact ``{date-str: CompactPanchangamData}`` map the /year route serves."""
     data = service.get_by_year(year=year, location=location)
@@ -127,6 +126,7 @@ def conditional_json_response(
 
 def refresh_etags(
     session: Session,
+    panchangam_service: PanchangamServicePort,
     etag_repository: EtagRepositoryPort,
     unit_of_work: UnitOfWork,
     years: Iterable[int],
@@ -140,16 +140,15 @@ def refresh_etags(
     missing ETag lazily on first request. ``locations`` defaults to every known
     location. Commits once at the end.
 
-    *session* is still needed directly here (rather than going entirely
-    through ports) because it builds the year/enum payloads via a
-    session-constructed ``PanchangamRepository``/``ReferenceRepository`` —
-    ``ReferenceRepository`` has not been migrated to ports & adapters yet, and
-    this helper predates dependency-injecting ``PanchangamRepositoryPort`` in
-    from the caller — only the ETag persistence itself goes through
+    *panchangam_service* is injected by the caller rather than constructed
+    here, so this module never imports ``features.panchangam.service`` or
+    ``features.panchangam.repository`` directly (see
+    ``core/ports/panchangam_service.py``). *session* is still needed
+    directly here because it builds the enum payloads via a
+    session-constructed ``ReferenceRepository``, which has not been migrated
+    to ports & adapters yet — only the ETag persistence itself goes through
     *etag_repository*/*unit_of_work*.
     """
-    service = PanchangamService(PanchangamRepository(session))
-
     years = list(years)
     locs = list(locations) if locations is not None else list(Location)
     with unit_of_work as uow:
@@ -157,7 +156,7 @@ def refresh_etags(
             for year in years:
                 etag_repository.set(
                     year_key(year, location.code),
-                    compute_etag(build_year_payload(service, year, location)),
+                    compute_etag(build_year_payload(panchangam_service, year, location)),
                 )
 
         for name in ENUM_NAMES:
