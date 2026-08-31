@@ -27,8 +27,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
 from app.core.ports.panchangam_service import PanchangamServicePort
+from app.core.ports.reference_repository import ReferenceRepositoryPort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.database import get_session
+from app.db.reference_repository import ReferenceRepository
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.auth.auth_repository import AuthRepository
 from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
@@ -88,6 +90,15 @@ def get_etag_repository(session: SessionDep) -> EtagRepositoryPort:
 EtagRepositoryDep = Annotated[EtagRepositoryPort, Depends(get_etag_repository)]
 
 
+def get_reference_repository(session: SessionDep) -> ReferenceRepositoryPort:
+    return ReferenceRepository(session)
+
+
+ReferenceRepositoryDep = Annotated[
+    ReferenceRepositoryPort, Depends(get_reference_repository)
+]
+
+
 def get_panchangam_repository(
     session: SessionDep,
 ) -> PanchangamRepositoryPort:
@@ -133,13 +144,13 @@ def get_santhigiri_event_service(
     panchangam_repository: PanchangamRepositoryDep,
     event_repository: SanthigiriEventRepositoryDep,
     etag_repository: EtagRepositoryDep,
-    session: SessionDep,
+    reference_repository: ReferenceRepositoryDep,
     settings_service: SettingsServiceDep,
     panchangam_service_for_etag_refresh: PanchangamServiceForEtagRefreshDep,
     unit_of_work: UnitOfWorkDep,
 ) -> SanthigiriEventService:
     return SanthigiriEventService(
-        session=session,
+        reference_repository=reference_repository,
         event_repository=event_repository,
         etag_repository=etag_repository,
         panchangam_repo=panchangam_repository,
@@ -179,15 +190,15 @@ PanchangamServiceForEtagRefreshDep = Annotated[
 
 
 def get_panchangam_generation_service(
-    session: SessionDep,
     panchangam_repository: PanchangamRepositoryDep,
     settings_service: SettingsServiceDep,
     etag_repository: EtagRepositoryDep,
+    reference_repository: ReferenceRepositoryDep,
     panchangam_service_for_etag_refresh: PanchangamServiceForEtagRefreshDep,
     unit_of_work: UnitOfWorkDep,
 ) -> PanchangamGenerationService:
     return PanchangamGenerationService(
-        session=session,
+        reference_repository=reference_repository,
         repository=panchangam_repository,
         settings=settings_service,
         etag_repository=etag_repository,

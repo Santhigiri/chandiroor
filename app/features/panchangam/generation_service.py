@@ -16,8 +16,9 @@ change when the write becomes durable.
 This is a dedicated write-path service (a frozen dataclass built from the
 ``PanchangamRepositoryPort``, ``SettingsServicePort``, ``EtagRepositoryPort``,
 ``PanchangamServicePort`` (a settings-free binding — see
-``core/ports/panchangam_service.py``), and ``UnitOfWork`` ports, plus the raw
-``Session`` that ``refresh_etags`` needs to build enum payloads) kept
+``core/ports/panchangam_service.py``), ``ReferenceRepositoryPort`` (that
+``refresh_etags`` needs to build enum payloads — see
+``core/ports/reference_repository.py``), and ``UnitOfWork`` ports) kept
 separate from the read-only
 :class:`features.panchangam.service.PanchangamService` (which is built from a
 repository alone and has no ETag awareness).
@@ -36,10 +37,10 @@ from datetime import timedelta
 from time import perf_counter
 from typing import AsyncIterator, Union
 
-from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.ports.panchangam_service import PanchangamServicePort
+from app.core.ports.reference_repository import ReferenceRepositoryPort
 from app.core.ports.settings_service import SettingsServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.etag.ports import EtagRepositoryPort
@@ -65,7 +66,7 @@ class SpanTooLarge(Exception):
 
 @dataclass(frozen=True)
 class PanchangamGenerationService:
-    session: Session
+    reference_repository: ReferenceRepositoryPort
     repository: PanchangamRepositoryPort
     settings: SettingsServicePort
     etag_repository: EtagRepositoryPort
@@ -130,7 +131,7 @@ class PanchangamGenerationService:
 
         years = sorted({d.year for d in dates})
         refresh_etags(
-            self.session,
+            self.reference_repository,
             self.panchangam_service_for_etag_refresh,
             self.etag_repository,
             self.unit_of_work,

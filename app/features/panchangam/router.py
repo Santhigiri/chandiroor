@@ -3,16 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from datetime import date, datetime
 from zoneinfo import ZoneInfoNotFoundError
 
-from sqlmodel import Session
-
 from app.api.deps import (
     EtagRepositoryDep,
+    ReferenceRepositoryDep,
     UnitOfWorkDep,
     get_location,
     get_panchangam_service,
     require_role,
 )
-from app.db.database import get_session
 from app.features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
 from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
 from app.features.panchangam.schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
@@ -171,7 +169,7 @@ def panchangam_yearly(
 
 def _reference_response(
     request: Request,
-    session: Session,
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
     name: str,
@@ -181,7 +179,7 @@ def _reference_response(
         etag_repository,
         unit_of_work,
         enum_key(name),
-        lambda: build_enum_payload(session, name),
+        lambda: build_enum_payload(reference_repository, name),
     )
 
 
@@ -191,11 +189,11 @@ def _reference_response(
 )
 def thithi_reference(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, etag_repository, unit_of_work, "thithi")
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "thithi")
 
 
 @router.get(
@@ -204,11 +202,11 @@ def thithi_reference(
 )
 def nakshatra_reference(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, etag_repository, unit_of_work, "nakshatra")
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "nakshatra")
 
 
 @router.get(
@@ -217,11 +215,11 @@ def nakshatra_reference(
 )
 def masa_reference(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, etag_repository, unit_of_work, "masa")
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "masa")
 
 
 @router.get(
@@ -230,11 +228,11 @@ def masa_reference(
 )
 def events_reference(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
-    return _reference_response(request, session, etag_repository, unit_of_work, "events")
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "events")
 
 
 @router.get(
@@ -243,10 +241,10 @@ def events_reference(
 )
 def locations_reference(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    reference_repository: ReferenceRepositoryDep,
     etag_repository: EtagRepositoryDep,
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
     # The list of locations a client can request via ?location=<code>.
-    return _reference_response(request, session, etag_repository, unit_of_work, "locations")
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "locations")
 
