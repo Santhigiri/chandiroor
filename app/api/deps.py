@@ -35,6 +35,9 @@ from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
 from app.features.auth.service import AuthService, InvalidTokenException
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.etag.repository import EtagRepository
+from app.features.guruvani.ports import GuruvaniRepositoryPort
+from app.features.guruvani.repository import GuruvaniRepository
+from app.features.guruvani.service import GuruvaniService
 from app.features.panchangam.generation_service import PanchangamGenerationService
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.features.panchangam.repository import PanchangamRepository
@@ -94,6 +97,25 @@ def get_panchangam_repository(
 PanchangamRepositoryDep = Annotated[
     PanchangamRepositoryPort, Depends(get_panchangam_repository)
 ]
+
+
+def get_guruvani_repository(session: SessionDep) -> GuruvaniRepositoryPort:
+    return GuruvaniRepository(session)
+
+
+GuruvaniRepositoryDep = Annotated[
+    GuruvaniRepositoryPort, Depends(get_guruvani_repository)
+]
+
+
+def get_guruvani_service(
+    guruvani_repository: GuruvaniRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
+) -> GuruvaniService:
+    return GuruvaniService(guruvani_repository, unit_of_work)
+
+
+GuruvaniServiceDep = Annotated[GuruvaniService, Depends(get_guruvani_service)]
 
 
 def get_santhigiri_event_repository(
