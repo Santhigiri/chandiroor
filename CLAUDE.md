@@ -72,19 +72,20 @@ panchangam-api/
     │   │   ├── router.py    # login / refresh / me / users / Google sign-in (JWT auth)
     │   │   ├── service.py   # AuthService — depends on AuthRepositoryPort + UnitOfWork, not the concrete adapter
     │   │   └── schemas.py
-    │   ├── kollavarsham/                # Being retired — do not extend; not migrated to ports & adapters
-    │   │   ├── router.py
-    │   │   ├── service.py
-    │   │   └── schemas.py
     │   ├── guruvani/
     │   │   ├── router.py
     │   │   ├── service.py
     │   │   └── schemas.py
-    │   └── settings/
-    │       └── router.py    # Admin CRUD for app_setting (schema/service are shared — see below)
+    │   └── settings/                    # Migrated to ports & adapters, but the service itself stays in services/ — see below
+    │       ├── ports.py      # AppSettingRepositoryPort (Protocol) + AppSettingGet DTO
+    │       ├── repository.py # AppSettingRepository — concrete adapter implementing the port against SQLModel
+    │       └── router.py     # Admin CRUD for app_setting
     ├── services/                    # Only services used by 3+ features stay here — everything else moved into features/<name>/service.py
     │   ├── etag_service.py          # Canonical payload builders + ETag compute/refresh (used by every feature)
-    │   └── settings_service.py      # Reads/writes app_setting; used by every feature's service plus api/deps.py
+    │   └── settings_service.py      # SettingsService — reads/writes app_setting; used by every feature's service plus api/deps.py.
+    │                                 # Depends on features/settings/ports.py's AppSettingRepositoryPort + UnitOfWork, not the
+    │                                 # concrete adapter — built the same way as a migrated feature's service.py, just located
+    │                                 # here instead of features/settings/ because 3+ other features' services use it directly.
     ├── db/                         # Postgres persistence layer (SQLModel) — unchanged by the feature-folder move
     │   ├── database.py             # Engine (reads DATABASE_URL from env), session factory, init_db()
     │   ├── unit_of_work.py         # SqlUnitOfWork — the one concrete UnitOfWork adapter (see "Ports & adapters" below)
@@ -92,7 +93,6 @@ panchangam-api/
     │   ├── reference_repository.py # Reads the enum/reference datasets (thithi, nakshatra, masa, events)
     │   ├── kollavarsham_repository.py
     │   ├── guruvani_repository.py
-    │   ├── app_setting_repository.py
     │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
     │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
     │   └── models/                 # SQLModel table definitions
@@ -108,7 +108,7 @@ panchangam-api/
     │   ├── location.py              # LocationInfo — used by db/panchangam_repository.py, core/calendar/, and multiple features
     │   ├── panchangam_data.py       # PanchangamData — returned by db/panchangam_repository.py and core/calendar/panchangam.py
     │   ├── compact_panchangam_data.py  # Used by services/etag_service.py, db/reference_repository.py, and multiple features
-    │   └── app_setting.py           # Used by the settings feature *and* features/santhigiri_events/service.py
+    │   └── app_setting.py           # Used by services/settings_service.py *and* features/santhigiri_events/service.py
     └── utils/                      # Domain enums, roles, and cross-cutting helpers with no feature to own them
         ├── roles.py                # Role enum (anonymous < user < admin) for authorization
         ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
@@ -124,7 +124,7 @@ data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source f
 
 **`core/calendar/`** aggregates astronomy into meaningful calendar objects. `panchangam.py::get_panchangam_data()` is the single orchestration point: it calls into `core/astronomy/`, builds a `PanchangamData` Pydantic object, and returns it. It is used directly by `features/panchangam/service.py` as the live-computation fallback for any date not yet in the DB.
 
-**`features/<name>/`** is a vertical slice: its `router.py` is the HTTP boundary (parses/validates query params, obtains a service via FastAPI `Depends`, delegates to it, translates domain errors to HTTP status codes) and its `service.py` sits between the router and persistence. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database. A feature with no independent domain logic (`settings`) may skip `service.py` and talk to `db/` directly, or lean on a shared `services/` module. A feature that has been migrated to ports & adapters (see below) never imports a concrete `db/` repository from its `service.py`/`router.py` at all — only its own `ports.py` and the concrete adapter bound in `api/deps.py`.
+**`features/<name>/`** is a vertical slice: its `router.py` is the HTTP boundary (parses/validates query params, obtains a service via FastAPI `Depends`, delegates to it, translates domain errors to HTTP status codes) and its `service.py` sits between the router and persistence. `PanchangamService.get_by_date()`/`get_by_month()` read through `PanchangamRepository`, falling back to `get_panchangam_data()` only when a date is missing from the database. A feature with no feature-local service (`settings`) leans on a shared `services/` module instead — `features/settings/router.py` depends on `services/settings_service.py::SettingsService` (see "Ports & adapters" below for why that service lives outside the feature folder). A feature that has been migrated to ports & adapters (see below) never imports a concrete `db/` repository from its `service.py`/`router.py` at all — only its own `ports.py` and the concrete adapter bound in `api/deps.py`.
 
 **`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `db/panchangam_repository.py`) is the only place that talks to the database for panchangam data — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
 
@@ -136,7 +136,7 @@ data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source f
 
 ### Ports & adapters
 
-The target pattern for every feature going forward is **ports and adapters**: a feature's `service.py` depends only on an abstract `Protocol` describing what it needs from persistence, never on a concrete SQLModel repository class. `features/auth/` is the canonical, fully-migrated example — read it before migrating another feature. `features/santhigiri_events/` is migrated the same way. A feature without a `ports.py` (`panchangam`, `kollavarsham`, `guruvani`, `settings`) is still on the older "service talks to a concrete `db/*_repository.py` directly" style — acceptable for now, but do not build new patterns on it (see "Known Issues and Active Work").
+The target pattern for every feature going forward is **ports and adapters**: a feature's service depends only on an abstract `Protocol` describing what it needs from persistence, never on a concrete SQLModel repository class. `features/auth/` is the canonical, fully-migrated example — read it before migrating another feature. `features/santhigiri_events/` is migrated the same way. `features/settings/` is migrated too, with one deliberate variation: its `ports.py`/`repository.py` live under `features/settings/` as usual, but the service itself (`SettingsService`) stays at `services/settings_service.py` rather than moving to `features/settings/service.py`, because — unlike `AuthService`/`SanthigiriEventService` — it's a dependency of 3+ other features' own services (`panchangam`, `santhigiri_events`, the panchangam generation path) and `api/deps.py`, not just its own router; see the "services/" entry above and CLAUDE.md's layer-boundary rule against importing another feature's `service.py` directly. It is otherwise built exactly like a migrated feature's service: a frozen `@dataclass` depending on `AppSettingRepositoryPort` + `UnitOfWork`, never the concrete adapter. A feature without a `ports.py` (`panchangam`, `guruvani`) is still on the older "service talks to a concrete `db/*_repository.py` directly" style — acceptable for now, but do not build new patterns on it (see "Known Issues and Active Work").
 
 The pieces, using `features/auth/` as the reference:
 
@@ -150,7 +150,7 @@ Match this granularity exactly when migrating a new feature — one `ports.py` p
 
 ### Versioning without a `v1/` directory
 
-Versioning is applied externally: a feature's `router.py` (or `generation_router.py`, etc.) declares only its feature-local prefix (e.g. `/panchangam/kollavarsham`), and `main.py` mounts it with `app.include_router(router, prefix="/api/v1")`. To add a `v2` of one feature's endpoints, add `features/<name>/router_v2.py` alongside the existing `router.py` and mount it with `prefix="/api/v2"` in `main.py` — no directory reshuffle needed.
+Versioning is applied externally: a feature's `router.py` (or `generation_router.py`, etc.) declares only its feature-local prefix (e.g. `/panchangam/events`), and `main.py` mounts it with `app.include_router(router, prefix="/api/v1")`. To add a `v2` of one feature's endpoints, add `features/<name>/router_v2.py` alongside the existing `router.py` and mount it with `prefix="/api/v2"` in `main.py` — no directory reshuffle needed.
 
 ### Authentication & Authorization
 
@@ -474,7 +474,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
-- Only `features/auth/` and `features/santhigiri_events/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `panchangam`, `kollavarsham`, `guruvani`, and `settings` still have their `service.py` talk to a concrete `db/*_repository.py` class directly. `kollavarsham` is being retired rather than migrated — do not invest in it.
+- `features/auth/`, `features/santhigiri_events/`, and `features/settings/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `panchangam` and `guruvani` still have their `service.py` talk to a concrete `db/*_repository.py` class directly.
 - The whole `tests/` suite predates the move of the codebase under `app/` and still imports top-level modules (`import db.database`, `from core.calendar...`, etc.) that no longer exist at that path — every test file needs its imports updated to `app.db...`/`app.core...` before the suite can run again. This is a large, mechanical, repo-wide fix that has not been done yet.
 
 ---

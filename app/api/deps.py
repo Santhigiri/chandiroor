@@ -37,6 +37,8 @@ from app.features.panchangam.service import PanchangamService
 from app.features.santhigiri_events.ports import SanthigiriEventsRepositoryPort
 from app.features.santhigiri_events.repository import SanthigiriEventRepository
 from app.features.santhigiri_events.service import SanthigiriEventService
+from app.features.settings.ports import AppSettingRepositoryPort
+from app.features.settings.repository import AppSettingRepository
 from app.services.settings_service import SettingsService
 from app.utils.location import Location
 from app.utils.roles import Role
@@ -52,10 +54,20 @@ def get_unit_of_work(session: Annotated[Session, Depends(get_session)]) -> UnitO
 UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
 
 
+def get_app_setting_repository(session: SessionDep) -> AppSettingRepositoryPort:
+    return AppSettingRepository(session)
+
+
+AppSettingRepositoryDep = Annotated[
+    AppSettingRepositoryPort, Depends(get_app_setting_repository)
+]
+
+
 def get_settings_service(
-    session: SessionDep,
+    app_setting_repository: AppSettingRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
 ) -> SettingsService:
-    return SettingsService(session)
+    return SettingsService(app_setting_repository, unit_of_work)
 
 
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]

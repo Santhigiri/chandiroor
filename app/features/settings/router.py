@@ -29,10 +29,8 @@ is reflected immediately with no separate invalidation step.
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlmodel import Session
 
-from app.api.deps import require_role
-from app.db.database import get_session
+from app.api.deps import get_settings_service, require_role
 from app.schemas.app_setting import AppSettingRead, AppSettingUpdate
 from app.services.etag_service import etag_json_response
 from app.services.settings_service import InvalidSettingValue, SettingNotFound, SettingsService
@@ -45,10 +43,7 @@ router = APIRouter(
 )
 
 
-def _get_service(
-    session: Annotated[Session, Depends(get_session)],
-) -> SettingsService:
-    return SettingsService(session)
+_get_service = get_settings_service
 
 
 @router.get("", response_model=List[AppSettingRead])

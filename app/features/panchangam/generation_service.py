@@ -7,8 +7,7 @@ The full :class:`schemas.panchangam_data.PanchangamData` for each day (thithi,
 nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) is embedded in the
 compact ``/year`` payload, so every write commits together with a recomputation
 of the affected years' ETags via :func:`services.etag_service.refresh_etags` —
-exactly as :class:`features.kollavarsham.service.KollavarshamService` and
-:class:`features.santhigiri_events.service.SanthigiriEventService` do — so cached
+exactly as :class:`features.santhigiri_events.service.SanthigiriEventService` does — so cached
 clients revalidate correctly. Nothing commits until that single call at the end,
 so the whole range is still one atomic transaction — ``generate_streaming``
 yielding progress after each day is purely a visibility improvement, it does not
@@ -35,11 +34,13 @@ from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.db.panchangam_repository import PanchangamRepository
+from app.db.unit_of_work import SqlUnitOfWork
 from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,
     PanchangamGenerateResult,
 )
+from app.features.settings.repository import AppSettingRepository
 from app.services.etag_service import refresh_etags
 from app.services.settings_service import SettingsService
 from app.utils.location import DEFAULT_LOCATION, Location
@@ -59,7 +60,7 @@ class PanchangamGenerationService:
     def __init__(self, session: Session) -> None:
         self._s = session
         self._repo = PanchangamRepository(session)
-        self._settings = SettingsService(session)
+        self._settings = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
 
     def validate_span(self, req: PanchangamGenerateRequest) -> None:
         """Raise :class:`SpanTooLarge` if *req*'s span exceeds the

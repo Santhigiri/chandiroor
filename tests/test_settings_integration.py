@@ -14,7 +14,9 @@ from core.astronomy.nakshatra_transition import make_nakshatra_transition_fn
 from core.astronomy.thithi_transition import make_thithi_transition_fn
 from core.calendar.santhigiri_event_occurrences import compute_last_occurrence
 from schemas.app_setting import AppSettingUpdate
+from db.unit_of_work import SqlUnitOfWork
 from features.panchangam.service import PanchangamService, YearOutOfRange
+from features.settings.repository import AppSettingRepository
 from services.settings_service import SettingsService
 from utils.malayalam_masa import MalayalamMasa
 from utils.nakshatra import Nakshatra
@@ -44,7 +46,7 @@ class _FullYearStubRepo:
 
 
 def test_seed_year_range_setting_gates_get_by_year(session, make_panchangam_data):
-    settings_service = SettingsService(session)
+    settings_service = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
     service = PanchangamService(_FullYearStubRepo(make_panchangam_data), settings_service)
 
     # Default setting (2021-2030, from SettingsService's fallback) rejects 2031.
@@ -63,7 +65,7 @@ def test_seed_year_range_setting_gates_get_by_year(session, make_panchangam_data
 
 
 def test_seed_year_range_setting_gates_get_by_month(session, make_panchangam_data):
-    settings_service = SettingsService(session)
+    settings_service = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
     service = PanchangamService(_FullYearStubRepo(make_panchangam_data), settings_service)
 
     with pytest.raises(YearOutOfRange):
@@ -104,7 +106,7 @@ def test_event_nazhika_cutoff_flips_last_occurrence_day(make_panchangam_data):
 # ── nakshatra_transition_step_days per-year override resolves via SettingsService ──
 
 def test_nakshatra_step_days_per_year_override(session):
-    settings_service = SettingsService(session)
+    settings_service = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
 
     # No row stored yet -> falls back to core.constants' global default for every year.
     from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS

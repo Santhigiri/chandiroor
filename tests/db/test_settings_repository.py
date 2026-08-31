@@ -1,7 +1,7 @@
-"""Tests for db/app_setting_repository.py — AppSettingRepository get/list/upsert."""
+"""Tests for features/settings/repository.py — AppSettingRepository get/list/upsert."""
 from sqlmodel import select
 
-from db.app_setting_repository import AppSettingRepository
+from features.settings.repository import AppSettingRepository
 from db.models.app_setting import AppSetting
 
 

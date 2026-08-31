@@ -87,10 +87,13 @@ def _resolve_transition_hour_cutoff() -> float:
     from sqlmodel import Session
 
     from db.database import engine
+    from db.unit_of_work import SqlUnitOfWork
+    from features.settings.repository import AppSettingRepository
     from services.settings_service import SettingsService
 
     with Session(engine) as s:
-        return SettingsService(s).get_event_cutoffs().transition_hour_cutoff
+        service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))
+        return service.get_event_cutoffs().transition_hour_cutoff
 
 
 def cache_chothi_theerthayathra(transition_hour_cutoff: Optional[float] = None):

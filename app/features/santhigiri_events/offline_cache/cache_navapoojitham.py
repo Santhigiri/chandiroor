@@ -109,10 +109,13 @@ def _resolve_nazhika_cutoff() -> float:
     from sqlmodel import Session
 
     from db.database import engine
+    from db.unit_of_work import SqlUnitOfWork
+    from features.settings.repository import AppSettingRepository
     from services.settings_service import SettingsService
 
     with Session(engine) as s:
-        return SettingsService(s).get_event_cutoffs().nazhika_cutoff
+        service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))
+        return service.get_event_cutoffs().nazhika_cutoff
 
 
 def cache_navapoojitham(nazhika_cutoff: Optional[float] = None):

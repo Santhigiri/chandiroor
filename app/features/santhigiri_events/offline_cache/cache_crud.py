@@ -59,11 +59,14 @@ def load_cache_from_db(
 
     from db.database import engine
     from db.panchangam_repository import PanchangamRepository
+    from db.unit_of_work import SqlUnitOfWork
+    from features.settings.repository import AppSettingRepository
     from services.settings_service import SettingsService
 
     def _read(s: "Session") -> Dict[date, PanchangamData]:
         if start is None or end is None:
-            start_year, end_year = SettingsService(s).get_seed_year_range()
+            settings_service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))
+            start_year, end_year = settings_service.get_seed_year_range()
             range_start = start or date(start_year, 1, 1)
             range_end = end or date(end_year, 12, 31)
         else:
@@ -116,10 +119,13 @@ def buildcache(year: int, tuning: Optional[AstronomyTuning] = None):
         from sqlmodel import Session
 
         from db.database import engine
+        from db.unit_of_work import SqlUnitOfWork
+        from features.settings.repository import AppSettingRepository
         from services.settings_service import SettingsService
 
         with Session(engine) as s:
-            tuning = SettingsService(s).get_astronomy_tuning(year)
+            settings_service = SettingsService(AppSettingRepository(s), SqlUnitOfWork(s))
+            tuning = settings_service.get_astronomy_tuning(year)
 
     cache = {}
 
