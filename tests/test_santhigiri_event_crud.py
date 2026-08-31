@@ -23,7 +23,8 @@ import db.database  # noqa: F401 — registers the FK pragma listener
 import db.models  # noqa: F401 — register every table on SQLModel.metadata
 from core.security import hash_password
 from db.database import get_session
-from db.etag_repository import EtagRepository
+from features.etag.repository import EtagRepository
+from db.unit_of_work import SqlUnitOfWork
 from db.seed import seed_lookup_tables
 from db.user_repository import UserRepository
 from main import app
@@ -45,7 +46,7 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        refresh_etags(s, [])  # precompute enum ETags exactly as db.migrate does
+        refresh_etags(s, EtagRepository(s), SqlUnitOfWork(s), [])  # precompute enum ETags exactly as db.migrate does
         repo = UserRepository(s)
         repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
         repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)

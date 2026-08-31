@@ -33,6 +33,7 @@ from app.core.calendar.santhigiri_event_occurrences import (
 )
 from app.core.ports.unit_of_work import UnitOfWork
 from app.db.panchangam_repository import PanchangamRepository
+from app.features.etag.ports import EtagRepositoryPort
 from app.features.santhigiri_events.ports import (
     SanthigiriEventCreate as SanthigiriEventCreatePort,
     SanthigiriEventGet,
@@ -92,6 +93,7 @@ UnsupportedEventCondition = UnsupportedOccurrenceCondition
 class SanthigiriEventService:
     session: Session
     event_repository: SanthigiriEventsRepositoryPort
+    etag_repository: EtagRepositoryPort
     panchangam_repo: PanchangamRepository
     settings: SettingsService
     unit_of_work: UnitOfWork
@@ -497,4 +499,4 @@ class SanthigiriEventService:
         # state and commits once, so the data change and its ETags land in a
         # single transaction. It always refreshes every enum dataset — including
         # ``events`` — and any years passed here.
-        refresh_etags(self.session, years)
+        refresh_etags(self.session, self.etag_repository, self.unit_of_work, years)

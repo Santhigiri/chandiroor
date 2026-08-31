@@ -76,12 +76,19 @@ panchangam-api/
     │   │   ├── router.py
     │   │   ├── service.py
     │   │   └── schemas.py
-    │   └── settings/                    # Migrated to ports & adapters, but the service itself stays in services/ — see below
-    │       ├── ports.py      # AppSettingRepositoryPort (Protocol) + AppSettingGet DTO
-    │       ├── repository.py # AppSettingRepository — concrete adapter implementing the port against SQLModel
-    │       └── router.py     # Admin CRUD for app_setting
+    │   ├── settings/                    # Migrated to ports & adapters, but the service itself stays in services/ — see below
+    │   │   ├── ports.py      # AppSettingRepositoryPort (Protocol) + AppSettingGet DTO
+    │   │   ├── repository.py # AppSettingRepository — concrete adapter implementing the port against SQLModel
+    │   │   └── router.py     # Admin CRUD for app_setting
+    │   └── etag/                        # Migrated to ports & adapters; only the payload/ETag *functions* stay in services/ — see below
+    │       ├── ports.py      # EtagRepositoryPort (Protocol) — no DTO, the boundary value is a bare ETag string
+    │       └── repository.py # EtagRepository — concrete adapter implementing the port against SQLModel (dataset_etag table)
     ├── services/                    # Only services used by 3+ features stay here — everything else moved into features/<name>/service.py
-    │   ├── etag_service.py          # Canonical payload builders + ETag compute/refresh (used by every feature)
+    │   ├── etag_service.py          # Canonical payload builders + ETag compute/refresh (used by every feature).
+    │   │                             # Depends on features/etag/ports.py's EtagRepositoryPort + UnitOfWork for ETag
+    │   │                             # persistence, never the concrete adapter — the rest of its functions still take a
+    │   │                             # raw Session because they build payloads via db/panchangam_repository.py and
+    │   │                             # db/reference_repository.py, neither of which is migrated yet.
     │   └── settings_service.py      # SettingsService — reads/writes app_setting; used by every feature's service plus api/deps.py.
     │                                 # Depends on features/settings/ports.py's AppSettingRepositoryPort + UnitOfWork, not the
     │                                 # concrete adapter — built the same way as a migrated feature's service.py, just located
@@ -136,7 +143,11 @@ data/panchangam_YYYY.pkl    # Pre-computed yearly caches (2021–2030); source f
 
 ### Ports & adapters
 
-The target pattern for every feature going forward is **ports and adapters**: a feature's service depends only on an abstract `Protocol` describing what it needs from persistence, never on a concrete SQLModel repository class. `features/auth/` is the canonical, fully-migrated example — read it before migrating another feature. `features/santhigiri_events/` is migrated the same way. `features/settings/` is migrated too, with one deliberate variation: its `ports.py`/`repository.py` live under `features/settings/` as usual, but the service itself (`SettingsService`) stays at `services/settings_service.py` rather than moving to `features/settings/service.py`, because — unlike `AuthService`/`SanthigiriEventService` — it's a dependency of 3+ other features' own services (`panchangam`, `santhigiri_events`, the panchangam generation path) and `api/deps.py`, not just its own router; see the "services/" entry above and CLAUDE.md's layer-boundary rule against importing another feature's `service.py` directly. It is otherwise built exactly like a migrated feature's service: a frozen `@dataclass` depending on `AppSettingRepositoryPort` + `UnitOfWork`, never the concrete adapter. A feature without a `ports.py` (`panchangam`, `guruvani`) is still on the older "service talks to a concrete `db/*_repository.py` directly" style — acceptable for now, but do not build new patterns on it (see "Known Issues and Active Work").
+The target pattern for every feature going forward is **ports and adapters**: a feature's service depends only on an abstract `Protocol` describing what it needs from persistence, never on a concrete SQLModel repository class. `features/auth/` is the canonical, fully-migrated example — read it before migrating another feature. `features/santhigiri_events/` is migrated the same way. `features/settings/` is migrated too, with one deliberate variation: its `ports.py`/`repository.py` live under `features/settings/` as usual, but the service itself (`SettingsService`) stays at `services/settings_service.py` rather than moving to `features/settings/service.py`, because — unlike `AuthService`/`SanthigiriEventService` — it's a dependency of 3+ other features' own services (`panchangam`, `santhigiri_events`, the panchangam generation path) and `api/deps.py`, not just its own router; see the "services/" entry above and CLAUDE.md's layer-boundary rule against importing another feature's `service.py` directly.
+
+`features/etag/` follows the same "port lives in the feature, orchestration stays in `services/`" shape as `settings`, but with a further wrinkle: `services/etag_service.py` isn't a class-based service at all — it's the shared payload-builder/ETag-compute module every feature's router calls into, so there's no single `EtagService` dataclass to hold the port. Instead, `conditional_json_response()` and `refresh_etags()` take `etag_repository: EtagRepositoryPort` and `unit_of_work: UnitOfWork` as plain parameters, resolved by the caller (a router via `api/deps.py`'s `EtagRepositoryDep`/`UnitOfWorkDep`, or a feature's own `service.py` that already holds those fields, e.g. `SanthigiriEventService`). `features/etag/ports.py` has no DTO — unlike `AppSettingGet`/`UserGet`, the value crossing the boundary is a bare ETag string keyed by dataset name, so there is no row shape to translate.
+
+Both `settings` and `etag` are otherwise built exactly like a migrated feature's service: depending on the port + `UnitOfWork`, never the concrete adapter. A feature without a `ports.py` (`panchangam`, `guruvani`) is still on the older "service talks to a concrete `db/*_repository.py` directly" style — acceptable for now, but do not build new patterns on it (see "Known Issues and Active Work").
 
 The pieces, using `features/auth/` as the reference:
 
@@ -474,7 +485,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
-- `features/auth/`, `features/santhigiri_events/`, and `features/settings/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `panchangam` and `guruvani` still have their `service.py` talk to a concrete `db/*_repository.py` class directly.
+- `features/auth/`, `features/santhigiri_events/`, `features/settings/`, and `features/etag/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `panchangam` and `guruvani` still have their `service.py` talk to a concrete `db/*_repository.py` class directly.
 - The whole `tests/` suite predates the move of the codebase under `app/` and still imports top-level modules (`import db.database`, `from core.calendar...`, etc.) that no longer exist at that path — every test file needs its imports updated to `app.db...`/`app.core...` before the suite can run again. This is a large, mechanical, repo-wide fix that has not been done yet.
 
 ---

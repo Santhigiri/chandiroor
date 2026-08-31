@@ -1,11 +1,13 @@
 """
-EtagRepository — get and set persisted dataset ETags.
+EtagRepository — concrete adapter for ``EtagRepositoryPort``, implementing
+get/set for the ``dataset_etag`` table against SQLModel.
 
-Backed by the ``dataset_etag`` table. Reads are a single indexed primary-key
-lookup, which is what lets a conditional request short-circuit to ``304`` without
-rebuilding the response body. Writes use ``session.merge`` so ``set`` is an
-idempotent upsert. Following the convention of ``PanchangamRepository``, ``set``
-does NOT commit — the caller owns the transaction.
+Reads are a single indexed primary-key lookup, which is what lets a
+conditional request short-circuit to ``304`` without rebuilding the response
+body. Writes use ``session.merge`` so ``set`` is an idempotent upsert.
+Following the convention of ``PanchangamRepository``/
+``features.settings.repository.AppSettingRepository``, ``set`` does NOT
+commit — the caller owns the transaction.
 """
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
-"""Tests for db/etag_repository.py — EtagRepository get/set round-trip."""
+"""Tests for features/etag/repository.py — EtagRepository get/set round-trip."""
 from sqlmodel import select
 
-from db.etag_repository import EtagRepository
+from features.etag.repository import EtagRepository
 from db.models.dataset_etag import DatasetEtag
 
 

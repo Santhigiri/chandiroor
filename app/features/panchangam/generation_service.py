@@ -35,6 +35,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.db.panchangam_repository import PanchangamRepository
 from app.db.unit_of_work import SqlUnitOfWork
+from app.features.etag.repository import EtagRepository
 from app.features.panchangam.schemas.panchangam_generation import (
     PanchangamGenerateProgress,
     PanchangamGenerateRequest,
@@ -61,6 +62,8 @@ class PanchangamGenerationService:
         self._s = session
         self._repo = PanchangamRepository(session)
         self._settings = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
+        self._etag_repository = EtagRepository(session)
+        self._uow = SqlUnitOfWork(session)
 
     def validate_span(self, req: PanchangamGenerateRequest) -> None:
         """Raise :class:`SpanTooLarge` if *req*'s span exceeds the
@@ -119,7 +122,7 @@ class PanchangamGenerationService:
             )
 
         years = sorted({d.year for d in dates})
-        refresh_etags(self._s, years, [location])  # commits
+        refresh_etags(self._s, self._etag_repository, self._uow, years, [location])  # commits
 
         yield PanchangamGenerateResult(
             start_date=req.start_date,
