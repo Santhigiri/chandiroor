@@ -195,21 +195,21 @@ async def generate_event_occurrences_streaming(
             ):
                 yield event.model_dump_json() + "\n"
         except EventNotFoundException:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             yield SanthigiriEventsGenerateError(
                 detail=f"Event '{event_id}' not found."
             ).model_dump_json() + "\n"
         except IncompleteYearDataException as exc:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             year = exc.args[0]
             yield SanthigiriEventsGenerateError(
                 detail=f"Panchangam data for {year} is not fully seeded."
             ).model_dump_json() + "\n"
         except (UnsupportedEventCondition, OccurrenceComputationError) as exc:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
         except Exception as exc:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
@@ -240,13 +240,13 @@ async def generate_all_event_occurrences(
             ):
                 yield event.model_dump_json() + "\n"
         except IncompleteYearDataException as exc:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             year = exc.args[0]
             yield SanthigiriEventsGenerateError(
                 detail=f"Panchangam data for {year} is not fully seeded."
             ).model_dump_json() + "\n"
         except Exception as exc:
-            service.session.rollback()
+            service.unit_of_work.rollback()
             yield SanthigiriEventsGenerateError(detail=str(exc)).model_dump_json() + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")

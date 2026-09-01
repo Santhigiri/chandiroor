@@ -18,7 +18,12 @@ from app.core.security import (
     create_refresh_token,
 )
 from app.db.database import get_session
-from app.features.auth.service import AuthService, InvalidTokenException, UsernameTakenException
+from app.features.auth.service import (
+    AuthService,
+    InvalidCredentailsException,
+    InvalidTokenException,
+    UsernameTakenException,
+)
 from .auth_repository import AuthRepository, UserNotFoundException
 from .schemas import LoginUserRequest, UpdateUserRequest, Token, CreateUserRequest, GetUserResponse
 from app.utils.roles import Role
@@ -26,18 +31,6 @@ from app.utils.roles import Role
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 REFRESH_TOKEN_COOKIE = "refresh_token"
-
-
-def _to_user_read(user) -> GetUserResponse:
-    return GetUserResponse(
-        username=user.username,
-        role=Role[user.role] if user.role else Role.ANONYMOUS ,
-        is_active=user.is_active,
-        email=user.email,
-        full_name=user.full_name,
-        date_of_birth=user.date_of_birth,
-        birth_nakshatra=user.birth_nakshatra,
-    )
 
 
 def _issue_tokens(username: str, role: str) -> Token:
@@ -100,8 +93,8 @@ def login(
         credentials = LoginUserRequest(username=form.username, password = form.password)
         user = auth_service.login_user(credentials)
         _set_auth_cookies(response, _issue_tokens(user.username, user.role))
-        return _to_user_read(user)
-    except UserNotFoundException:
+        return user
+    except InvalidCredentailsException:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -161,7 +154,7 @@ def me(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    return _to_user_read(user)
+    return user
 
 
 @router.patch("/me", response_model=GetUserResponse)
