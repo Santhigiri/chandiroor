@@ -46,7 +46,6 @@ panchangam-api/
     ├── features/                   # One subpackage per feature — the HTTP boundary + orchestration for that feature
     │   ├── panchangam/                  # Migrated to ports & adapters (see "Ports & adapters" below)
     │   │   ├── router.py               # Compact panchangam reads (day/instant/month/year/sunrise-sunset), mounted at /api/v1
-    │   │   ├── legacy_router.py        # Deprecated pre-v1 router (unversioned); do not add new callers or new endpoints here
     │   │   ├── generation_router.py    # POST /api/v1/panchangam/generate (admin)
     │   │   ├── service.py              # PanchangamService — reads through PanchangamRepositoryPort; live-computation fallback on a DB miss
     │   │   ├── generation_service.py   # PanchangamGenerationService — write path, depends on the port + UnitOfWork, commits with an ETag refresh
@@ -65,9 +64,11 @@ panchangam-api/
     │   │   ├── router.py    # login / refresh / me / users / Google sign-in (JWT auth)
     │   │   ├── service.py   # AuthService — depends on AuthRepositoryPort + UnitOfWork, not the concrete adapter
     │   │   └── schemas.py
-    │   ├── guruvani/
+    │   ├── guruvani/                    # Migrated to ports & adapters, same shape as auth
+    │   │   ├── ports.py      # GuruvaniRepositoryPort (Protocol) + DTOs (GuruvaniGet/Create/Update) + GuruvaniNotFoundException
+    │   │   ├── repository.py # GuruvaniRepository — concrete adapter implementing the port against SQLModel
     │   │   ├── router.py
-    │   │   ├── service.py
+    │   │   ├── service.py    # GuruvaniService — depends on GuruvaniRepositoryPort + UnitOfWork, not the concrete adapter
     │   │   └── schemas.py
     │   ├── reference/                   # No ports.py of its own — see core/ports/reference_repository.py below
     │   │   └── router.py     # thithi/nakshatra/masa/events/locations reads, mounted under the /panchangam URL
@@ -102,7 +103,6 @@ panchangam-api/
     │   │                            # (core/ports/reference_repository.py) against SQLModel; reads the enum/reference
     │   │                            # datasets (thithi, nakshatra, masa, events, locations)
     │   ├── kollavarsham_repository.py
-    │   ├── guruvani_repository.py
     │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
     │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
     │   └── models/                 # SQLModel table definitions
@@ -146,7 +146,7 @@ panchangam-api/
 
 **`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `features/panchangam/repository.py`, the concrete adapter for `PanchangamRepositoryPort`) is the only place that talks to the database for panchangam data — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
 
-**`features/panchangam/legacy_router.py`** is the one surviving unversioned/legacy router, colocated with its v1 sibling since both belong to the same feature. Route handlers (whether here or in a feature's `router.py`) parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
+**`features/panchangam/router.py`** is the only panchangam router now — the unversioned legacy router was removed once all consumers moved to `/api/v1`. Route handlers parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
 **`schemas/`** holds only the Pydantic models shared across features (or consumed by `db/`/`core/calendar/`, which don't import from `features/`). Everything else lives in the owning feature's `schemas.py`/`schemas/` package. The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
@@ -164,7 +164,7 @@ The target pattern for every feature going forward is **ports and adapters**: a 
 
 `features/panchangam/` is migrated too, with its own wrinkle: `ports.py`'s `PanchangamRepositoryPort` has no new DTOs at all. `PanchangamData` (`schemas/panchangam_data.py`) and `SanthigiriEvent` (`utils/santhigiri_events.py`) are already plain, framework-independent Pydantic/dataclass domain objects — not SQLModel rows — so `PanchangamRepository` (`features/panchangam/repository.py`) returns and accepts them directly rather than translating to/from a separate boundary type. `PanchangamService` (`features/panchangam/service.py`) depends on `PanchangamRepositoryPort` and (optionally) `SettingsServicePort`, same as a canonical migrated feature. `PanchangamGenerationService` (`features/panchangam/generation_service.py`), the write-path sibling built for the admin `/generate` endpoint, is shaped like `SanthigiriEventService`: a frozen `@dataclass` holding `PanchangamRepositoryPort`, `SettingsServicePort`, `EtagRepositoryPort`, `PanchangamServicePort` (the settings-free binding — see the `etag` entry above), and `UnitOfWork` as fields, plus the raw `Session` that `features/etag/service.py::refresh_etags` still needs to build enum payloads — wired up by `api/deps.py::get_panchangam_generation_service` and injected into `generation_router.py` via `Depends`, never constructed by hand in the router. `SanthigiriEventService` carries the same `PanchangamServicePort` field for the same reason — its own `_commit_with_etags` also calls `refresh_etags()`.
 
-`settings`, `etag`, and `panchangam` are otherwise built exactly like a migrated feature's service: depending on ports + `UnitOfWork`, never a concrete adapter or another feature's concrete service class. A feature without a `ports.py` (`guruvani`) is still on the older "service talks to a concrete `db/*_repository.py` directly" style — acceptable for now, but do not build new patterns on it (see "Known Issues and Active Work").
+`settings`, `etag`, `panchangam`, and `guruvani` are otherwise built exactly like a migrated feature's service: depending on ports + `UnitOfWork`, never a concrete adapter or another feature's concrete service class. Every feature has now been migrated to this pattern.
 
 The pieces, using `features/auth/` as the reference:
 
@@ -204,7 +204,7 @@ Follow these rules without exception.
 
 ### Layer import boundaries
 
-- Route handlers in `features/<name>/router.py` (or `features/panchangam/legacy_router.py`) must only parse HTTP params and delegate to that feature's `service.py`. They must not call a `db/` repository or `core/astronomy/`/`core/calendar/` directly.
+- Route handlers in `features/<name>/router.py` must only parse HTTP params and delegate to that feature's `service.py`. They must not call a `db/` repository or `core/astronomy/`/`core/calendar/` directly.
 - `core/astronomy/` functions must not import from `api/`, `features/`, `schemas/`, or `utils/lifespan.py`.
 - `core/calendar/` functions must not import from `api/` or `features/`.
 - `db/` (models, `reference_repository.py`, etc.) must not import from `api/` or `features/` — with one narrow, deliberate exception: a table model backing a migrated feature (e.g. `db/models/santhigiri_event.py`) may import that feature's `ports.py` for its `to_dto`/`from_dto` conversion, since the port's DTOs *are* that row's serialization contract. Nothing else in `db/` gets this exception.
@@ -390,8 +390,6 @@ Panchangam data (public — anonymous allowed, any supplied token still validate
 - `GET /api/v1/panchangam/instant?day=YYYY-MM-DD&time=HH:MM&latitude=..&longitude=..&timezone=..` — main version; returns the compact Panchangam active at an arbitrary date/time/location instant (always live-computed, no DB lookup)
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
 - `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
-- `GET /panchangam/?date_str=YYYY-MM-DD` — legacy version; returns full Panchangam for a single day
-- `GET /panchangam/monthly?year=YYYY&month=MM` — legacy version; returns full Panchangam for every day in the month
 
 Reference datasets (public, ETag-validated, read from the DB):
 
@@ -494,10 +492,9 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 
 - `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only, so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
-- The daily endpoint (`GET /panchangam/`) accepts `latitude`, `longitude`, and `timezone` as query parameters but `PanchangamService`/`get_panchangam_data()` never receive them — hardcoded defaults are used throughout. This is a known inconsistency, unrelated to the DB migration.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
-- `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, and `features/panchangam/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `guruvani` still has its `service.py` talk to a concrete `db/*_repository.py` class directly.
+- `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every feature now follows this pattern.
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
 - The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
 - `POST /auth/google` (Google Sign-In) and its find-or-create-by-`google_id` logic were dropped from `features/auth/` during the `app/` restructure and never carried over to `AuthRepositoryPort`/`AuthRepository`/`AuthService`, even though `db/models/user.py::User` still has a `google_id` column and `core/security.py::verify_google_id_token` still exists. `tests/features/auth/test_google_auth.py` documents this as a skipped gap rather than a fabricated pass — restoring it is a real feature slice (new port method + DTO + repository + service + router wiring), not a quick fix.
