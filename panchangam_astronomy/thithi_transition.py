@@ -1,12 +1,11 @@
-from datetime import date, datetime, timezone, timedelta, time
+from datetime import date, datetime, timedelta, time
 from functools import lru_cache
-from typing import List, Tuple
+from typing import List
 from pytz.exceptions import Error
 from skyfield.almanac import ecliptic_frame, find_discrete
 from skyfield.api import Time
 from panchangam_astronomy.ayanamsa import get_ayanamsa
 from panchangam_astronomy.calculations import get_time
-from panchangam_astronomy.ephemeris import ts
 from zoneinfo import ZoneInfo
 import numpy as np
 import math
@@ -51,16 +50,6 @@ def get_elongations(t: Time) -> float:
     sun_sidereal_longitude = get_sidereal_longitude_from_time(t, "sun")
     elongation = (moon_sidereal_longitude - sun_sidereal_longitude) % 360
     return elongation
-
-def get_thithi_id(
-    t: Time
-)-> int:
-    # Thithi calculation
-    elongation = get_elongations(t)
-    thithi_number = math.floor(elongation / 12) + 1
-    if thithi_number > 30:
-        thithi_number = 30  # Amavasya
-    return thithi_number
 
 def get_thithi(
     t: Time
@@ -159,41 +148,4 @@ def calc_thithi_transition_for_date(
     total_thithi_transitions = [transition for transition in total_thithi_transitions if transition.start_time.date() <= date and (transition.end_time is not None and transition.end_time.date() >= date)]
 
     return total_thithi_transitions
-
-
-@lru_cache(maxsize=1000)
-def calc_thithi_transition(date: date, timezone: str, fine_step_days: float = 0.0007):
-    transition_fn = make_thithi_transition_fn(fine_step_days)  # Step by 1 minute by default
-
-    t0 = get_time(datetime.combine(date, time.min), timezone)
-    t1 = get_time(datetime.combine(date, time.max), timezone)
-
-    t, values = find_discrete(t0, t1, transition_fn)
-
-    # Filter to keep only the start of transitions (values == 1)
-    transition_times = [(ti, vi) for ti, vi in zip(t, values)]
-    
-
-    thithis_for_day: List = []
-
-    # Convert UTC to IST (UTC+05:30)
-    ist_timezone = ZoneInfo(timezone)
-    for i, (ti, vi) in enumerate(transition_times):
-        utc_start_time = ti.utc_datetime()
-        ist_start_time: datetime = utc_start_time.astimezone(ist_timezone)
-        ist_end_time = None
-        if i + 1 != len(transition_times):
-            utc_end_time, _ = transition_times[i+1]
-            ist_end_time = utc_end_time.utc_datetime().astimezone(ist_timezone)
-        thithi_id = get_thithi_id(ts.from_datetime(utc_start_time) + timedelta(minutes=10))
-        thithi = Thithi.from_id(thithi_id)
-        if ist_end_time is not None:
-            thithis_for_day.append({
-                "thithi_name": thithi.en,
-                "thithi": thithi,
-                "ist_start_time": ist_start_time,
-                "ist_end_time": ist_end_time
-            })
-
-    return thithis_for_day
 

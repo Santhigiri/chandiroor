@@ -11,18 +11,7 @@ from panchangam_astronomy.thithi_transition import get_sidereal_longitude_from_t
 from panchangam_astronomy.transitions import NakshatraTransition
 from panchangam_astronomy.tuning import AstronomyTuning
 from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.nakshatra_calc import calc_nakshatra_from_lon, calc_nakshatra_id_from_lon
-
-
-def get_nakshatra_id(t: Time)-> int:
-    moon_sidereal_longitude = get_sidereal_longitude_from_time(t, "moon")
-    nakshatra_id = calc_nakshatra_id_from_lon(moon_sidereal_longitude)
-    return nakshatra_id
-
-def get_nakshatra(t: Time)->Nakshatra:
-    moon_sidereal_longitude = get_sidereal_longitude_from_time(t, "moon")
-    nakshatra = calc_nakshatra_from_lon(moon_sidereal_longitude)
-    return nakshatra
+from panchangam_astronomy.nakshatra_calc import calc_nakshatra_from_lon
 
 
 def make_nakshatra_transition_fn(eps: float, step_days: float):
@@ -44,7 +33,6 @@ def make_nakshatra_transition_fn(eps: float, step_days: float):
     return _nakshatra_transition
 
 
-#@lru_cache(maxsize=1000)
 def get_nakshatra_transition_for_date(
     date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
 ):
@@ -57,9 +45,6 @@ def get_nakshatra_transition_for_date(
     t, values = find_discrete(t0, t1, transition_fn, num=tuning.nakshatra_num)
 
     transition_times = [(ti, vi)  for ti, vi in zip(t, values)]
-    #print(f"===========TRANSITIONS FOR DAY {date}============")
-    #for ti, vi in transition_times:
-    #    print(f"{ti} => {vi}")
 
     nakshatras_for_day: List[NakshatraTransition] = []
 
@@ -79,12 +64,7 @@ def get_nakshatra_transition_for_date(
             start_time=nakshatra_start_tz,
             end_time= nakshatra_end_tz
         ))
-        #print(
-        #ti.utc_datetime(),
-        #vi,
-        #Nakshatra.from_id(int(vi)+1).en
-        #)
-    
+
     return nakshatras_for_day
 
 def find_previous_transitions(
@@ -137,9 +117,6 @@ def calc_nakshatra_transition_for_date(
     tzinfo = ZoneInfo(timezone)
     day_start = datetime.combine(date, time.min, tzinfo= tzinfo)
     day_end = datetime.combine(date, time.max, tzinfo= tzinfo)
-
-    #for t in total_transitions:
-    #    print(f"{t.nakshatra.en} ( {t.nakshatra.id} ) => {t.start_time.ctime()}")
 
     for i, transition in enumerate(total_transitions):
         if i + 1 < len(total_transitions):

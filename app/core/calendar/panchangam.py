@@ -4,12 +4,12 @@ from typing import Any, Dict, Optional
 import pytz
 from panchangam_astronomy.calculations import get_sun_sidereal_longitude, get_time
 from panchangam_astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
-from panchangam_astronomy.nakshatra_transition import  calc_nakshatra_transition_for_date, get_nakshatra_id
+from panchangam_astronomy.nakshatra_transition import calc_nakshatra_transition_for_date
 from panchangam_astronomy.sunrise_sunset import get_sunrise_sunset
 from panchangam_astronomy.thithi import get_thithi
 from panchangam_astronomy.enums.thithi import Thithi
 from panchangam_astronomy.pournami import is_poornima_live
-from panchangam_astronomy.thithi_transition import   calc_thithi_transition_for_date, get_thithi_id
+from panchangam_astronomy.thithi_transition import calc_thithi_transition_for_date
 from panchangam_astronomy.tuning import AstronomyTuning
 from app.core.calendar.kollavarsham import get_kollavarsham_date
 from datetime import date
