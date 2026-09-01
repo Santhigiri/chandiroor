@@ -32,7 +32,7 @@ def test_importing_app_does_not_load_astronomy_stack():
         import sys
         import app.main  # noqa: F401
         heavy = [
-            m for m in ("skyfield", "swisseph", "app.core.astronomy.ephemeris")
+            m for m in ("skyfield", "swisseph", "panchangam_astronomy.ephemeris")
             if m in sys.modules
         ]
         assert not heavy, f"heavy modules loaded at app import: {heavy}"

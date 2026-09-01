@@ -13,7 +13,7 @@ from pydantic import EmailStr
 from sqlmodel import Session, select
 
 from app.db.models.user import User
-from app.utils.nakshatra import Nakshatra
+from panchangam_astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
 from .ports import UserCreate ,UserGet, UserNotFoundException, UserUpdate, UserWithCredentials
 

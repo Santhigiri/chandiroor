@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Protocol, Tuple
 
-from app.core.astronomy.tuning import AstronomyTuning
+from panchangam_astronomy.tuning import AstronomyTuning
 from app.schemas.app_setting import EventCutoffsValue
 
 

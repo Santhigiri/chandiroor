@@ -2,10 +2,10 @@
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.reference_repository import ReferenceRepository
 from app.utils.malayalam_masa import MalayalamMasa
-from app.utils.nakshatra import Nakshatra
-from app.utils.paksha import Paksha
+from panchangam_astronomy.enums.nakshatra import Nakshatra
+from panchangam_astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from app.utils.thithi import Thithi
+from panchangam_astronomy.enums.thithi import Thithi
 
 
 # ── Lookup-table datasets ─────────────────────────────────────────────────────

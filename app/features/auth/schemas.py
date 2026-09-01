@@ -8,7 +8,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.utils.nakshatra import Nakshatra
+from panchangam_astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
 
 

@@ -22,7 +22,7 @@ from sqlmodel import Session, SQLModel, create_engine
 import app.db.database  # noqa: F401 — registers the FK pragma listener
 import app.db.models  # noqa: F401 — registers every table on SQLModel.metadata
 from app.core.calendar.panchangam import get_panchangam_data
-from app.core.constants import Coordinates, DEFAULT_TIMEZONE
+from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 from app.db.database import get_session
 from app.db.seed import seed_lookup_tables
 from app.main import app

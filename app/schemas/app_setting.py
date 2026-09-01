@@ -18,7 +18,7 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+from panchangam_astronomy.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 from app.utils.location import DEFAULT_LOCATION_CODE
 
 

@@ -3,7 +3,7 @@ from datetime import date
 from typing import Optional, Protocol
 
 from pydantic import EmailStr
-from app.utils.nakshatra import Nakshatra
+from panchangam_astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
 
 class UserNotFoundException(Exception):

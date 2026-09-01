@@ -24,7 +24,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.core.constants import Coordinates, DEFAULT_TIMEZONE
+from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 from app.core.calendar.kollavarsham import get_kollavarsham_date
 
 LAT = round(Coordinates.SG_LATITUDE, 3)

@@ -5,17 +5,9 @@ import pytz
 from pytz.exceptions import Error
 from skyfield.api import Time
 from skyfield.framelib import ecliptic_frame
-from app.core.astronomy.ayanamsa import get_ayanamsa
+from panchangam_astronomy.ayanamsa import get_ayanamsa
 import pytz
-import logging
 from .ephemeris import sun, moon, earth, ts
-
-# 1. Configure Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
 
 
 def get_time(localdt: datetime, timezone: str)-> Time: 

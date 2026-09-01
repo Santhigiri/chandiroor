@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import List, Optional, Protocol
 
-from app.utils.nakshatra import Nakshatra
+from panchangam_astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
-from app.utils.thithi import Thithi
+from panchangam_astronomy.enums.thithi import Thithi
 
 
 class EventNotFoundException(Exception):
