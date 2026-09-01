@@ -1,8 +1,8 @@
 """Tests for features/etag/repository.py — EtagRepository get/set round-trip."""
 from sqlmodel import select
 
-from features.etag.repository import EtagRepository
-from db.models.dataset_etag import DatasetEtag
+from app.features.etag.repository import EtagRepository
+from app.db.models.dataset_etag import DatasetEtag
 
 
 def test_get_missing_returns_none(session):

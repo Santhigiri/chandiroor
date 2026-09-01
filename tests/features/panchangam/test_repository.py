@@ -1,4 +1,4 @@
-"""Tests for db/repository.py — PanchangamRepository get/set + converters."""
+"""Tests for app/features/panchangam/repository.py — PanchangamRepository get/set + converters."""
 import datetime
 import types
 
@@ -6,29 +6,29 @@ import pytest
 import pytz
 from sqlmodel import Session, select
 
-from db.models.location import Location as LocationRow
-from db.models.panchangam import Panchangam as PanchangamRow
-from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
-from db.models.nakshatra_transition import NakshatraTransition as NakshatraTransitionRow
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.santhigiri_event_date import (
+from app.db.models.location import Location as LocationRow
+from app.db.models.panchangam import Panchangam as PanchangamRow
+from app.db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from app.db.models.nakshatra_transition import NakshatraTransition as NakshatraTransitionRow
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.santhigiri_event_date import (
     SanthigiriEventDate as SsdRow,
 )
-from db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
-from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
-from db.repository import (
+from app.db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
+from app.db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
+from app.features.panchangam.repository import (
     PanchangamRepository,
     _row_to_panchangam_data,
     event_row_to_event,
 )
-from utils.location import Location
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import (
+from app.utils.location import Location
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import (
     EVENT_DEFINITIONS_BY_ID,
     EventCondition,
     SanthigiriEvent,
 )
-from utils.thithi import Thithi
+from app.utils.thithi import Thithi
 
 TVM = Location.TVM
 
@@ -114,7 +114,7 @@ def test_event_row_to_event_defaults_day_offset_to_none():
 
 
 def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchangam_data):
-    from core.astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     date = datetime.date(2026, 3, 5)
     day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
@@ -180,8 +180,8 @@ def test_upsert_normalizes_sunrise_sunset_to_utc(seeded_session, make_panchangam
 
 
 def test_upsert_normalizes_transitions_to_utc(seeded_session, make_panchangam_data):
-    from core.astronomy.nakshatra_transition import NakshatraTransition
-    from core.astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.nakshatra_transition import NakshatraTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 8, 2)
@@ -296,7 +296,7 @@ def test_delete_children_scoped_to_location(two_location_session, make_panchanga
 # ── Upsert replace semantics ──────────────────────────────────────────────────
 
 def test_upsert_replaces_children_cleanly(seeded_session, make_panchangam_data):
-    from core.astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 3, 6)

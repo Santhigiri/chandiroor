@@ -3,32 +3,34 @@ Tests for the ETag change-detection feature.
 
 Covers the pure helpers (``stable_hash``, ``if_none_match_satisfied``) and the
 end-to-end conditional-request behaviour of the year and enum-reference
-endpoints via ``TestClient``. The API fixture seeds an in-memory DB from the real
-2022 pickle and precomputes ETags via ``refresh_etags`` the same way the SQL
-seed data is prepared offline.
+endpoints via ``TestClient``. The API fixture seeds an in-memory DB with a full
+year of synthetic (but schema-valid) panchangam rows built via the
+``make_panchangam_data`` fixture — there is no offline pickle-cache pipeline any
+more (see CLAUDE.md) — and precomputes ETags via ``refresh_etags`` the same way
+the SQL seed data is prepared offline.
 """
-import pickle
+import datetime
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — registers every table on SQLModel.metadata
-from db.database import get_session
-from features.etag.repository import EtagRepository
-from db.unit_of_work import SqlUnitOfWork
-from db.repository import PanchangamRepository
-from db.seed import seed_lookup_tables
-from features.panchangam.service import PanchangamService
-from main import app
-from features.etag.service import refresh_etags, year_key
-from utils.content_hash import stable_hash
-from utils.etag import if_none_match_satisfied
-from utils.location import Location
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — registers every table on SQLModel.metadata
+from app.db.database import get_session
+from app.features.etag.repository import EtagRepository
+from app.db.unit_of_work import SqlUnitOfWork
+from app.features.panchangam.repository import PanchangamRepository
+from app.db.reference_repository import ReferenceRepository
+from app.db.seed import seed_lookup_tables
+from app.features.panchangam.service import PanchangamService
+from app.main import app
+from app.features.etag.service import refresh_etags, year_key
+from app.utils.content_hash import stable_hash
+from app.utils.etag import if_none_match_satisfied
+from app.utils.location import Location
 
-PICKLE_2022 = "data/panchangam_2022.pkl"
 YEAR = 2022
 
 
@@ -68,8 +70,10 @@ def test_if_none_match_satisfied(header, etag, expected):
 # ── API fixtures ──────────────────────────────────────────────────────────────
 
 @pytest.fixture
-def api_engine():
-    """In-memory engine seeded from the 2022 pickle with ETags precomputed."""
+def api_engine(make_panchangam_data):
+    """In-memory engine seeded with a full year of synthetic panchangam rows
+    (ETags precomputed) — see the module docstring for why this isn't a pickle
+    load any more."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -78,10 +82,17 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        with open(PICKLE_2022, "rb") as f:
-            cache = pickle.load(f)
-        PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
-        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [YEAR])
+        start = datetime.date(YEAR, 1, 1)
+        days = 366 if YEAR % 4 == 0 else 365
+        year_data = [make_panchangam_data(start + datetime.timedelta(days=i)) for i in range(days)]
+        PanchangamRepository(s).upsert_many(year_data, Location.TVM)
+        refresh_etags(
+            ReferenceRepository(s),
+            PanchangamService(PanchangamRepository(s)),
+            EtagRepository(s),
+            SqlUnitOfWork(s),
+            [YEAR],
+        )
     try:
         yield engine
     finally:

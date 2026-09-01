@@ -17,14 +17,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — registers every table on SQLModel.metadata
-from core.config import settings
-from core.security import hash_password
-from db.database import get_session
-from db.user_repository import UserRepository
-from main import app
-from utils.roles import Role
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — registers every table on SQLModel.metadata
+from app.core.config import settings
+from app.core.security import hash_password
+from app.db.database import get_session
+from app.features.auth.auth_repository import AuthRepository
+from app.features.auth.ports import UserCreate
+from app.main import app
+from app.utils.roles import Role
 
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
 NORMAL_USER, NORMAL_PW = "devotee", "user-password"
@@ -40,9 +41,10 @@ def api_engine():
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
-        repo = UserRepository(s)
-        repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
-        repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)
+        repo = AuthRepository(s)
+        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
+        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
+        s.commit()
     try:
         yield engine
     finally:
@@ -111,7 +113,9 @@ def test_login_sets_httponly_cookies_and_returns_user(client):
 
 
 def test_login_wrong_password_rejected(client):
-    r = _login(client, ADMIN_USER, "wrong")
+    # Long enough to clear the schema's min_length=8 so this exercises the
+    # "wrong password" path specifically, not a request-validation path.
+    r = _login(client, ADMIN_USER, "wrong-password")
     assert r.status_code == 401
 
 

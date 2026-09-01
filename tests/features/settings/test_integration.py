@@ -10,18 +10,18 @@ from typing import Dict
 
 import pytest
 
-from core.astronomy.nakshatra_transition import make_nakshatra_transition_fn
-from core.astronomy.thithi_transition import make_thithi_transition_fn
-from core.calendar.santhigiri_event_occurrences import compute_last_occurrence
-from schemas.app_setting import AppSettingUpdate
-from db.unit_of_work import SqlUnitOfWork
-from features.panchangam.service import PanchangamService, YearOutOfRange
-from features.settings.repository import AppSettingRepository
-from features.settings.service import SettingsService
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EventCondition
-from utils.settings_keys import SettingKey
+from app.core.astronomy.nakshatra_transition import make_nakshatra_transition_fn
+from app.core.astronomy.thithi_transition import make_thithi_transition_fn
+from app.core.calendar.santhigiri_event_occurrences import compute_last_occurrence
+from app.schemas.app_setting import AppSettingUpdate
+from app.db.unit_of_work import SqlUnitOfWork
+from app.features.panchangam.service import PanchangamService, YearOutOfRange
+from app.features.settings.repository import AppSettingRepository
+from app.features.settings.service import SettingsService
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import EventCondition
+from app.utils.settings_keys import SettingKey
 
 
 # ── seed_year_range gates PanchangamService.get_by_year/get_by_month ────────
@@ -109,7 +109,7 @@ def test_nakshatra_step_days_per_year_override(session):
     settings_service = SettingsService(AppSettingRepository(session), SqlUnitOfWork(session))
 
     # No row stored yet -> falls back to core.constants' global default for every year.
-    from core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+    from app.core.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 
     assert settings_service.get_astronomy_tuning(2027).nakshatra_step_days == NAKSHATRA_TRANSITION_STEP_DAYS
     assert settings_service.get_astronomy_tuning(2028).nakshatra_step_days == NAKSHATRA_TRANSITION_STEP_DAYS

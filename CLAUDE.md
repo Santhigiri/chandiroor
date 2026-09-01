@@ -421,16 +421,22 @@ Panchangam parameters default to today's date, Santhigiri Ashram coordinates, an
 pytest tests/
 ```
 
+`tests/` mirrors the `app/` layout: `tests/core/<subpackage>/` for `core/` unit tests, `tests/db/` for the shared persistence layer, and `tests/features/<name>/` for a feature's router/service/repository tests, one test module per source module (e.g. `app/features/auth/router.py` ↔ `tests/features/auth/test_router.py`). A test that exercises a whole request across feature boundaries (e.g. an admin setting changing what a read endpoint returns) lives under the feature it's conceptually about, suffixed `_integration`.
+
 Current coverage:
 
-- `tests/test_is_pournami.py` — 24 parametrized test cases verifying full moon detection against known dates for 2022 and 2026.
-- `tests/test_etag.py` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
-- `tests/test_auth.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
-- `tests/test_santhigiri_event_crud.py` — event-definition CRUD end-to-end, including admin-role enforcement and ETag invalidation.
-- `tests/db/` — repository-layer unit tests (round-trips, cascade deletes, event derivation).
-- `tests/test_panchangam.py` — skeleton (not yet implemented).
+- `tests/core/astronomy/test_pournami.py` — 24 parametrized test cases verifying full moon detection against known dates for 2022 and 2026.
+- `tests/core/astronomy/test_lazy_astronomy.py` — the heavy Skyfield/ephemeris stack loads lazily, not at app import.
+- `tests/core/calendar/` — Kollavarsham coordinate/Modyana rules, the Santhigiri event occurrence/significant-dates matchers, and the `core/calendar/panchangam.py` skeleton.
+- `tests/db/` — shared persistence-layer unit tests (round-trips, cascade deletes, seeding) for the schema and `ReferenceRepository`.
+- `tests/features/auth/test_router.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
+- `tests/features/auth/test_google_auth.py` — skipped; see its module docstring for the dropped `/auth/google` feature.
+- `tests/features/etag/` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
+- `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path.
+- `tests/features/santhigiri_events/` — event-definition CRUD and occurrence-generation, end-to-end, including admin-role enforcement and ETag invalidation.
+- `tests/features/settings/` — `AppSettingRepository`, the admin settings CRUD endpoints, and settings→panchangam integration (e.g. `seed_year_range` gating `get_by_year`/`get_by_month`).
 
-Tests use an in-memory SQLite engine (the FK pragma listener in `db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/test_etag.py` for the fixture pattern).
+Tests use an in-memory SQLite engine (the FK pragma listener in `app/db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/features/etag/test_service.py` for the fixture pattern).
 
 When adding new astronomical calculations, add parametrized tests to `tests/` that verify against known Panchangam dates. Cross-check expected values against published physical Panchangams or the Drik Panchang reference.
 
@@ -494,7 +500,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, and `features/panchangam/` have been migrated to the ports & adapters pattern (see "Ports & adapters" above). `guruvani` still has its `service.py` talk to a concrete `db/*_repository.py` class directly.
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
 - The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
-- The whole `tests/` suite predates the move of the codebase under `app/` and still imports top-level modules (`import db.database`, `from core.calendar...`, etc.) that no longer exist at that path — every test file needs its imports updated to `app.db...`/`app.core...` before the suite can run again. This is a large, mechanical, repo-wide fix that has not been done yet.
+- `POST /auth/google` (Google Sign-In) and its find-or-create-by-`google_id` logic were dropped from `features/auth/` during the `app/` restructure and never carried over to `AuthRepositoryPort`/`AuthRepository`/`AuthService`, even though `db/models/user.py::User` still has a `google_id` column and `core/security.py::verify_google_id_token` still exists. `tests/features/auth/test_google_auth.py` documents this as a skipped gap rather than a fabricated pass — restoring it is a real feature slice (new port method + DTO + repository + service + router wiring), not a quick fix.
 
 ---
 

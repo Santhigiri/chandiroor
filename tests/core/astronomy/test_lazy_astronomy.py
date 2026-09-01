@@ -30,9 +30,9 @@ def test_importing_app_does_not_load_astronomy_stack():
     out = _run(
         """
         import sys
-        import main  # noqa: F401
+        import app.main  # noqa: F401
         heavy = [
-            m for m in ("skyfield", "swisseph", "core.astronomy.ephemeris")
+            m for m in ("skyfield", "swisseph", "app.core.astronomy.ephemeris")
             if m in sys.modules
         ]
         assert not heavy, f"heavy modules loaded at app import: {heavy}"
@@ -47,9 +47,9 @@ def test_live_computation_loads_skyfield_lazily():
         """
         import sys
         from datetime import date
-        import main  # noqa: F401
+        import app.main  # noqa: F401
         assert "skyfield" not in sys.modules, "skyfield loaded before any compute"
-        from core.calendar.panchangam import get_panchangam_data
+        from app.core.calendar.panchangam import get_panchangam_data
         get_panchangam_data(date(2026, 1, 15))
         assert "skyfield" in sys.modules, "skyfield never loaded despite compute"
         print("lazy-ok")

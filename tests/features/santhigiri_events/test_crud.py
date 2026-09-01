@@ -19,19 +19,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — register every table on SQLModel.metadata
-from core.security import hash_password
-from db.database import get_session
-from features.etag.repository import EtagRepository
-from db.unit_of_work import SqlUnitOfWork
-from db.repository import PanchangamRepository
-from db.seed import seed_lookup_tables
-from db.user_repository import UserRepository
-from features.panchangam.service import PanchangamService
-from main import app
-from features.etag.service import enum_key, refresh_etags
-from utils.roles import Role
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
+from app.core.security import hash_password
+from app.db.database import get_session
+from app.features.etag.repository import EtagRepository
+from app.db.unit_of_work import SqlUnitOfWork
+from app.features.panchangam.repository import PanchangamRepository
+from app.db.reference_repository import ReferenceRepository
+from app.db.seed import seed_lookup_tables
+from app.features.auth.auth_repository import AuthRepository
+from app.features.auth.ports import UserCreate
+from app.features.panchangam.service import PanchangamService
+from app.main import app
+from app.features.etag.service import enum_key, refresh_etags
+from app.utils.roles import Role
 
 EVENTS_URL = "/api/v1/panchangam/events"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
@@ -48,10 +50,17 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [])  # precompute enum ETags exactly as db.migrate does
-        repo = UserRepository(s)
-        repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
-        repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)
+        refresh_etags(
+            ReferenceRepository(s),
+            PanchangamService(PanchangamRepository(s)),
+            EtagRepository(s),
+            SqlUnitOfWork(s),
+            [],
+        )  # precompute enum ETags exactly as db.migrate does
+        repo = AuthRepository(s)
+        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
+        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
+        s.commit()
     try:
         yield engine
     finally:

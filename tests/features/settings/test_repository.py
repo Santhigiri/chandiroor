@@ -1,8 +1,8 @@
 """Tests for features/settings/repository.py — AppSettingRepository get/list/upsert."""
 from sqlmodel import select
 
-from features.settings.repository import AppSettingRepository
-from db.models.app_setting import AppSetting
+from app.features.settings.repository import AppSettingRepository
+from app.db.models.app_setting import AppSetting
 
 
 def test_get_missing_returns_none(session):

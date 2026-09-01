@@ -3,46 +3,61 @@ End-to-end tests for the "generate occurrences over a year range" endpoint:
 ``POST /api/v1/panchangam/events/{event_id}/occurrences``, plus its all-events
 counterpart ``POST /api/v1/panchangam/events/generate``.
 
-Seeds an in-memory DB from the real 2022 pickle cache (same fixture pattern as
-``tests/test_etag.py``), so occurrences are computed against real astronomical
-data rather than synthetic fixtures.
+Seeds an in-memory DB with a full year of real, live-computed 2022 panchangam
+data (same approach as ``tests/test_panchangam_generation.py`` — there is no
+offline pickle-cache pipeline any more, see CLAUDE.md), so occurrences are
+computed against real astronomical data rather than synthetic fixtures.
 """
 from __future__ import annotations
 
+import calendar
 import datetime
 import json
-import pickle
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — register every table on SQLModel.metadata
-from core.security import hash_password
-from db.database import get_session
-from features.etag.repository import EtagRepository
-from db.unit_of_work import SqlUnitOfWork
-from db.repository import PanchangamRepository
-from db.seed import seed_lookup_tables
-from db.user_repository import UserRepository
-from features.panchangam.service import PanchangamService
-from main import app
-from features.etag.service import refresh_etags, year_key
-from utils.location import Location
-from utils.roles import Role
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
+from app.core.security import hash_password
+from app.db.database import get_session
+from app.features.auth.auth_repository import AuthRepository
+from app.features.auth.ports import UserCreate
+from app.features.etag.repository import EtagRepository
+from app.db.unit_of_work import SqlUnitOfWork
+from app.features.panchangam.repository import PanchangamRepository
+from app.db.reference_repository import ReferenceRepository
+from app.db.seed import seed_lookup_tables
+from app.features.panchangam.service import PanchangamService
+from app.main import app
+from app.features.etag.service import refresh_etags, year_key
+from app.utils.location import Location
+from app.utils.roles import Role
 
-PICKLE_2022 = "data/panchangam_2022.pkl"
 YEAR = 2022
 EVENTS_URL = "/api/v1/panchangam/events"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
 NORMAL_USER, NORMAL_PW = "devotee", "user-password"
 
 
+@pytest.fixture(scope="module")
+def real_year_2022_data():
+    """The real, live-computed panchangam data for every day of 2022."""
+    from app.core.calendar.panchangam import get_panchangam_data
+
+    start = datetime.date(YEAR, 1, 1)
+    num_days = 366 if calendar.isleap(YEAR) else 365
+    return [
+        get_panchangam_data(start + datetime.timedelta(days=i))
+        for i in range(num_days)
+    ]
+
+
 @pytest.fixture
-def api_engine():
-    """In-memory engine seeded from the 2022 pickle, plus an admin/normal user."""
+def api_engine(real_year_2022_data):
+    """In-memory engine seeded with real 2022 panchangam data, plus an admin/normal user."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -51,13 +66,18 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        with open(PICKLE_2022, "rb") as f:
-            cache = pickle.load(f)
-        PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
-        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [YEAR])
-        repo = UserRepository(s)
-        repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
-        repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)
+        PanchangamRepository(s).upsert_many(real_year_2022_data, Location.TVM)
+        refresh_etags(
+            ReferenceRepository(s),
+            PanchangamService(PanchangamRepository(s)),
+            EtagRepository(s),
+            SqlUnitOfWork(s),
+            [YEAR],
+        )
+        repo = AuthRepository(s)
+        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
+        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
+        s.commit()
     try:
         yield engine
     finally:

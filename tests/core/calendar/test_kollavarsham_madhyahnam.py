@@ -24,8 +24,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from core.constants import Coordinates, DEFAULT_TIMEZONE
-from core.calendar.kollavarsham import get_kollavarsham_date
+from app.core.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.calendar.kollavarsham import get_kollavarsham_date
 
 LAT = round(Coordinates.SG_LATITUDE, 3)
 LON = round(Coordinates.SG_LONGITUDE, 3)

@@ -2,14 +2,19 @@
 End-to-end tests for the Panchangam generation endpoint,
 ``POST /api/v1/panchangam/generate``.
 
-Uses an in-memory SQLite engine seeded from the real 2022 pickle (so every 2022
-date already has a ``panchangam`` row) plus an admin and a regular user.
+Uses an in-memory SQLite engine seeded with a full year of *real* (live-computed)
+2022 panchangam rows — there is no offline pickle-cache pipeline any more (see
+CLAUDE.md's "Regenerating data" section) — plus an admin and a regular user.
 Generation overwrites the ashram's authoritative data, so it requires the
 ``admin`` role — mirroring ``tests/test_kollavarsham_crud.py``. Because the
 seeded rows come from the same ``get_panchangam_data`` the endpoint calls,
 regenerating a date reproduces its authoritative values, which we exploit to
 assert that a corrupted row is repaired and that the ``/year`` ETag stays in
 lockstep with what the read endpoint serves.
+
+The full-year live computation is fairly expensive (~0.1s/day), so it is done
+once per test module via the session/module-scoped ``real_year_2022_data``
+fixture and reused to seed a fresh in-memory engine per test.
 
 The response is streamed as newline-delimited JSON (NDJSON): one ``"progress"``
 line per day, then a final ``"complete"`` line. ``TestClient`` (httpx-based)
@@ -19,40 +24,55 @@ line — see ``_lines`` below.
 """
 from __future__ import annotations
 
+import calendar
 import json
-import pickle
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — register every table on SQLModel.metadata
-from core.security import hash_password
-from db.database import get_session
-from features.etag.repository import EtagRepository
-from db.unit_of_work import SqlUnitOfWork
-from db.models.panchangam import Panchangam as PanchangamRow
-from db.repository import PanchangamRepository
-from db.seed import seed_lookup_tables
-from db.user_repository import UserRepository
-from features.panchangam.service import PanchangamService
-from main import app
-from features.etag.service import refresh_etags, year_key
-from utils.location import Location
-from utils.roles import Role
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
+from app.core.security import hash_password
+from app.db.database import get_session
+from app.features.auth.auth_repository import AuthRepository
+from app.features.auth.ports import UserCreate
+from app.features.etag.repository import EtagRepository
+from app.db.unit_of_work import SqlUnitOfWork
+from app.db.models.panchangam import Panchangam as PanchangamRow
+from app.features.panchangam.repository import PanchangamRepository
+from app.db.reference_repository import ReferenceRepository
+from app.db.seed import seed_lookup_tables
+from app.features.panchangam.service import PanchangamService
+from app.main import app
+from app.features.etag.service import refresh_etags, year_key
+from app.utils.location import Location
+from app.utils.roles import Role
 
-PICKLE_2022 = "data/panchangam_2022.pkl"
 YEAR = 2022
 BASE = "/api/v1/panchangam/generate"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
 NORMAL_USER, NORMAL_PW = "devotee", "user-password"
 
 
+@pytest.fixture(scope="module")
+def real_year_2022_data():
+    """The real, live-computed panchangam data for every day of 2022.
+
+    Computed once per module (not per test) since it's the same expensive
+    astronomy stack ``POST /generate`` itself calls.
+    """
+    from app.core.calendar.panchangam import get_panchangam_data
+
+    start = date(YEAR, 1, 1)
+    num_days = 366 if calendar.isleap(YEAR) else 365
+    return [get_panchangam_data(start + timedelta(days=i)) for i in range(num_days)]
+
+
 @pytest.fixture
-def api_engine():
+def api_engine(real_year_2022_data):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -61,13 +81,18 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        with open(PICKLE_2022, "rb") as f:
-            cache = pickle.load(f)
-        PanchangamRepository(s).upsert_many(cache.values(), Location.TVM)
-        refresh_etags(s, PanchangamService(PanchangamRepository(s)), EtagRepository(s), SqlUnitOfWork(s), [YEAR])
-        repo = UserRepository(s)
-        repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
-        repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)
+        PanchangamRepository(s).upsert_many(real_year_2022_data, Location.TVM)
+        refresh_etags(
+            ReferenceRepository(s),
+            PanchangamService(PanchangamRepository(s)),
+            EtagRepository(s),
+            SqlUnitOfWork(s),
+            [YEAR],
+        )
+        repo = AuthRepository(s)
+        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
+        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
+        s.commit()
     try:
         yield engine
     finally:

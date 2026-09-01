@@ -5,8 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from db.database import get_session
-from main import app
+from app.db.database import get_session
+from app.main import app
 
 
 @pytest.fixture
