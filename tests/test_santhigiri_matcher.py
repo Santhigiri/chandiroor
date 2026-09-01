@@ -1,18 +1,19 @@
 """Tests for core/calendar/santhigiri_significant_dates.py — the live-fallback
 event matcher — and the PanchangamService overlay that uses it."""
+import dataclasses
 import datetime
 
-from core.calendar.santhigiri_significant_dates import (
+from app.core.calendar.santhigiri_significant_dates import (
     event_matches,
     match_condition_based_events,
 )
-from db.repository import PanchangamRepository
-from features.panchangam.service import PanchangamService
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
+from app.features.panchangam.repository import PanchangamRepository
+from app.features.panchangam.service import PanchangamService
+from app.utils.location import Location
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.utils.thithi import Thithi
 
 TVM = Location.TVM
 
@@ -96,8 +97,8 @@ def test_match_condition_based_events_excludes_day_offset_conditions(make_pancha
     data = make_panchangam_data(datetime.date(2026, 5, 6))
     offset_event = _event("NAVOLI_JYOTHIR_DINAM").model_copy(
         update={
-            "event_condition": _event("NAVOLI_JYOTHIR_DINAM").event_condition.model_copy(
-                update={"day_offset": 1}
+            "event_condition": dataclasses.replace(
+                _event("NAVOLI_JYOTHIR_DINAM").event_condition, day_offset=1
             )
         }
     )

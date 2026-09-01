@@ -15,14 +15,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-import db.database  # noqa: F401 — registers the FK pragma listener
-import db.models  # noqa: F401 — register every table on SQLModel.metadata
-from core.security import hash_password
-from db.database import get_session
-from db.seed import seed_lookup_tables
-from db.user_repository import UserRepository
-from main import app
-from utils.roles import Role
+import app.db.database  # noqa: F401 — registers the FK pragma listener
+import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
+from app.core.security import hash_password
+from app.db.database import get_session
+from app.db.seed import seed_lookup_tables
+from app.features.auth.auth_repository import AuthRepository
+from app.features.auth.ports import UserCreate
+from app.main import app
+from app.utils.roles import Role
 
 SETTINGS_URL = "/api/v1/settings"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
@@ -39,9 +40,10 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        repo = UserRepository(s)
-        repo.create(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN)
-        repo.create(NORMAL_USER, hash_password(NORMAL_PW), Role.USER)
+        repo = AuthRepository(s)
+        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
+        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
+        s.commit()
     try:
         yield engine
     finally:

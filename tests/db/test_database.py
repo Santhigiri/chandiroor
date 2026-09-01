@@ -6,13 +6,13 @@ from sqlalchemy import delete, inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-import db.database as database
-from db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
-from db.models.panchangam import Panchangam as PanchangamRow
-from db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
-from db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
-from db.repository import PanchangamRepository
-from utils.location import Location
+import app.db.database as database
+from app.db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
+from app.db.models.panchangam import Panchangam as PanchangamRow
+from app.db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
+from app.db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
+from app.features.panchangam.repository import PanchangamRepository
+from app.utils.location import Location
 
 TVM = Location.TVM
 

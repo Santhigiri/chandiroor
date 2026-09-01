@@ -1,19 +1,19 @@
 """Tests for db/seed.py — lookup-table seeding from the Python enums."""
 from sqlmodel import select
 
-from db.models.location import Location as LocationRow
-from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
-from db.models.nakshatra import Nakshatra as NakshatraRow
-from db.models.paksha import Paksha as PakshaRow
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.thithi import Thithi as ThithiRow
-from db.seed import seed_lookup_tables
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.paksha import Paksha
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
+from app.db.models.location import Location as LocationRow
+from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.nakshatra import Nakshatra as NakshatraRow
+from app.db.models.paksha import Paksha as PakshaRow
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.thithi import Thithi as ThithiRow
+from app.db.seed import seed_lookup_tables
+from app.utils.location import Location
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.paksha import Paksha
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.utils.thithi import Thithi
 
 
 def _count(session, model) -> int:

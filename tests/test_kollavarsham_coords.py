@@ -11,7 +11,7 @@ from datetime import date
 
 from unittest.mock import patch
 
-import core.calendar.kollavarsham as kv
+import app.core.calendar.kollavarsham as kv
 
 
 def test_get_madhyahnam_raasi_passes_coordinates_through():

@@ -1,11 +1,11 @@
 """Tests for db/reference_repository.py — reference datasets served from the DB."""
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.reference_repository import ReferenceRepository
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.paksha import Paksha
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.reference_repository import ReferenceRepository
+from app.utils.malayalam_masa import MalayalamMasa
+from app.utils.nakshatra import Nakshatra
+from app.utils.paksha import Paksha
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.utils.thithi import Thithi
 
 
 # ── Lookup-table datasets ─────────────────────────────────────────────────────
