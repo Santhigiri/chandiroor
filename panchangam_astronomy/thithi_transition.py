@@ -10,7 +10,6 @@ from panchangam_astronomy.ephemeris import ts
 from zoneinfo import ZoneInfo
 import numpy as np
 import math
-from panchangam_astronomy.constants import  THITHI_NAMES  # Python 3.9+
 from panchangam_astronomy.ephemeris import earth, sun, moon
 from panchangam_astronomy.transitions import ThithiTransition
 from panchangam_astronomy.tuning import AstronomyTuning
@@ -65,14 +64,13 @@ def get_thithi_id(
 
 def get_thithi(
     t: Time
-)-> str:
+)-> Thithi:
     # Thithi calculation
     elongation = get_elongations(t)
     thithi_number = math.floor(elongation / 12) + 1
     if thithi_number > 30:
         thithi_number = 30  # Amavasya
-    thithi_name = THITHI_NAMES[thithi_number - 1]
-    return thithi_name
+    return Thithi.from_id(thithi_number)
 
 def make_thithi_transition_fn(step_days: float):
     """Build a fresh ``find_discrete`` predicate bound to *step_days*.

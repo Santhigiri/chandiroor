@@ -1,12 +1,12 @@
 from datetime import datetime
 from .calculations import get_moon_sidereal_longitude, get_sun_sidereal_longitude
 import math
-from panchangam_astronomy.constants import THITHI_NAMES
+from panchangam_astronomy.enums.thithi import Thithi
 
 def get_thithi(
     localdt: datetime,
     timezone: str
-)-> str:
+)-> Thithi:
     # Thithi calculation
     moon_sidereal_longitude = get_moon_sidereal_longitude(localdt, timezone)
     sun_sidereal_longitude = get_sun_sidereal_longitude(localdt, timezone)
@@ -14,5 +14,4 @@ def get_thithi(
     thithi_number = math.floor(elongation / 12) + 1
     if thithi_number > 30:
         thithi_number = 30  # Amavasya
-    thithi_name = THITHI_NAMES[thithi_number - 1]
-    return thithi_name
+    return Thithi.from_id(thithi_number)
