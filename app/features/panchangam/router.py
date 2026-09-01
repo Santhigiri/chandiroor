@@ -10,11 +10,11 @@ from app.api.deps import (
     get_panchangam_service,
     require_role,
 )
-from app.features.panchangam.schemas.GetInstantPanchangamParams import GetInstantPanchangamParams
-from app.features.panchangam.schemas.GetMonthlyPanchangamParams import GetMonthlyPanchangamParams
-from app.features.panchangam.schemas.GetSunriseSunsetParams import GetSunriseSunsetParams
-from app.features.panchangam.schemas.GetYearlyPanchangamParams import GetYearlyPanchangamParams
-from app.features.panchangam.schemas.SunriseSunsetResponse import SunriseSunsetResponse
+from app.features.panchangam.schemas.get_instant_panchangam_params import GetInstantPanchangamParams
+from app.features.panchangam.schemas.get_monthly_panchangam_params import GetMonthlyPanchangamParams
+from app.features.panchangam.schemas.get_sunrise_sunset_params import GetSunriseSunsetParams
+from app.features.panchangam.schemas.get_yearly_panchangam_params import GetYearlyPanchangamParams
+from app.features.panchangam.schemas.sunrise_sunset_response import SunriseSunsetResponse
 from app.features.panchangam.service import PanchangamService, YearOutOfRange
 from app.schemas.compact_panchangam_data import CompactPanchangamData
 from app.features.etag.service import (

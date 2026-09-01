@@ -1,14 +1,58 @@
-fastapi
-uvicorn[standard]
-python-multipart
-skyfield
-pytz
-pyswisseph
-sqlmodel
-psycopg2-binary
-python-dotenv
-python-jose[cryptography]
-bcrypt
-pydantic-settings
-google-auth
-requests
+# Pinned for reproducible builds (Python 3.12). To regenerate after intentionally
+# bumping a dependency:
+#   python3.12 -m venv /tmp/pin-runtime-venv
+#   /tmp/pin-runtime-venv/bin/pip install --upgrade pip
+#   /tmp/pin-runtime-venv/bin/pip install -r requirements.txt   # with the new/unpinned line changed
+#   /tmp/pin-runtime-venv/bin/pip freeze
+# then re-split the freeze output into "Direct" (matching the list below) and
+# "Transitive" (everything else), keeping extras (e.g. uvicorn[standard]) on the
+# direct entries they belong to.
+
+# --- Direct dependencies ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+skyfield==1.55
+pytz==2026.3.post1
+pyswisseph==2.10.3.2
+sqlmodel==0.0.42
+psycopg2-binary==2.9.12
+python-dotenv==1.2.3
+python-jose[cryptography]==3.5.0
+bcrypt==5.0.0
+pydantic-settings==2.15.0
+google-auth==2.57.0
+requests==2.34.2
+
+# --- Transitive dependencies (pinned for reproducibility) ---
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.14.2
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.1
+click==8.5.0
+cryptography==50.0.1
+ecdsa==0.19.2
+h11==0.16.0
+httptools==0.8.0
+idna==3.19
+jplephem==2.24
+numpy==2.5.2
+pyasn1==0.6.4
+pyasn1_modules==0.4.2
+pycparser==3.0
+pydantic==2.13.5
+pydantic_core==2.46.5
+PyYAML==6.0.3
+rsa==4.9.1
+sgp4==2.27
+six==1.17.0
+SQLAlchemy==2.0.52
+starlette==1.6.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.7.0
+uvloop==0.22.1
+watchfiles==1.2.0
+websockets==17.1
