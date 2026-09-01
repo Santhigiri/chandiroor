@@ -26,7 +26,7 @@ def _event(event_id):
 
 def test_matches_pournami_on_real_full_moon(make_panchangam_data):
     """POURNAMI (is_poornima only) matches on a real full-moon Gregorian date."""
-    # 2026-01-02 is a Pournami per tests/test_is_pournami.py.
+    # 2026-01-02 is a Pournami per tests/core/astronomy/test_pournami.py.
     data = make_panchangam_data(datetime.date(2026, 1, 2))
     assert event_matches(_event("POURNAMI").event_condition, data) is True
 
@@ -61,7 +61,7 @@ def test_matches_sanyasadeeksha_on_thithi(make_panchangam_data):
 
 def test_pournami_condition_does_not_match_non_full_moon(make_panchangam_data):
     """A day that is not a full moon must not match POURNAMI."""
-    # 2026-05-15 is not a Pournami per tests/test_is_pournami.py.
+    # 2026-05-15 is not a Pournami per tests/core/astronomy/test_pournami.py.
     data = make_panchangam_data(datetime.date(2026, 5, 15))
     assert event_matches(_event("POURNAMI").event_condition, data) is False
 

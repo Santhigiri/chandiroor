@@ -1,4 +1,4 @@
-"""Tests for db/repository.py — PanchangamRepository get/set + converters."""
+"""Tests for app/features/panchangam/repository.py — PanchangamRepository get/set + converters."""
 import datetime
 import types
 
