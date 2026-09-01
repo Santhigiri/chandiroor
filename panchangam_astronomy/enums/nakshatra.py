@@ -2,7 +2,6 @@
 from __future__ import annotations
 from functools import lru_cache
 from typing import Any, Dict, Optional
-from pydantic import BaseModel
 from enum import Enum
 
 

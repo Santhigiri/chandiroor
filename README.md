@@ -18,17 +18,16 @@ Positions of the Sun and Moon are computed with [Skyfield](https://rhodesmill.gi
 ## Project layout
 
 ```
-main.py             # App entry: wires lifespan, CORS, and routers
-features/           # One subpackage per feature: router.py + service.py + schemas.py
-core/astronomy/     # Pure astronomical computation
-core/calendar/      # Domain aggregation into calendar/Panchangam objects
-core/deps.py        # Shared auth/DI dependencies (get_service, require_role, ...)
-db/                 # Postgres persistence layer (SQLModel models + repositories)
-services/           # Cross-feature services (ETag, settings) used by 3+ features
-schemas/            # Pydantic models shared across features
-utils/              # Cross-feature enums and helpers
-data/               # Pre-computed yearly caches (panchangam_YYYY.pkl), source for db/sql seeds
-de421.bsp           # JPL ephemeris file (required at startup)
+main.py                  # App entry: wires lifespan, CORS, and routers
+features/                # One subpackage per feature: router.py + service.py + schemas.py
+core/calendar/           # Domain aggregation into calendar/Panchangam objects
+core/deps.py             # Shared auth/DI dependencies (get_service, require_role, ...)
+db/                      # Postgres persistence layer (SQLModel models + repositories)
+services/                # Cross-feature services (ETag, settings) used by 3+ features
+schemas/                 # Pydantic models shared across features
+utils/                   # Cross-feature enums and helpers
+data/                    # Pre-computed yearly caches (panchangam_YYYY.pkl), source for db/sql seeds
+panchangam_astronomy/    # Self-contained astronomy package (pure computation, its own de421.bsp)
 ```
 
 See `CLAUDE.md` for the full architecture reference, including layer import boundaries and per-feature conventions.

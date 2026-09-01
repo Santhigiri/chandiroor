@@ -4,17 +4,17 @@ from typing import List, Tuple
 from pytz.exceptions import Error
 from skyfield.almanac import ecliptic_frame, find_discrete
 from skyfield.api import Time
-from app.core.astronomy.ayanamsa import get_ayanamsa
-from app.core.astronomy.calculations import get_time
-from app.core.astronomy.ephemeris import ts
+from panchangam_astronomy.ayanamsa import get_ayanamsa
+from panchangam_astronomy.calculations import get_time
+from panchangam_astronomy.ephemeris import ts
 from zoneinfo import ZoneInfo
 import numpy as np
 import math
-from app.core.constants import  THITHI_NAMES  # Python 3.9+
-from app.core.astronomy.ephemeris import earth, sun, moon
-from app.core.astronomy.transitions import ThithiTransition
-from app.core.astronomy.tuning import AstronomyTuning
-from app.utils.thithi import Thithi
+from panchangam_astronomy.constants import  THITHI_NAMES  # Python 3.9+
+from panchangam_astronomy.ephemeris import earth, sun, moon
+from panchangam_astronomy.transitions import ThithiTransition
+from panchangam_astronomy.tuning import AstronomyTuning
+from panchangam_astronomy.enums.thithi import Thithi
 
 
 def get_tropical_longitude( t: Time, body: str):
