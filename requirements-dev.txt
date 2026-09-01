@@ -2,6 +2,13 @@
 -r requirements.txt
 
 # Test framework and the HTTP client Starlette's TestClient needs (previously
-# provided transitively by fastapi[standard]).
-pytest
-httpx
+# provided transitively by fastapi[standard]). Pinned the same way as
+# requirements.txt — see the regeneration note there.
+pytest==9.1.1
+httpx==0.28.1
+
+# --- Transitive dependencies of the above (pinned for reproducibility) ---
+httpcore==1.0.9
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0

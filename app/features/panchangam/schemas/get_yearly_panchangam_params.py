@@ -1,4 +1,5 @@
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
+
 
 # A defensive sanity ceiling only — not the real business rule. The actual
 # accepted range is the admin-configured `seed_year_range` setting, enforced
