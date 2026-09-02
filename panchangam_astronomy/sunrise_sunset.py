@@ -8,7 +8,11 @@ from panchangam_astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from panchangam_astronomy.ephemeris import ephem, ts, sun
 
 
-@lru_cache(maxsize=1000)
+# A generation sweep produces ~2 distinct keys/day (this day plus the
+# kollavarsham masa-start walk's look-back), so 4000 keeps ~5 years of a
+# contiguous regeneration resident. Beyond that, LRU still retains the recent
+# days a linear sweep actually reuses.
+@lru_cache(maxsize=4000)
 def get_sunrise_sunset(
         date: date,
         latitude: float=round(Coordinates.SG_LATITUDE,3),

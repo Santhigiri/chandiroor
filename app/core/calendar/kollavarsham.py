@@ -22,7 +22,10 @@ def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:
     return int(normalized // 30)
 
 
-@lru_cache(maxsize=1000)
+# ~2 entries/day during a generation sweep (the backward masa-start walk), so
+# 4000 keeps ~5 years of a contiguous regeneration resident; LRU still retains
+# the recent days a linear sweep reuses beyond that.
+@lru_cache(maxsize=4000)
 def get_madhyahnam_raasi(
     dt: date,
     latitude: float,
