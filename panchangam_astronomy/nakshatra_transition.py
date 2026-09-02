@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+from functools import lru_cache
 from typing import List
 from zoneinfo import ZoneInfo
 
@@ -11,7 +12,6 @@ from panchangam_astronomy.thithi_transition import get_sidereal_longitude_from_t
 from panchangam_astronomy.transitions import NakshatraTransition
 from panchangam_astronomy.tuning import AstronomyTuning
 from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.nakshatra_calc import calc_nakshatra_from_lon
 
 
 def make_nakshatra_transition_fn(eps: float, step_days: float):
@@ -33,16 +33,21 @@ def make_nakshatra_transition_fn(eps: float, step_days: float):
     return _nakshatra_transition
 
 
-def get_nakshatra_transition_for_date(
-    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
-):
+@lru_cache(maxsize=1000)
+def _get_nakshatra_transition_for_date(
+    date: date, timezone: str, nakshatra_epsilon: float, nakshatra_step_days: float, nakshatra_num: int
+) -> List[NakshatraTransition]:
+    """Cache-friendly core: hashable args only. See ``get_nakshatra_transition_for_date``.
+
+    ``calc_nakshatra_transition_for_date`` calls this for a five-day window
+    around each date, so the overlap between consecutive dates is served from
+    cache rather than recomputed — mirroring ``get_thithi_transition_by_date``.
+    """
     t0 = get_time(datetime.combine(date, time.min), timezone)
     t1 = get_time(datetime.combine(date, time.max), timezone)
 
-    transition_fn = make_nakshatra_transition_fn(
-        tuning.nakshatra_epsilon, tuning.nakshatra_step_days
-    )
-    t, values = find_discrete(t0, t1, transition_fn, num=tuning.nakshatra_num)
+    transition_fn = make_nakshatra_transition_fn(nakshatra_epsilon, nakshatra_step_days)
+    t, values = find_discrete(t0, t1, transition_fn, num=nakshatra_num)
 
     transition_times = [(ti, vi)  for ti, vi in zip(t, values)]
 
@@ -66,52 +71,38 @@ def get_nakshatra_transition_for_date(
 
     return nakshatras_for_day
 
-def find_previous_transitions(
+
+def get_nakshatra_transition_for_date(
     date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
-):
-    transitions = []
-    for i in range(1,4):
-        offset_date = date - timedelta(days=i)
-        transitions = get_nakshatra_transition_for_date(
-            offset_date,
-            timezone,
-            tuning,
-        )
-
-        if len(transitions) > 0:
-            break
-
-    return transitions
-
-
-
-def find_next_transitions(
-    date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
-):
-    transitions = []
-    for i in range(1,4):
-        offset_date = date + timedelta(days=i)
-        transitions = get_nakshatra_transition_for_date(
-            offset_date,
-            timezone,
-            tuning,
-        )
-
-        if len(transitions) > 0:
-            break
-
-    return transitions
+) -> List[NakshatraTransition]:
+    """Nakshatra transitions whose start falls within *date* (local midnight to
+    23:59:59.999999). Thin wrapper unpacking *tuning* so the cached core keeps
+    hashable args."""
+    return _get_nakshatra_transition_for_date(
+        date, timezone,
+        tuning.nakshatra_epsilon, tuning.nakshatra_step_days, tuning.nakshatra_num,
+    )
 
 
 def calc_nakshatra_transition_for_date(
     date: date, timezone: str, tuning: AstronomyTuning = AstronomyTuning()
 ):
-    total_transitions: List[NakshatraTransition] = []
-    current_day_transitions = get_nakshatra_transition_for_date(date, timezone, tuning)
-    previous_transitions = find_previous_transitions(date, timezone, tuning)
-    next_transitions = find_next_transitions(date, timezone, tuning)
-
-    total_transitions = previous_transitions + current_day_transitions + next_transitions
+    # A nakshatra rarely starts and ends on the same calendar day, so the day's
+    # transitions are stitched from a window of nearby days and then filtered to
+    # those overlapping this day. The window is date-2..date+2, not just date±1:
+    # a nakshatra lasts ~1.0-1.13 days, so a single long one can span a whole
+    # calendar day, leaving that day with zero transition *starts*. date-2 is
+    # then needed to pick up a transition still active at this day's 00:00, and
+    # date+2 to give the last transition of this day a valid end_time via
+    # stitching. Two consecutive start-less days would need one nakshatra
+    # spanning >2 days, which cannot happen, so ±2 is always sufficient.
+    total_transitions = [
+        t
+        for offset in (-2, -1, 0, 1, 2)
+        for t in get_nakshatra_transition_for_date(
+            date + timedelta(days=offset), timezone, tuning
+        )
+    ]
 
     tzinfo = ZoneInfo(timezone)
     day_start = datetime.combine(date, time.min, tzinfo= tzinfo)
