@@ -27,7 +27,7 @@ def check_nakshatra_transitions_miss(cache: Dict[date, PanchangamData]):
             diff = (next - curr) % 27
             if abs(diff) > 1:
                 diffs.append(nt)
-                print(f"diff is not close by for {nt.nakshatra.en} {nt.start_time} -> {nt.end_time} DIFF: {diff}")
+                print(f"diff is not close by for {nt.nakshatra.name} {nt.start_time} -> {nt.end_time} DIFF: {diff}")
 
     if len(diffs) == 0:
         print("No Nakshatra transitions missed!")

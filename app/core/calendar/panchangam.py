@@ -116,7 +116,7 @@ def get_panchangam(
     return {
         "date": localdt.astimezone(tz=pytz.timezone(timezone)),
         "calculated_ml_day": kv.kv_day,
-        "calculated_ml_month": kv.kv_month_name_ml,
+        "calculated_ml_month": kv.kv_month,
         "calculated_ml_year": kv.kv_year,
         "nakshatra": nakshatra.name,
         "nakshatra_transitions": nakshatra_transition,

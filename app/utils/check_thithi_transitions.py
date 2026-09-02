@@ -25,7 +25,7 @@ def check_thithi_transitions_miss(cache: Dict[date, PanchangamData]):
             diff = (next - curr) % 30
             if abs(diff) > 1:
                 diffs.append(nt)
-                print(f"diff is not close by for {nt.thithi.en} {nt.start_time} -> {nt.end_time} DIFF: {diff}")
+                print(f"diff is not close by for {nt.thithi.name} {nt.start_time} -> {nt.end_time} DIFF: {diff}")
 
 
 

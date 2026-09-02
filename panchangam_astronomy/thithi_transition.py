@@ -106,7 +106,6 @@ def get_thithi_transition_by_date(
             ist_end_time = utc_end_time.utc_datetime().astimezone(ist_timezone)
         thithi = Thithi.from_id(int(vi) + 1)
         thithis_for_day.append(ThithiTransition(
-            name=thithi.en,
             thithi = thithi,
             start_time=ist_start_time,
             end_time=ist_end_time

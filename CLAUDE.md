@@ -148,11 +148,17 @@ and return floats, ints, or plain dataclasses/Pydantic value objects. They
 have zero knowledge of HTTP or persistence, and are independently testable.
 It vendors its own copies of the domain enums it needs (`panchangam_astronomy/enums/nakshatra.py`,
 `thithi.py`, `paksha.py` — plain stdlib `Enum` classes) and its own
-`constants.py` (Santhigiri's default coordinates/timezone, Nakshatra/Thithi
-name tables, `NAKSHATRA_TRANSITION_STEP_DAYS`). `app/` code imports these
+`constants.py` (Santhigiri's default coordinates/timezone,
+`NAKSHATRA_BOUNDARIES`, `NAKSHATRA_TRANSITION_STEP_DAYS`). `app/` code imports these
 same enums from `panchangam_astronomy.enums.*` rather than duplicating them —
 there is no separate `app/utils/nakshatra.py`/`thithi.py`/`paksha.py`
-anymore. `panchangam_astronomy/ephemeris.py` resolves `de421.bsp`
+anymore. The enums carry only structural data — `id`, plus `paksha`/`day` on
+`Thithi` — and their `.name` is the stable slug used everywhere internally.
+They hold **no display text**: localized (`en`/`ml`) names live in the DB
+reference tables (`thithi`/`nakshatra`/`paksha`/`malayalam_masa`), with
+`app/db/reference_names.py` as the Python-side seed source for those tables
+(`db/sql/02_seed.sql` is the parallel authoritative copy for production).
+Additional languages are added on the DB side, not in code. `panchangam_astronomy/ephemeris.py` resolves `de421.bsp`
 (bundled alongside it, at `panchangam_astronomy/de421.bsp`) relative to its
 own module location via a `skyfield.api.Loader`, not the process's current
 working directory — so the package loads correctly regardless of where the
@@ -266,7 +272,7 @@ Follow these rules without exception.
 
 ### Enum usage
 
-Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha`, `MalayalamMasa`) defined in `utils/` for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. All enums support bilingual names (`.en`, `.ml`).
+Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha` from `panchangam_astronomy.enums.*`; `MalayalamMasa` from `utils/`) for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. The enums carry only `id` (+ `paksha`/`day` on `Thithi`); their `.name` is the stable slug. They do **not** carry display text — localized `en`/`ml` names come from the DB reference tables (see `app/db/reference_names.py` for the seed source), exposed via the `GET /api/v1/panchangam/thithi|nakshatra|masa` endpoints. Compact API responses carry the slug/id; the client resolves display names from those reference datasets.
 
 ---
 
@@ -537,4 +543,4 @@ Importing anything from `panchangam_astronomy/` triggers this load. Do not move 
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
 - Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.
-- Do not hardcode Malayalam or Sanskrit names as string literals in new code. Use `NAKSHATRA_NAMES`, `THITHI_NAMES`, or the appropriate enum from `utils/`.
+- Do not hardcode Malayalam or Sanskrit display names as string literals in new code. Domain logic keys off the typed enum (`.name` slug / `.id`); display text is DB-owned — read it from the reference tables (or `app/db/reference_names.py` when seeding). The only place display strings are literals is `app/db/reference_names.py` and `db/sql/02_seed.sql`.

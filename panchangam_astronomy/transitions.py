@@ -18,7 +18,6 @@ from panchangam_astronomy.enums.thithi import Thithi
 
 
 class ThithiTransition(BaseModel):
-    name: str
     thithi: Thithi
     start_time: datetime
     end_time: datetime | None
@@ -29,7 +28,6 @@ class ThithiTransition(BaseModel):
 
 
 class NakshatraTransition(BaseModel):
-    name: str
     nakshatra: Nakshatra
     start_time: datetime
     end_time: Optional[datetime]

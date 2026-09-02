@@ -119,11 +119,11 @@ def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchang
     date = datetime.date(2026, 3, 5)
     day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
     early = ThithiTransition(
-        name=Thithi.PRATHAMA_SHUKLA.en, thithi=Thithi.PRATHAMA_SHUKLA,
+        thithi=Thithi.PRATHAMA_SHUKLA,
         start_time=day, end_time=day + datetime.timedelta(hours=10),
     )
     late = ThithiTransition(
-        name=Thithi.DWITHIYA_SHUKLA.en, thithi=Thithi.DWITHIYA_SHUKLA,
+        thithi=Thithi.DWITHIYA_SHUKLA,
         start_time=day + datetime.timedelta(hours=10),
         end_time=day + datetime.timedelta(hours=20),
     )
@@ -193,13 +193,13 @@ def test_upsert_normalizes_transitions_to_utc(seeded_session, make_panchangam_da
         date,
         thithi_transitions=[
             ThithiTransition(
-                name=Thithi.CHATURTHI_KRISHNA.en, thithi=Thithi.CHATURTHI_KRISHNA,
+                thithi=Thithi.CHATURTHI_KRISHNA,
                 start_time=aware_start, end_time=aware_end,
             )
         ],
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.POORURUTTATHI.en, nakshatra=Nakshatra.POORURUTTATHI,
+                nakshatra=Nakshatra.POORURUTTATHI,
                 start_time=aware_start, end_time=aware_end,
             )
         ],
@@ -306,9 +306,9 @@ def test_upsert_replaces_children_cleanly(seeded_session, make_panchangam_data):
     seeded_session.commit()
 
     two = [
-        ThithiTransition(name=Thithi.POORNIMA.en, thithi=Thithi.POORNIMA,
+        ThithiTransition(thithi=Thithi.POORNIMA,
                          start_time=day, end_time=day + datetime.timedelta(hours=12)),
-        ThithiTransition(name=Thithi.AMAVASYA.en, thithi=Thithi.AMAVASYA,
+        ThithiTransition(thithi=Thithi.AMAVASYA,
                          start_time=day + datetime.timedelta(hours=12),
                          end_time=day + datetime.timedelta(hours=20)),
     ]

@@ -51,14 +51,11 @@ def _row_to_panchangam_data(
     kv_row = row.kollavarsham
     if kv_row is None:
         raise ValueError("kv_row is None")
-    masa = MalayalamMasa.from_id(kv_row.kv_month)
     kv = KollavarshamDate(
         date=kv_row.date,
         kv_day=kv_row.kv_day,
         kv_month=kv_row.kv_month,
         kv_year=kv_row.kv_year,
-        kv_month_name_en=masa.en,
-        kv_month_name_ml=masa.ml,
     )
 
     # One-to-one now that panchangam is keyed by (date, location_id).
@@ -66,7 +63,6 @@ def _row_to_panchangam_data(
 
     thithi_transitions = [
         ThithiTransition(
-            name=Thithi.from_id(t.thithi_id).en,
             thithi=Thithi.from_id(t.thithi_id),
             start_time=t.start_time,
             end_time=t.end_time,
@@ -76,7 +72,6 @@ def _row_to_panchangam_data(
 
     nakshatra_transitions = [
         NakshatraTransition(
-            name=Nakshatra.from_id(n.nakshatra_id).en,
             nakshatra=Nakshatra.from_id(n.nakshatra_id),
             start_time=n.start_time,
             end_time=n.end_time,

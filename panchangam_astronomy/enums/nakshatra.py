@@ -6,38 +6,40 @@ from enum import Enum
 
 
 class Nakshatra(Enum):
-    ASWATHI = (1, "അശ്വതി", "Ashwati")
-    BHARANI = (2, "ഭരണി", "Bharani")
-    KARTHIKA = (3, "കാർത്തിക", "Karthika")
-    ROHINI = (4, "രോഹിണി", "Rohini")
-    MAKAYIRAM = (5, "മകയിരം", "Makayiram")
-    THIRUVATHIRA = (6, "തിരുവാതിര", "Thiruvathira")
-    PUNARTHAM = (7, "പുണർതം", "Punartham")
-    POOYAM = (8, "പൂയം", "Pooyam")
-    AAYILYAM = (9, "ആയില്യം", "Aayilyam")
-    MAKAM = (10, "മകം", "Makam")
-    POORAM = (11, "പൂരം", "Pooram")
-    UTHRAM = (12, "ഉത്രം", "Uthram")
-    ATHAM = (13, "അത്തം", "Atham")
-    CHITHIRA = (14, "ചിത്തിര", "Chithira")
-    CHOTHI = (15, "ചോതി", "Chothi")
-    VISHAKHAM = (16, "വിശാഖം", "Vishakham")
-    ANIZHAM = (17, "അനിഴം", "Anizham")
-    THRIKKETTA = (18, "തൃക്കേട്ട", "Thrikketta")
-    MOOLAM = (19, "മൂലം", "Moolam")
-    POORADAM = (20, "പൂരാടം", "Pooradam")
-    UTHRADAM = (21, "ഉത്രാടം", "Uthradam")
-    THIRUVONAM = (22, "തിരുവോണം", "Thiruvonam")
-    AVITTAM = (23, "അവിട്ടം", "Avittam")
-    CHATAYAM = (24, "ചതയം", "Chatayam")
-    POORURUTTATHI = (25, "പൂരുരുട്ടാതി", "Pooruruttathi")
-    UTHRATTATHI = (26, "ഉത്രട്ടാതി", "Uthrattathi")
-    REVATHI = (27, "രേവതി", "Revathi")
+    """A lunar mansion. ``name`` is the stable slug used everywhere internally;
+    localized display text lives in the DB ``nakshatra`` table (see
+    ``app/db/reference_names.py``)."""
 
-    def __init__(self, id: int, ml: str, en: str):
+    ASWATHI = 1
+    BHARANI = 2
+    KARTHIKA = 3
+    ROHINI = 4
+    MAKAYIRAM = 5
+    THIRUVATHIRA = 6
+    PUNARTHAM = 7
+    POOYAM = 8
+    AAYILYAM = 9
+    MAKAM = 10
+    POORAM = 11
+    UTHRAM = 12
+    ATHAM = 13
+    CHITHIRA = 14
+    CHOTHI = 15
+    VISHAKHAM = 16
+    ANIZHAM = 17
+    THRIKKETTA = 18
+    MOOLAM = 19
+    POORADAM = 20
+    UTHRADAM = 21
+    THIRUVONAM = 22
+    AVITTAM = 23
+    CHATAYAM = 24
+    POORURUTTATHI = 25
+    UTHRATTATHI = 26
+    REVATHI = 27
+
+    def __init__(self, id: int):
         self.id = id
-        self.ml = ml
-        self.en = en
 
     @classmethod
     @lru_cache()
@@ -52,8 +54,6 @@ class Nakshatra(Enum):
         return {
             "name": self.name,
             "id": self.id,
-            "ml": self.ml,
-            "en": self.en
         }
     
     @classmethod

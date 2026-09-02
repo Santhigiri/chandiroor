@@ -154,8 +154,8 @@ def compute_last_occurrence(
     ]
     if not transitions:
         raise OccurrenceComputationError(
-            f"No Nakshatra transition into {condition.nakshatra.en} found in "
-            f"{condition.ml_month.en} of {year}."
+            f"No Nakshatra transition into {condition.nakshatra.name} found in "
+            f"{condition.ml_month.name} of {year}."
         )
     last_transition = sorted(transitions, key=lambda t: t.start_time)[-1]
     return _ist_date(last_transition.start_time)

@@ -2,18 +2,17 @@ from enum import Enum
 
 
 class Paksha(Enum):
-    SHUKLA = (1, "ശുക്ലപക്ഷം", "Shukla Paksha")
-    KRISHNA = (2, "കൃഷ്ണപക്ഷം", "Krishna Paksha")
+    """The lunar fortnight. ``name`` is the stable slug; localized display text
+    lives in the DB ``paksha`` table (see ``app/db/reference_names.py``)."""
 
-    def __init__(self, id: int, ml: str, en: str):
+    SHUKLA = 1
+    KRISHNA = 2
+
+    def __init__(self, id: int):
         self.id = id
-        self.ml = ml
-        self.en = en
 
     def to_dict(self):
         return {
             "name": self.name,
             "id": self.id,
-            "ml": self.ml,
-            "en": self.en
         }

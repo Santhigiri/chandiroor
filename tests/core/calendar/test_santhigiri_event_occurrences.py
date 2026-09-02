@@ -133,7 +133,6 @@ def test_last_occurrence_falls_back_to_nakshatra_transition(make_panchangam_data
         kv_month=MalayalamMasa.CHINGAM,
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.CHOTHI.en,
                 nakshatra=Nakshatra.CHOTHI,
                 start_time=start_time,
                 end_time=start_time + datetime.timedelta(hours=2),
@@ -162,7 +161,6 @@ def test_last_occurrence_transition_date_uses_ist_not_utc(make_panchangam_data):
         kv_month=MalayalamMasa.CHINGAM,
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.CHOTHI.en,
                 nakshatra=Nakshatra.CHOTHI,
                 start_time=start_time,
                 end_time=start_time + datetime.timedelta(hours=2),
@@ -199,7 +197,7 @@ def test_transition_series_lands_after_cutoff(make_panchangam_data):
         d,
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.CHOTHI.en, nakshatra=Nakshatra.CHOTHI,
+                nakshatra=Nakshatra.CHOTHI,
                 start_time=start_time, end_time=end_time,
             )
         ],
@@ -222,7 +220,7 @@ def test_transition_series_shifts_back_within_cutoff(make_panchangam_data):
         d,
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.CHOTHI.en, nakshatra=Nakshatra.CHOTHI,
+                nakshatra=Nakshatra.CHOTHI,
                 start_time=start_time, end_time=end_time,
             )
         ],
@@ -246,7 +244,7 @@ def test_transition_series_returns_multiple_occurrences(make_panchangam_data):
             d,
             nakshatra_transitions=[
                 NakshatraTransition(
-                    name=Nakshatra.CHOTHI.en, nakshatra=Nakshatra.CHOTHI,
+                    nakshatra=Nakshatra.CHOTHI,
                     start_time=start_time, end_time=end_time,
                 )
             ],
@@ -318,7 +316,7 @@ def test_compute_occurrences_applies_offset_to_transition_series(make_panchangam
         d,
         nakshatra_transitions=[
             NakshatraTransition(
-                name=Nakshatra.CHOTHI.en, nakshatra=Nakshatra.CHOTHI,
+                nakshatra=Nakshatra.CHOTHI,
                 start_time=start_time, end_time=end_time,
             )
         ],

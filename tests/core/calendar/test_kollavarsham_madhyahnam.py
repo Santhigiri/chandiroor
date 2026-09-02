@@ -26,6 +26,7 @@ import pytest
 
 from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 from app.core.calendar.kollavarsham import get_kollavarsham_date
+from app.db.reference_names import MASA_NAMES
 
 LAT = round(Coordinates.SG_LATITUDE, 3)
 LON = round(Coordinates.SG_LONGITUDE, 3)
@@ -52,7 +53,7 @@ def test_month_starts_on_modyana_day(first_day, masa_id, masa_en, kv_year):
     kv = _kv(first_day)
     assert kv.kv_day == 1
     assert kv.kv_month == masa_id
-    assert kv.kv_month_name_en == masa_en
+    assert MASA_NAMES[kv.kv_month]["en"] == masa_en
     assert kv.kv_year == kv_year
 
 

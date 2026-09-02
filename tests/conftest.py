@@ -107,7 +107,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         if thithi_transitions is None:
             thithi_transitions = [
                 ThithiTransition(
-                    name=thithi.en,
                     thithi=thithi,
                     start_time=day_start,
                     end_time=day_start + _dt.timedelta(hours=20),
@@ -116,7 +115,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         if nakshatra_transitions is None:
             nakshatra_transitions = [
                 NakshatraTransition(
-                    name=nakshatra.en,
                     nakshatra=nakshatra,
                     start_time=day_start,
                     end_time=day_start + _dt.timedelta(hours=20),
@@ -128,8 +126,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
             kv_day=kv_day,
             kv_month=kv_month.id,
             kv_year=kv_year,
-            kv_month_name_en=kv_month.en,
-            kv_month_name_ml=kv_month.ml,
         )
 
         return PanchangamData(

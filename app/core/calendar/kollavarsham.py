@@ -122,7 +122,5 @@ def get_kollavarsham_date(
         kv_year= kollam_year,
         kv_month= malayalam_masa.id,
         kv_day= malayalam_day,
-        kv_month_name_en=malayalam_masa.en,
-        kv_month_name_ml=malayalam_masa.ml
     )
 

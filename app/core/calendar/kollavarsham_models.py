@@ -14,5 +14,3 @@ class KollavarshamDate(BaseModel):
     kv_day: int
     kv_month: int
     kv_year: int
-    kv_month_name_en: str
-    kv_month_name_ml: str

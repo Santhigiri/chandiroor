@@ -59,7 +59,6 @@ def get_nakshatra_transition_for_date(
             nakshatra_end_utc = end_time[0].utc_datetime() if isinstance(end_time, ndarray) else end_time.utc_datetime()
             nakshatra_end_tz = nakshatra_end_utc.astimezone(timezone_info)
         nakshatras_for_day.append(NakshatraTransition(
-            name= nakshatra.en,
             nakshatra = nakshatra,
             start_time=nakshatra_start_tz,
             end_time= nakshatra_end_tz
