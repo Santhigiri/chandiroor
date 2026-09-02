@@ -26,7 +26,7 @@ import pytest
 
 from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 from app.core.calendar.kollavarsham import get_kollavarsham_date
-from app.db.reference_names import MASA_NAMES
+from app.utils.malayalam_masa import MalayalamMasa
 
 LAT = round(Coordinates.SG_LATITUDE, 3)
 LON = round(Coordinates.SG_LONGITUDE, 3)
@@ -38,22 +38,21 @@ def _kv(day: date):
 
 
 @pytest.mark.parametrize(
-    "first_day, masa_id, masa_en, kv_year",
+    "first_day, masa, kv_year",
     [
         # Makara Sankramanam 2026-01-14, after that day's Modyana -> Makaram 1 = 01-15.
-        (date(2026, 1, 15), 10, "Makaram", 1201),
+        (date(2026, 1, 15), MalayalamMasa.MAKARAM, 1201),
         # Mithuna Sankramanam ~12:49 PM 2026-06-15, before end of Modyana -> same day.
-        (date(2026, 6, 15), 3, "Mithunam", 1201),
+        (date(2026, 6, 15), MalayalamMasa.MITHUNAM, 1201),
         # Medam Sankramanam 2027-04-14, after that day's Modyana -> Medam 1 = 04-15.
-        (date(2027, 4, 15), 1, "Medam", 1202),
+        (date(2027, 4, 15), MalayalamMasa.MEDAM, 1202),
     ],
 )
-def test_month_starts_on_modyana_day(first_day, masa_id, masa_en, kv_year):
+def test_month_starts_on_modyana_day(first_day, masa, kv_year):
     """The first day of the new masa has kv_day == 1 and the new masa's id."""
     kv = _kv(first_day)
     assert kv.kv_day == 1
-    assert kv.kv_month == masa_id
-    assert MASA_NAMES[kv.kv_month]["en"] == masa_en
+    assert kv.kv_month == masa.id
     assert kv.kv_year == kv_year
 
 

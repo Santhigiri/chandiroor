@@ -80,6 +80,12 @@ it replaces when a key's row is absent, so this migration is safe to apply at
 any time relative to a code deploy — there is no ordering dependency, unlike
 most other migrations here.
 
+`0006_reference_display_names_nullable.sql` drops the `NOT NULL` on the
+`ml`/`en` columns of `paksha`/`nakshatra`/`thithi`/`malayalam_masa`. The Python
+enums no longer carry display text, so `db/seed.py` seeds those columns as
+NULL; real databases still populate them from `02_seed.sql`. Safe to apply any
+time — existing rows already have values.
+
 Migrations live in `db/sql/migrations/`, numbered in application order. Most
 are idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s, etc.) so
 re-running them is harmless — the exception is a column *type* change (e.g.

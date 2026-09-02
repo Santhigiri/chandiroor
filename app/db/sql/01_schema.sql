@@ -43,29 +43,29 @@ CREATE TABLE location (
 CREATE UNIQUE INDEX ix_location_name ON location (name);
 
 CREATE TABLE malayalam_masa (
-	id SERIAL NOT NULL, 
-	name VARCHAR NOT NULL, 
-	ml VARCHAR NOT NULL, 
-	en VARCHAR NOT NULL, 
-	PRIMARY KEY (id), 
+	id SERIAL NOT NULL,
+	name VARCHAR NOT NULL,
+	ml VARCHAR,
+	en VARCHAR,
+	PRIMARY KEY (id),
 	UNIQUE (name)
 );
 
 CREATE TABLE nakshatra (
-	id SERIAL NOT NULL, 
-	name VARCHAR NOT NULL, 
-	ml VARCHAR NOT NULL, 
-	en VARCHAR NOT NULL, 
-	PRIMARY KEY (id), 
+	id SERIAL NOT NULL,
+	name VARCHAR NOT NULL,
+	ml VARCHAR,
+	en VARCHAR,
+	PRIMARY KEY (id),
 	UNIQUE (name)
 );
 
 CREATE TABLE paksha (
-	id SERIAL NOT NULL, 
-	name VARCHAR NOT NULL, 
-	ml VARCHAR NOT NULL, 
-	en VARCHAR NOT NULL, 
-	PRIMARY KEY (id), 
+	id SERIAL NOT NULL,
+	name VARCHAR NOT NULL,
+	ml VARCHAR,
+	en VARCHAR,
+	PRIMARY KEY (id),
 	UNIQUE (name)
 );
 
@@ -89,14 +89,14 @@ CREATE UNIQUE INDEX ix_user_google_id ON "user" (google_id);
 CREATE UNIQUE INDEX ix_user_username ON "user" (username);
 
 CREATE TABLE thithi (
-	id SERIAL NOT NULL, 
-	name VARCHAR NOT NULL, 
-	paksha_id INTEGER NOT NULL, 
-	day INTEGER NOT NULL, 
-	ml VARCHAR NOT NULL, 
-	en VARCHAR NOT NULL, 
-	PRIMARY KEY (id), 
-	UNIQUE (name), 
+	id SERIAL NOT NULL,
+	name VARCHAR NOT NULL,
+	paksha_id INTEGER NOT NULL,
+	day INTEGER NOT NULL,
+	ml VARCHAR,
+	en VARCHAR,
+	PRIMARY KEY (id),
+	UNIQUE (name),
 	FOREIGN KEY(paksha_id) REFERENCES paksha (id)
 );
 

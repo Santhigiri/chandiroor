@@ -7,8 +7,8 @@ from enum import Enum
 
 class Nakshatra(Enum):
     """A lunar mansion. ``name`` is the stable slug used everywhere internally;
-    localized display text lives in the DB ``nakshatra`` table (see
-    ``app/db/reference_names.py``)."""
+    localized display text lives in the DB ``nakshatra`` table (seeded by
+    ``db/sql/02_seed.sql``), not on this enum."""
 
     ASWATHI = 1
     BHARANI = 2

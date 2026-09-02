@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -13,7 +13,9 @@ class MalayalamMasa(SQLModel, table=True):
 
     id:   int = Field(primary_key=True)  # 1–12
     name: str = Field(unique=True)       # Python enum member name e.g. 'MEDAM'
-    ml:   str
-    en:   str
+    # Localized display text — see the note on Thithi.ml/en. Not seeded from the
+    # enum; filled by db/sql/02_seed.sql on real DBs, NULL in db/seed.py DBs.
+    ml:   Optional[str] = None
+    en:   Optional[str] = None
 
     kollavarsham_dates: List["KollavarshamDate"] = Relationship(back_populates="masa")

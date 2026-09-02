@@ -1,8 +1,8 @@
 """
 Seed the immutable lookup tables (Paksha, Thithi, Nakshatra, MalayalamMasa,
-Location, SanthigiriEvent) from the Python enums / event definitions. Localized
-display names come from ``app/db/reference_names.py`` (the enums no longer carry
-them); production DBs use the parallel ``db/sql/02_seed.sql`` copy.
+Location, SanthigiriEvent) from the Python enums / event definitions. Only
+structural columns are populated; the localized display-name columns (ml, en)
+are left NULL — production DBs fill them from ``db/sql/02_seed.sql``.
 
 Call seed_lookup_tables(session) once after init_db().  Subsequent calls are
 safe — session.merge() is idempotent on rows that already exist.
@@ -16,12 +16,6 @@ from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
-from app.db.reference_names import (
-    MASA_NAMES,
-    NAKSHATRA_NAMES,
-    PAKSHA_NAMES,
-    THITHI_NAMES,
-)
 from app.utils.location import Location
 from app.utils.malayalam_masa import MalayalamMasa
 from panchangam_astronomy.enums.nakshatra import Nakshatra
@@ -117,30 +111,28 @@ def seed_app_settings_if_empty(session: Session) -> bool:
 def seed_lookup_tables(session: Session) -> None:
     """Insert all Paksha, Thithi, Nakshatra, MalayalamMasa, Location, SanthigiriEvent,
     and default AppSetting values."""
+    # Only structural data is seeded from the enums (id / name / paksha / day).
+    # Localized display text (ml, en) is left NULL here — real databases get it
+    # from db/sql/02_seed.sql; nothing in the app reads it off these rows in
+    # test/dev.
     for p in Paksha:
-        names = PAKSHA_NAMES[p.id]
-        session.merge(PakshaRow(id=p.id, name=p.name, ml=names["ml"], en=names["en"]))
+        session.merge(PakshaRow(id=p.id, name=p.name))
 
     for t in Thithi:
-        names = THITHI_NAMES[t.id]
         session.merge(
             ThithiRow(
                 id=t.id,
                 name=t.name,
                 paksha_id=t.paksha.id,
                 day=t.day,
-                ml=names["ml"],
-                en=names["en"],
             )
         )
 
     for n in Nakshatra:
-        names = NAKSHATRA_NAMES[n.id]
-        session.merge(NakshatraRow(id=n.id, name=n.name, ml=names["ml"], en=names["en"]))
+        session.merge(NakshatraRow(id=n.id, name=n.name))
 
     for m in MalayalamMasa:
-        names = MASA_NAMES[m.id]
-        session.merge(MalayalamMasaRow(id=m.id, name=m.name, ml=names["ml"], en=names["en"]))
+        session.merge(MalayalamMasaRow(id=m.id, name=m.name))
 
     for loc in Location:
         session.merge(

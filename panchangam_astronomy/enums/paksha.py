@@ -3,7 +3,8 @@ from enum import Enum
 
 class Paksha(Enum):
     """The lunar fortnight. ``name`` is the stable slug; localized display text
-    lives in the DB ``paksha`` table (see ``app/db/reference_names.py``)."""
+    lives in the DB ``paksha`` table (seeded by ``db/sql/02_seed.sql``), not on
+    this enum."""
 
     SHUKLA = 1
     KRISHNA = 2

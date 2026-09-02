@@ -155,10 +155,12 @@ there is no separate `app/utils/nakshatra.py`/`thithi.py`/`paksha.py`
 anymore. The enums carry only structural data — `id`, plus `paksha`/`day` on
 `Thithi` — and their `.name` is the stable slug used everywhere internally.
 They hold **no display text**: localized (`en`/`ml`) names live in the DB
-reference tables (`thithi`/`nakshatra`/`paksha`/`malayalam_masa`), with
-`app/db/reference_names.py` as the Python-side seed source for those tables
-(`db/sql/02_seed.sql` is the parallel authoritative copy for production).
-Additional languages are added on the DB side, not in code. `panchangam_astronomy/ephemeris.py` resolves `de421.bsp`
+reference tables (`thithi`/`nakshatra`/`paksha`/`malayalam_masa`), whose `ml`/`en`
+columns are nullable and populated only by `db/sql/02_seed.sql` on real
+databases. `db/seed.py` (test/dev seeding) fills just the structural columns
+from the enums and leaves `ml`/`en` NULL; nothing in the app reads display text
+off those rows outside the `/panchangam/thithi|nakshatra|masa` reference
+endpoints. Additional languages are added on the DB side, not in code. `panchangam_astronomy/ephemeris.py` resolves `de421.bsp`
 (bundled alongside it, at `panchangam_astronomy/de421.bsp`) relative to its
 own module location via a `skyfield.api.Loader`, not the process's current
 working directory — so the package loads correctly regardless of where the
@@ -272,7 +274,7 @@ Follow these rules without exception.
 
 ### Enum usage
 
-Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha` from `panchangam_astronomy.enums.*`; `MalayalamMasa` from `utils/`) for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. The enums carry only `id` (+ `paksha`/`day` on `Thithi`); their `.name` is the stable slug. They do **not** carry display text — localized `en`/`ml` names come from the DB reference tables (see `app/db/reference_names.py` for the seed source), exposed via the `GET /api/v1/panchangam/thithi|nakshatra|masa` endpoints. Compact API responses carry the slug/id; the client resolves display names from those reference datasets.
+Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha` from `panchangam_astronomy.enums.*`; `MalayalamMasa` from `utils/`) for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. The enums carry only `id` (+ `paksha`/`day` on `Thithi`); their `.name` is the stable slug. They do **not** carry display text — localized `en`/`ml` names come from the DB reference tables (nullable `ml`/`en` columns, seeded by `db/sql/02_seed.sql`), exposed via the `GET /api/v1/panchangam/thithi|nakshatra|masa` endpoints. Compact API responses carry the slug/id; the client resolves display names from those reference datasets.
 
 ---
 
@@ -543,4 +545,4 @@ Importing anything from `panchangam_astronomy/` triggers this load. Do not move 
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
 - Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.
-- Do not hardcode Malayalam or Sanskrit display names as string literals in new code. Domain logic keys off the typed enum (`.name` slug / `.id`); display text is DB-owned — read it from the reference tables (or `app/db/reference_names.py` when seeding). The only place display strings are literals is `app/db/reference_names.py` and `db/sql/02_seed.sql`.
+- Do not hardcode Malayalam or Sanskrit display names as string literals in new code. Domain logic keys off the typed enum (`.name` slug / `.id`); display text is DB-owned — read it from the reference tables. The only place display strings are literals is `db/sql/02_seed.sql`.

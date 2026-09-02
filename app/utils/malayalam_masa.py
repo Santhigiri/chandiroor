@@ -6,7 +6,7 @@ from typing import Dict
 class MalayalamMasa(Enum):
     """A Malayalam solar month. ``name`` is the stable slug used everywhere
     internally; localized display text lives in the DB ``malayalam_masa`` table
-    (see ``app/db/reference_names.py``)."""
+    (seeded by ``db/sql/02_seed.sql``), not on this enum."""
 
     MEDAM = 1
     IDAVAM = 2

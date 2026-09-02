@@ -7,8 +7,9 @@ from .paksha import Paksha
 
 class Thithi(Enum):
     """A lunar day. ``name`` is the stable slug used everywhere internally;
-    localized display text lives in the DB ``thithi`` table (see
-    ``app/db/reference_names.py``). ``paksha`` and ``day`` are structural."""
+    localized display text lives in the DB ``thithi`` table (seeded by
+    ``db/sql/02_seed.sql``), not on this enum. ``paksha`` and ``day`` are
+    structural."""
 
     # Shukla Paksha (1–15)
     PRATHAMA_SHUKLA = (1, Paksha.SHUKLA, 1)

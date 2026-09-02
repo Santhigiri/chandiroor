@@ -7,7 +7,6 @@ from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
-from app.db.reference_names import NAKSHATRA_NAMES, THITHI_NAMES
 from app.db.seed import seed_lookup_tables
 from app.utils.location import Location
 from app.utils.malayalam_masa import MalayalamMasa
@@ -41,6 +40,8 @@ def test_seed_carries_day_offset_from_event_condition(session):
 
 
 def test_seed_values_match_enums(session):
+    """Only structural data is seeded from the enums — id, name, paksha, day.
+    Display text (ml/en) is intentionally left NULL by db/seed.py."""
     seed_lookup_tables(session)
 
     poornima = session.get(ThithiRow, Thithi.POORNIMA.id)
@@ -48,16 +49,12 @@ def test_seed_values_match_enums(session):
     assert poornima.name == Thithi.POORNIMA.name
     assert poornima.paksha_id == Thithi.POORNIMA.paksha.id
     assert poornima.day == Thithi.POORNIMA.day
-    assert poornima.ml == THITHI_NAMES[Thithi.POORNIMA.id]["ml"]
-    assert poornima.en == THITHI_NAMES[Thithi.POORNIMA.id]["en"]
+    assert poornima.ml is None and poornima.en is None
 
     chothi = session.get(NakshatraRow, Nakshatra.CHOTHI.id)
     assert chothi is not None
-    assert (chothi.name, chothi.ml, chothi.en) == (
-        Nakshatra.CHOTHI.name,
-        NAKSHATRA_NAMES[Nakshatra.CHOTHI.id]["ml"],
-        NAKSHATRA_NAMES[Nakshatra.CHOTHI.id]["en"],
-    )
+    assert chothi.name == Nakshatra.CHOTHI.name
+    assert chothi.ml is None and chothi.en is None
 
     masa = session.get(MalayalamMasaRow, MalayalamMasa.MEENAM.id)
     assert masa is not None and masa.name == MalayalamMasa.MEENAM.name
