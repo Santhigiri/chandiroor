@@ -16,7 +16,7 @@ from app.core.astronomy.tuning import AstronomyTuning
 from app.core.astronomy.enums.thithi import Thithi
 
 
-def get_tropical_longitude(t: Time, body: str) -> float:
+def get_tropical_longitude(t: Time, body: str) -> float | np.ndarray:
     pos: tuple[Angle, Angle, Distance] | None = None
     if body == 'moon':
         pos = earth.at(t).observe(moon).apparent().frame_latlon(ecliptic_frame) #pyright: ignore
@@ -30,7 +30,7 @@ def get_tropical_longitude(t: Time, body: str) -> float:
 
 def get_sidereal_longitude_from_time(
     t: Time,
-    body: str) -> float:
+    body: str) -> float | np.ndarray:
     tropical_longitude = get_tropical_longitude(
         t=t,
         body=body
@@ -46,7 +46,7 @@ def get_sidereal_longitude_from_time(
     return (tropical_longitude - ayanamsa) % 360
 
 
-def get_elongations(t: Time) -> float:
+def get_elongations(t: Time) -> float | np.ndarray:
     moon_sidereal_longitude = get_sidereal_longitude_from_time(t,"moon")
     sun_sidereal_longitude = get_sidereal_longitude_from_time(t, "sun")
     elongation = (moon_sidereal_longitude - sun_sidereal_longitude) % 360
