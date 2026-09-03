@@ -31,7 +31,7 @@ from typing import Dict, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from panchangam_astronomy.tuning import AstronomyTuning
+from app.core.astronomy.tuning import AstronomyTuning
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.settings.ports import AppSettingGet, AppSettingRepositoryPort
 from app.schemas.app_setting import (

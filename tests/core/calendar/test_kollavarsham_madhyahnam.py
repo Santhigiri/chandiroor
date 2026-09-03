@@ -24,7 +24,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 from app.core.calendar.kollavarsham import get_kollavarsham_date
 from app.utils.malayalam_masa import MalayalamMasa
 

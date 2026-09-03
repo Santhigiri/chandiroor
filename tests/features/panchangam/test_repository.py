@@ -22,13 +22,13 @@ from app.features.panchangam.repository import (
     event_row_to_event,
 )
 from app.utils.location import Location
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import (
     EVENT_DEFINITIONS_BY_ID,
     EventCondition,
     SanthigiriEvent,
 )
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 TVM = Location.TVM
 
@@ -114,7 +114,7 @@ def test_event_row_to_event_defaults_day_offset_to_none():
 
 
 def test_transitions_returned_sorted_by_start_time(seeded_session, make_panchangam_data):
-    from panchangam_astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     date = datetime.date(2026, 3, 5)
     day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
@@ -180,8 +180,8 @@ def test_upsert_normalizes_sunrise_sunset_to_utc(seeded_session, make_panchangam
 
 
 def test_upsert_normalizes_transitions_to_utc(seeded_session, make_panchangam_data):
-    from panchangam_astronomy.nakshatra_transition import NakshatraTransition
-    from panchangam_astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.nakshatra_transition import NakshatraTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 8, 2)
@@ -296,7 +296,7 @@ def test_delete_children_scoped_to_location(two_location_session, make_panchanga
 # ── Upsert replace semantics ──────────────────────────────────────────────────
 
 def test_upsert_replaces_children_cleanly(seeded_session, make_panchangam_data):
-    from panchangam_astronomy.thithi_transition import ThithiTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
 
     repo = PanchangamRepository(seeded_session)
     date = datetime.date(2026, 3, 6)

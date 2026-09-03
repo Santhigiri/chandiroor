@@ -8,7 +8,7 @@ from app.core.ports.unit_of_work import UnitOfWork
 from app.core.security import ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE, TokenError, decode_token, hash_password, verify_password
 from app.features.auth.ports import AuthRepositoryPort, UserGet, UserNotFoundException, UserUpdate, UserCreate, UserWithCredentials
 from app.features.auth.schemas import LoginUserRequest, GetUserResponse, CreateUserRequest, UpdateUserRequest
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.nakshatra import Nakshatra
 
 
 class InvalidCredentailsException(Exception):

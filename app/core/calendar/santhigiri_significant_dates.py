@@ -21,8 +21,8 @@ from __future__ import annotations
 from datetime import datetime, time
 from typing import List
 
-from panchangam_astronomy.pournami import is_poornima_live
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.constants import DEFAULT_TIMEZONE
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 

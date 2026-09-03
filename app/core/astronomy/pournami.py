@@ -20,8 +20,8 @@ it computes them on the fly and delegates to :func:`is_poornima`.
 from datetime import date, datetime, timedelta
 from typing import Dict, Mapping, Optional, Sequence, Tuple
 
-from panchangam_astronomy.transitions import ThithiTransition
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.transitions import ThithiTransition
+from app.core.astronomy.enums.thithi import Thithi
 
 _POURNAMI_ID = Thithi.POORNIMA.id  # 15
 
@@ -127,8 +127,8 @@ def is_poornima_live(localdt: datetime, timezone: str) -> bool:
     """
     # Imported lazily so importing this module for the pure, data-driven path does
     # not drag in the ephemeris stack.
-    from panchangam_astronomy.sunrise_sunset import get_sunrise_sunset
-    from panchangam_astronomy.thithi_transition import calc_thithi_transition_for_date
+    from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+    from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
 
     target = localdt.date()
     thithi_transitions_by_date: Dict[date, Sequence[ThithiTransition]] = {}

@@ -56,9 +56,9 @@ from app.schemas.app_setting import EventCutoffsValue
 from app.features.etag.service import refresh_etags
 from app.utils.location import DEFAULT_LOCATION
 from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 
 class EventAlreadyExistsException(Exception):

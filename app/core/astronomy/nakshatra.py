@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 from typing import List, Tuple
-from panchangam_astronomy.calculations import get_moon_sidereal_longitude
-from panchangam_astronomy.nakshatra_transition import NakshatraTransition
-from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.nakshatra_calc import calc_nakshatra_from_lon
+from app.core.astronomy.calculations import get_moon_sidereal_longitude
+from app.core.astronomy.nakshatra_transition import NakshatraTransition
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.nakshatra_calc import calc_nakshatra_from_lon
 
 def get_nakshatra(localdt: datetime, timezone: str)->Tuple[Nakshatra, float]:
     # Calculate Moon's sidereal longitude

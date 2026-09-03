@@ -18,11 +18,11 @@ from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
 from app.utils.location import Location
 from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.enums.paksha import Paksha
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
 from app.utils.settings_keys import SettingKey
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 from app.schemas.app_setting import (
     AstronomyEpsilonsValue,
     DefaultLocationCodeValue,

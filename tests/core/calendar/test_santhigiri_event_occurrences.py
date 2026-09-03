@@ -8,7 +8,7 @@ import datetime
 
 import pytest
 
-from panchangam_astronomy.transitions import NakshatraTransition
+from app.core.astronomy.transitions import NakshatraTransition
 from app.core.calendar.santhigiri_event_occurrences import (
     OccurrenceComputationError,
     UnsupportedEventCondition,
@@ -19,9 +19,9 @@ from app.core.calendar.santhigiri_event_occurrences import (
     compute_transition_series,
 )
 from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 
 def _year_days(year: int, make, **overrides):

@@ -1,5 +1,5 @@
 -- Makes the localized display-name columns (ml, en) nullable on the four
--- reference lookup tables. The Python enums (panchangam_astronomy.enums.* and
+-- reference lookup tables. The Python enums (app.core.astronomy.enums.* and
 -- app/utils/malayalam_masa.py) no longer carry display text — they hold only
 -- id/name(+paksha/day) — so db/seed.py seeds those columns as NULL. Real
 -- databases still get the names from db/sql/02_seed.sql; this only relaxes the

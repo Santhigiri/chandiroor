@@ -3,8 +3,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.thithi import Thithi
 
 
 @dataclass(frozen=True)

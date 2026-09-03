@@ -31,9 +31,9 @@ from typing import Dict, List, Literal
 
 import pytz
 
-from panchangam_astronomy.pournami import is_poornima_live
+from app.core.astronomy.pournami import is_poornima_live
 from app.core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE
+from app.core.astronomy.constants import DEFAULT_TIMEZONE
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import EventCondition
 

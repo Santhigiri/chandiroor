@@ -1,7 +1,7 @@
 
 from datetime import date
 from typing import Dict, List
-from panchangam_astronomy.nakshatra_transition import NakshatraTransition
+from app.core.astronomy.nakshatra_transition import NakshatraTransition
 from app.schemas.panchangam_data import PanchangamData
 
 

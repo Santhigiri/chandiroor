@@ -6,9 +6,9 @@ from sqlmodel import Field, Relationship, SQLModel
 from app.features.santhigiri_events.ports import SanthigiriEventBase, SanthigiriEventGet
 
 
-from panchangam_astronomy.enums.nakshatra import Nakshatra as NakshatraEnum
+from app.core.astronomy.enums.nakshatra import Nakshatra as NakshatraEnum
 from app.utils.santhigiri_events import EventCondition
-from panchangam_astronomy.enums.thithi import Thithi as ThithiEnum
+from app.core.astronomy.enums.thithi import Thithi as ThithiEnum
 from app.utils.malayalam_masa import MalayalamMasa as MalayalamMasaEnum
 
 if TYPE_CHECKING:

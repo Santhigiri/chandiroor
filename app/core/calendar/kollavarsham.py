@@ -1,15 +1,15 @@
 from datetime import date, timedelta
 from functools import lru_cache
 
-from panchangam_astronomy.calculations import (
+from app.core.astronomy.calculations import (
     get_sun_sidereal_longitude,
 )
 
-from panchangam_astronomy.constants import (
+from app.core.astronomy.constants import (
     DEFAULT_TIMEZONE,
 )
 
-from panchangam_astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
 from app.core.calendar.kollavarsham_models import KollavarshamDate
 from app.utils.malayalam_masa import MalayalamMasa
 

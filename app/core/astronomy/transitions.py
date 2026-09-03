@@ -13,8 +13,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_serializer
 
-from panchangam_astronomy.enums.nakshatra import Nakshatra
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.thithi import Thithi
 
 
 class ThithiTransition(BaseModel):
