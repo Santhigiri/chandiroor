@@ -4,6 +4,7 @@ from typing import List
 from pytz.exceptions import Error
 from skyfield.almanac import ecliptic_frame, find_discrete
 from skyfield.api import Time
+from skyfield.units import Angle, Distance
 from app.core.astronomy.ayanamsa import get_ayanamsa
 from app.core.astronomy.calculations import get_time
 from zoneinfo import ZoneInfo
@@ -15,8 +16,8 @@ from app.core.astronomy.tuning import AstronomyTuning
 from app.core.astronomy.enums.thithi import Thithi
 
 
-def get_tropical_longitude( t: Time, body: str):
-    pos = None
+def get_tropical_longitude(t: Time, body: str) -> float:
+    pos: tuple[Angle, Angle, Distance] | None = None
     if body == 'moon':
         pos = earth.at(t).observe(moon).apparent().frame_latlon(ecliptic_frame) #pyright: ignore
     elif body == 'sun':
@@ -29,7 +30,7 @@ def get_tropical_longitude( t: Time, body: str):
 
 def get_sidereal_longitude_from_time(
     t: Time,
-    body: str):
+    body: str) -> float:
     tropical_longitude = get_tropical_longitude(
         t=t,
         body=body
