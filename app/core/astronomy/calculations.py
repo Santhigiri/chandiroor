@@ -33,26 +33,6 @@ def get_tropical_longitude(t: Time, body: str) -> float:
     return tropical_longitude
 
 
-def get_sidereal_longitude_from_time(
-    t: Time,
-    body: str) -> float:
-    tropical_longitude = get_tropical_longitude(
-        t=t,
-        body=body
-    )
-    dt = t.utc_datetime()
-
-    if isinstance(dt, np.ndarray):
-        raise ValueError("Time became vector inside Skyfield chain")
-    year = dt.year
-    month = dt.month
-    day = dt.day
-    hour = dt.hour
-
-    ayanamsa = get_ayanamsa(year = year, month =  month, day=day, hour=hour)
-    
-    return (tropical_longitude - ayanamsa) % 360
-
 def get_sidereal_longitude(
     localdt: datetime,
     timezone: str,
