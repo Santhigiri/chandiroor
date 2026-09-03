@@ -11,7 +11,7 @@ from app.core.astronomy.enums.thithi import Thithi
 from app.core.astronomy.pournami import is_poornima_live
 from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
 from app.core.astronomy.tuning import AstronomyTuning
-from app.core.calendar.kollavarsham import get_kollavarsham_date
+from app.core.kollavarsham.kollavarsham import get_kollavarsham_date
 from datetime import date
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.schemas.location import LocationInfo
@@ -86,7 +86,7 @@ def get_panchangam_data(
     )
 
     # santhigiri_significant_dates are overlaid by PanchangamService from the
-    # editable DB event definitions (see core/calendar/santhigiri_significant_dates.py);
+    # editable DB event definitions (see core/events/significant_dates.py);
     # get_panchangam_data stays pure and returns an empty list here.
     return panchangam_data
 

@@ -9,7 +9,7 @@ from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
 from app.db.seed import seed_lookup_tables
 from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID

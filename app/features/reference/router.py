@@ -5,7 +5,7 @@ from app.api.deps import EtagRepositoryDep, ReferenceRepositoryDep, UnitOfWorkDe
 from app.features.etag.service import build_enum_payload, conditional_json_response, enum_key
 from app.schemas.compact_panchangam_data import CompactSanthigiriEvent
 from app.schemas.location import LocationInfo
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
 from app.core.astronomy.enums.thithi import Thithi

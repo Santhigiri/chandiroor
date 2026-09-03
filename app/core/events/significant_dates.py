@@ -1,9 +1,11 @@
 """
-Match editable Santhigiri event definitions against a single computed day.
+Match editable event definitions against a single computed day.
 
 It lets the ``PanchangamService`` fallback overlay condition-based events onto
 a date the DB has no pre-computed occurrence row for, so events added via the
-admin CRUD show up automatically on live-fallback dates.
+admin CRUD show up automatically on live-fallback dates. Works for any event
+sharing the ``EventCondition`` shape, whether a built-in Santhigiri observance
+or a custom definition.
 
 It is intentionally *pure*: it imports only domain/astronomy helpers and the
 response schema — never ``db/`` or ``api/`` — so it respects the layer
@@ -92,7 +94,7 @@ def match_condition_based_events(
     Events with a ``day_offset`` are excluded here: this matcher only ever
     sees one day's data, so it cannot tell whether *this* day is the shifted
     target of some other day's match (that requires whole-year context, see
-    ``core.calendar.santhigiri_event_occurrences.compute_occurrences``).
+    ``core.events.event_occurrences.compute_occurrences``).
     """
     return [
         event

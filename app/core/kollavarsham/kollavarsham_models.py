@@ -2,7 +2,7 @@
 
 Kept free of any Skyfield/ephemeris imports so the API response schema and the DB
 repository can import ``KollavarshamDate`` without loading the heavy astronomy
-stack. ``core.calendar.kollavarsham`` imports this class back and populates it.
+stack. ``core.kollavarsham.kollavarsham`` imports this class back and populates it.
 """
 from datetime import date
 

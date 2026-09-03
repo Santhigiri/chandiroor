@@ -3,7 +3,7 @@ from pydantic import BaseModel, field_serializer
 from datetime import date, datetime
 
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
-from app.core.calendar.kollavarsham_models import KollavarshamDate
+from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.schemas.location import LocationInfo
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import SanthigiriEvent

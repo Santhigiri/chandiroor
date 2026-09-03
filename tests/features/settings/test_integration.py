@@ -12,13 +12,13 @@ import pytest
 
 from app.core.astronomy.nakshatra_transition import make_nakshatra_transition_fn
 from app.core.astronomy.thithi_transition import make_thithi_transition_fn
-from app.core.calendar.santhigiri_event_occurrences import compute_last_occurrence
+from app.core.events.event_occurrences import compute_last_occurrence
 from app.schemas.app_setting import AppSettingUpdate
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.panchangam.service import PanchangamService, YearOutOfRange
 from app.features.settings.repository import AppSettingRepository
 from app.features.settings.service import SettingsService
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
 from app.utils.settings_keys import SettingKey

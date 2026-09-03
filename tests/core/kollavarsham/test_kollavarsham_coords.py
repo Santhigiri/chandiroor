@@ -1,7 +1,7 @@
 """
 Regression test for the multi-location Kollavarsham coordinate bug.
 
-``core.calendar.kollavarsham.get_madhyahnam_raasi`` must thread the caller's
+``core.kollavarsham.kollavarsham.get_madhyahnam_raasi`` must thread the caller's
 ``latitude``/``longitude`` through to ``get_sunrise_sunset`` rather than
 silently computing the Malayalam date from the ashram's sun times regardless of
 the requested location. Once panchangam is multi-location, that must use the
@@ -11,7 +11,7 @@ from datetime import date
 
 from unittest.mock import patch
 
-import app.core.calendar.kollavarsham as kv
+import app.core.kollavarsham.kollavarsham as kv
 
 
 def test_get_madhyahnam_raasi_passes_coordinates_through():

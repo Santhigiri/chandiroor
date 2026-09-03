@@ -9,7 +9,7 @@ from app.features.santhigiri_events.ports import SanthigiriEventBase, Santhigiri
 from app.core.astronomy.enums.nakshatra import Nakshatra as NakshatraEnum
 from app.utils.santhigiri_events import EventCondition
 from app.core.astronomy.enums.thithi import Thithi as ThithiEnum
-from app.utils.malayalam_masa import MalayalamMasa as MalayalamMasaEnum
+from app.core.kollavarsham.enums.masa import MalayalamMasa as MalayalamMasaEnum
 
 if TYPE_CHECKING:
     from app.db.models.nakshatra import Nakshatra
@@ -65,7 +65,7 @@ class SanthigiriEvent(SQLModel, table=True):
     # Shift the day the other condition columns match by N days. NULL/0 =
     # no shift; positive = N days after; negative = N days before. See
     # utils.santhigiri_events.EventCondition.day_offset and
-    # core.calendar.santhigiri_event_occurrences.compute_occurrences.
+    # core.events.event_occurrences.compute_occurrences.
     day_offset: Optional[int] = None
 
     # Cross-event precedence: when generating THIS event's occurrences, any

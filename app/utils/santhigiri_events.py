@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.thithi import Thithi
 
@@ -22,7 +22,7 @@ class EventCondition:
     last_occurance: Optional[bool] = None
     # Shift the day the other condition fields match by N days. None/0 = no
     # shift; positive = N days after; negative = N days before. Honored by
-    # the live DB pipeline (core/calendar/santhigiri_event_occurrences.py).
+    # the live DB pipeline (core/events/event_occurrences.py).
     day_offset: Optional[int] = None
 
 class SanthigiriEvent(BaseModel):

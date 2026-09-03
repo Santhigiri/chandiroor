@@ -83,7 +83,7 @@ class PanchangamService:
         live-computed day still carries its condition-based events.
         """
         from app.core.calendar.panchangam import get_panchangam_data
-        from app.core.calendar.santhigiri_significant_dates import (
+        from app.core.events.significant_dates import (
             match_condition_based_events,
         )
 
@@ -115,7 +115,7 @@ class PanchangamService:
         which the route handler converts to a 400.
         """
         from app.core.calendar.panchangam import get_panchangam_data
-        from app.core.calendar.santhigiri_significant_dates import (
+        from app.core.events.significant_dates import (
             match_condition_based_events,
         )
 

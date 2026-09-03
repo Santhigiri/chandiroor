@@ -111,7 +111,9 @@ panchangam-api/
     │   └── models/                 # SQLModel table definitions
     ├── core/                        # Unchanged by the feature-folder move — shared by every feature
     │   ├── astronomy/              # Pure astronomical functions + vendored enums + de421.bsp — fenced off by .importlinter (see "The astronomy package" below)
-    │   ├── calendar/               # Domain aggregation: combines core/astronomy/ into calendar objects
+    │   ├── calendar/               # Domain aggregation: panchangam.py combines core/astronomy/ + core/kollavarsham/ + core/events/ into a PanchangamData
+    │   ├── kollavarsham/           # Malayalam-calendar (Kollavarsham) computation: kollavarsham.py, kollavarsham_models.py, and the MalayalamMasa enum under enums/masa.py
+    │   ├── events/                 # Event-condition → occurrence-date resolution: event_occurrences.py (year-range) + significant_dates.py (single-day live-fallback matcher)
     │   ├── ports/
     │   │   ├── unit_of_work.py     # UnitOfWork (Protocol) — the transaction boundary every migrated feature's service depends on
     │   │   ├── settings_service.py # SettingsServicePort (Protocol) — the typed-getter subset of SettingsService that
@@ -135,7 +137,7 @@ panchangam-api/
         ├── roles.py                # Role enum (anonymous < user < admin) for authorization
         ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
         └── santhigiri_events.py    # Event definitions and matching conditions — stays here (not features/) since
-                                     # core/calendar/ and db/ import it directly and must not depend on features/
+                                     # core/calendar/, core/events/, and db/ import it directly and must not depend on features/
 ```
 
 ### The astronomy package
@@ -143,7 +145,8 @@ panchangam-api/
 `core/astronomy/` (i.e. `app/core/astronomy/`) is a self-contained computation
 layer with **zero dependency on the rest of `app/`** — it has no imports from
 `schemas/`, `db/`, `features/`, `api/`, `utils/`, `core/calendar/`,
-`core/ports/`, `core/config.py`, or `core/security.py`. This is not just a
+`core/kollavarsham/`, `core/events/`, `core/ports/`, `core/config.py`, or
+`core/security.py`. This is not just a
 convention: the `.importlinter` contract `astronomy-isolation` (a `forbidden`
 contract listing every sibling under `app/`) fails the build if any module
 under `core/astronomy/` imports one of them. Run it locally with
@@ -174,16 +177,21 @@ Additional languages are added on the DB side, not in code.
 `core/astronomy/ephemeris.py` resolves `de421.bsp` (bundled alongside it, at
 `app/core/astronomy/de421.bsp`) relative to its own module location via a
 `skyfield.api.Loader`, not the process's current working directory — so it
-loads correctly regardless of where the app is run from. `core/calendar/`
-(below) is the layer that couples astronomy output to the app's
-`PanchangamData`/DB-backed world; `core/astronomy/` itself has no equivalent
+loads correctly regardless of where the app is run from. `core/calendar/`,
+`core/kollavarsham/`, and `core/events/` (below) are the layers that couple
+astronomy output to the app's `PanchangamData`/DB-backed world; `core/astronomy/`
+itself has no equivalent
 coupling — the import contract keeps it that way, so it could still be
 extracted into its own repo/package by moving the folder and flipping its
 imports back to a top-level package name.
 
 ### Why this structure exists
 
-**`core/calendar/`** aggregates astronomy into meaningful calendar objects. `panchangam.py::get_panchangam_data()` is the single orchestration point: it calls into `core/astronomy/`, builds a `PanchangamData` Pydantic object, and returns it. It is used directly by `features/panchangam/service.py` as the live-computation fallback for any date not yet in the DB.
+**`core/calendar/`** aggregates astronomy into meaningful calendar objects. `panchangam.py::get_panchangam_data()` is the single orchestration point: it calls into `core/astronomy/` and `core/kollavarsham/`, builds a `PanchangamData` Pydantic object, and returns it. It is used directly by `features/panchangam/service.py` as the live-computation fallback for any date not yet in the DB.
+
+**`core/kollavarsham/`** holds the Malayalam solar-calendar computation: `kollavarsham.py` (`get_kollavarsham_date`, `get_madhyahnam_raasi`), the import-light `kollavarsham_models.py::KollavarshamDate` value object (no Skyfield imports, so `schemas/` and `db/` can import it freely), and the `MalayalamMasa` enum at `enums/masa.py` (moved out of `utils/` since it is only used here and by the DB/reference layers that back it).
+
+**`core/events/`** resolves an `EventCondition` to occurrence dates: `event_occurrences.py::compute_occurrences()` over a whole year range (single-day / last-occurrence / transition-series), and `significant_dates.py::match_condition_based_events()` for the single-day live-fallback overlay `PanchangamService` applies to dates with no DB occurrence row. Both are pure — they import only domain/schema/astronomy types, never `db/` or `api/`.
 
 **`features/<name>/`** is a vertical slice: its `router.py` is the HTTP boundary (parses/validates query params, obtains a service via FastAPI `Depends`, delegates to it, translates domain errors to HTTP status codes) and its `service.py` sits between the router and persistence. `PanchangamService.get_by_date()`/`get_by_month()` read through the `PanchangamRepositoryPort`, falling back to `get_panchangam_data()` only when a date is missing from the database. Every feature owns its own `service.py`, including `settings` (`features/settings/service.py::SettingsService`) — a service consumed by 3+ other features' own services is still not imported directly cross-feature; the consumer depends on a `Protocol` in `core/ports/` instead (see "Ports & adapters" below). A feature that has been migrated to ports & adapters (see below) never imports a concrete `db/` repository from its `service.py`/`router.py` at all — only its own `ports.py` and the concrete adapter bound in `api/deps.py`.
 
@@ -193,7 +201,7 @@ imports back to a top-level package name.
 
 **`schemas/`** holds only the Pydantic models shared across features (or consumed by `db/`/`core/calendar/`, which don't import from `features/`). Everything else lives in the owning feature's `schemas.py`/`schemas/` package. The primary response schema is `PanchangamData` in `schemas/panchangam_data.py` — it is also the type returned by both the repository and the live-computation fallback.
 
-**`utils/`** holds the `MalayalamMasa` domain enum, `roles.py`, `lifespan.py`, and `santhigiri_events.py` — anything imported by `core/`/`db/` (which must not depend on `features/`) or genuinely shared across features. `Nakshatra`, `Thithi`, and `Paksha` live in `core/astronomy/enums/` instead (see "The astronomy package" above), imported from there by `app/` code that needs them.
+**`utils/`** holds `roles.py`, `lifespan.py`, and `santhigiri_events.py` — anything imported by `core/`/`db/` (which must not depend on `features/`) or genuinely shared across features. `Nakshatra`, `Thithi`, and `Paksha` live in `core/astronomy/enums/`, and `MalayalamMasa` lives in `core/kollavarsham/enums/masa.py` — imported from there by `app/` code that needs them, not duplicated in `utils/`.
 
 ### Ports & adapters
 
@@ -247,9 +255,9 @@ Follow these rules without exception.
 
 ### Layer import boundaries
 
-- Route handlers in `features/<name>/router.py` must only parse HTTP params and delegate to that feature's `service.py`. They must not call a `db/` repository or `core/astronomy/`/`core/calendar/` directly.
-- `core/astronomy/` functions must not import from anything else under `app/` — not `api/`, `features/`, `schemas/`, `db/`, `utils/`, `core/calendar/`, `core/ports/`, `core/config.py`, or `core/security.py`. This is enforced by the `astronomy-isolation` contract in `.importlinter` (`lint-imports`); a new `app/core/<sibling>` must be added to its `forbidden_modules` list.
-- `core/calendar/` functions must not import from `api/` or `features/`.
+- Route handlers in `features/<name>/router.py` must only parse HTTP params and delegate to that feature's `service.py`. They must not call a `db/` repository or `core/astronomy/`/`core/calendar/`/`core/kollavarsham/`/`core/events/` directly.
+- `core/astronomy/` functions must not import from anything else under `app/` — not `api/`, `features/`, `schemas/`, `db/`, `utils/`, `core/calendar/`, `core/kollavarsham/`, `core/events/`, `core/ports/`, `core/config.py`, or `core/security.py`. This is enforced by the `astronomy-isolation` contract in `.importlinter` (`lint-imports`); a new `app/core/<sibling>` must be added to its `forbidden_modules` list.
+- `core/calendar/`, `core/kollavarsham/`, and `core/events/` functions must not import from `api/` or `features/`.
 - `db/` (models, `reference_repository.py`, etc.) must not import from `api/` or `features/` — with one narrow, deliberate exception: a table model backing a migrated feature (e.g. `db/models/santhigiri_event.py`) may import that feature's `ports.py` for its `to_dto`/`from_dto` conversion, since the port's DTOs *are* that row's serialization contract. Nothing else in `db/` gets this exception.
 - Pydantic models belong in `schemas/` (if shared across features) or `features/<name>/schemas.py` (if feature-local). Do not define response models inside `core/` or `utils/`.
 - A feature's `service.py` may import `db/` and, for a module of free functions already parametrized by ports rather than by state (e.g. `features/etag/service.py`), another feature's `service.py` module directly. But other features must not import one feature's stateful `service.py` class, `router.py`, or `schemas.py` directly — a cross-feature dependency on another feature's stateful service goes through a `Protocol` in `core/ports/` instead (see "Ports & adapters" above), never a direct import of the concrete class.
@@ -258,7 +266,7 @@ Follow these rules without exception.
 ### Business logic placement
 
 - All astronomical calculations go in `core/astronomy/`.
-- All calendar/domain aggregation goes in `core/calendar/`.
+- Calendar/domain aggregation goes in `core/calendar/`; Malayalam-calendar computation in `core/kollavarsham/`; event-condition → occurrence-date resolution in `core/events/`.
 - Event definitions go in `utils/santhigiri_events.py`.
 - No business logic may live inside a route handler.
 
@@ -272,7 +280,7 @@ Follow these rules without exception.
 ### Adding a new Santhigiri event
 
 1. Create the event definition via the admin `POST /api/v1/panchangam/events` endpoint (or directly through `SanthigiriEventService`), with the appropriate `EventCondition`. This is now the authoritative source — `utils/santhigiri_events.py` only seeds the initial rows.
-2. `core/calendar/santhigiri_event_occurrences.py::classify_condition()` must be able to resolve the condition to a set of days: a single-day pin, a `last_occurance` condition (with a Malayalam-month + Nakshatra fallback), or a bare-Nakshatra transition series. Any other shape raises `UnsupportedEventCondition`.
+2. `core/events/event_occurrences.py::classify_condition()` must be able to resolve the condition to a set of days: a single-day pin, a `last_occurance` condition (with a Malayalam-month + Nakshatra fallback), or a bare-Nakshatra transition series. Any other shape raises `UnsupportedEventCondition`.
 3. Call `POST /api/v1/panchangam/events/{event_id}/occurrences` (or `POST /api/v1/panchangam/events/generate` to recompute every event) to (re)compute the event's occurrence dates over a year range directly from the DB's panchangam data and write them to `santhigiri_event_dates`, refreshing ETags atomically.
 4. The event will appear in `PanchangamData.santhigiri_significant_dates` in the API response.
 
@@ -286,7 +294,7 @@ Follow these rules without exception.
 
 ### Enum usage
 
-Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha` from `app.core.astronomy.enums.*`; `MalayalamMasa` from `utils/`) for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. The enums carry only `id` (+ `paksha`/`day` on `Thithi`); their `.name` is the stable slug. They do **not** carry display text — localized `en`/`ml` names come from the DB reference tables (nullable `ml`/`en` columns, seeded by `db/sql/02_seed.sql`), exposed via the `GET /api/v1/panchangam/thithi|nakshatra|masa` endpoints. Compact API responses carry the slug/id; the client resolves display names from those reference datasets.
+Use the typed Python enums (`Nakshatra`, `Thithi`, `Paksha` from `app.core.astronomy.enums.*`; `MalayalamMasa` from `app.core.kollavarsham.enums.masa`) for all internal domain logic. Never use raw strings or bare integer IDs when a typed enum is available. The enums carry only `id` (+ `paksha`/`day` on `Thithi`); their `.name` is the stable slug. They do **not** carry display text — localized `en`/`ml` names come from the DB reference tables (nullable `ml`/`en` columns, seeded by `db/sql/02_seed.sql`), exposed via the `GET /api/v1/panchangam/thithi|nakshatra|masa` endpoints. Compact API responses carry the slug/id; the client resolves display names from those reference datasets.
 
 ---
 
@@ -348,7 +356,7 @@ kollam_year = english_year - 824   # if 4 <= raasi <= 8 (Chingam..Dhanu) and mon
 kollam_year = english_year - 825   # otherwise
 ```
 
-The Malayalam day is computed by walking backwards through days' end-of-Modyana samples to find when the current raasi began. Implemented in `core/calendar/kollavarsham.py`.
+The Malayalam day is computed by walking backwards through days' end-of-Modyana samples to find when the current raasi began. Implemented in `core/kollavarsham/kollavarsham.py`.
 
 ### Nazhika (Traditional Time Unit)
 
@@ -371,9 +379,9 @@ This ensures Pournami is attributed to exactly one calendar day. Implemented in 
 
 ### Santhigiri Events
 
-Santhigiri Ashram observes events tied to specific dates in either the English or Malayalam calendar, or to astronomical conditions (Nakshatra, Thithi, Pournami). Events are modeled as `SanthigiriEvent` with an `EventCondition` that specifies the matching criteria. Occurrence dates are computed against the DB's panchangam data via `core/calendar/santhigiri_event_occurrences.py` and stored in `santhigiri_event_dates`, surfaced in `PanchangamData.santhigiri_significant_dates`.
+Santhigiri Ashram observes events tied to specific dates in either the English or Malayalam calendar, or to astronomical conditions (Nakshatra, Thithi, Pournami). Events are modeled as `SanthigiriEvent` with an `EventCondition` that specifies the matching criteria. Occurrence dates are computed against the DB's panchangam data via `core/events/event_occurrences.py` and stored in `santhigiri_event_dates`, surfaced in `PanchangamData.santhigiri_significant_dates`.
 
-Some events use a "last occurrence" rule: for example, Navapoojitham falls on the last Chothi Nakshatra in the month of Chingam (with the 7.5 Nazhika rule to handle edge cases at sunrise). `compute_last_occurrence()` in `core/calendar/santhigiri_event_occurrences.py` handles this generically off the event's `EventCondition`.
+Some events use a "last occurrence" rule: for example, Navapoojitham falls on the last Chothi Nakshatra in the month of Chingam (with the 7.5 Nazhika rule to handle edge cases at sunrise). `compute_last_occurrence()` in `core/events/event_occurrences.py` handles this generically off the event's `EventCondition`.
 
 ---
 
@@ -468,7 +476,9 @@ Current coverage:
 
 - `tests/core/astronomy/test_pournami.py` — 24 parametrized test cases verifying full moon detection against known dates for 2022 and 2026.
 - `tests/core/astronomy/test_lazy_astronomy.py` — the heavy Skyfield/ephemeris stack loads lazily, not at app import.
-- `tests/core/calendar/` — Kollavarsham coordinate/Modyana rules, the Santhigiri event occurrence/significant-dates matchers, and the `core/calendar/panchangam.py` skeleton.
+- `tests/core/calendar/` — the `core/calendar/panchangam.py` skeleton.
+- `tests/core/kollavarsham/` — Kollavarsham coordinate/Modyana rules.
+- `tests/core/events/` — the event occurrence/significant-dates matchers.
 - `tests/db/` — shared persistence-layer unit tests (round-trips, cascade deletes, seeding) for the schema and `ReferenceRepository`.
 - `tests/features/auth/test_router.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
 - `tests/features/auth/test_google_auth.py` — skipped; see its module docstring for the dropped `/auth/google` feature.
@@ -495,11 +505,11 @@ At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db()`, which 
 
 ### Function-level LRU caches
 
-Several functions in `core/astronomy/` and `core/calendar/` are decorated with `@lru_cache`. Key examples:
+Several functions in `core/astronomy/` and `core/kollavarsham/` are decorated with `@lru_cache`. Key examples:
 
 - `get_sunrise_sunset()` in `core/astronomy/sunrise_sunset.py`
 - `get_thithi_transition_by_date()` in `core/astronomy/thithi_transition.py`
-- `get_kollavarsham_date()` and `get_madhyahnam_raasi()` in `core/calendar/kollavarsham.py`
+- `get_kollavarsham_date()` and `get_madhyahnam_raasi()` in `core/kollavarsham/kollavarsham.py`
 - `get_sun_sidereal_longitude()` in `core/astronomy/calculations.py`
 
 These are critical for the transition-detection logic, which calls the same function for the previous day, current day, and next day. Without LRU caching these would be redundantly recalculated.
@@ -508,8 +518,8 @@ These are critical for the transition-detection logic, which calls the same func
 
 There is no offline pickle-cache pipeline anymore; both base panchangam data and Santhigiri event occurrences are (re)computed directly against Postgres through admin endpoints:
 
-1. **Base panchangam data** — `POST /api/v1/panchangam/generate` (admin, `PanchangamGenerationService`) recomputes a date range from the astronomy code and overwrites the corresponding rows, streaming NDJSON progress. Use this after changing computation logic in `core/astronomy/`/`core/calendar/`.
-2. **Santhigiri event occurrences** — `POST /api/v1/panchangam/events/{event_id}/occurrences` (one event) or `POST /api/v1/panchangam/events/generate` (all events) recompute occurrence dates for a year range from the DB's panchangam data (via `core/calendar/santhigiri_event_occurrences.py`) and overwrite `santhigiri_event_dates`. Use this after adding/editing an event definition.
+1. **Base panchangam data** — `POST /api/v1/panchangam/generate` (admin, `PanchangamGenerationService`) recomputes a date range from the astronomy code and overwrites the corresponding rows, streaming NDJSON progress. Use this after changing computation logic in `core/astronomy/`/`core/calendar/`/`core/kollavarsham/`.
+2. **Santhigiri event occurrences** — `POST /api/v1/panchangam/events/{event_id}/occurrences` (one event) or `POST /api/v1/panchangam/events/generate` (all events) recompute occurrence dates for a year range from the DB's panchangam data (via `core/events/event_occurrences.py`) and overwrite `santhigiri_event_dates`. Use this after adding/editing an event definition.
 
 Both paths commit atomically with an ETag refresh (`features/etag/service.py`) so cached clients revalidate correctly. Neither writes to disk or requires a separate seed-regeneration step.
 
@@ -538,7 +548,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 
 ## Known Issues and Active Work
 
-- `core/calendar/santhigiri_significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only, so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
+- `core/events/significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only, so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.

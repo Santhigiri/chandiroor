@@ -10,8 +10,8 @@ from app.core.astronomy.constants import (
 )
 
 from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
-from app.core.calendar.kollavarsham_models import KollavarshamDate
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 
 
 def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:

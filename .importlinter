@@ -19,6 +19,8 @@ forbidden_modules =
     app.schemas
     app.utils
     app.core.calendar
+    app.core.events
+    app.core.kollavarsham
     app.core.config
     app.core.ports
     app.core.security
