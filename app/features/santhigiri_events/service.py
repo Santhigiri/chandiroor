@@ -17,7 +17,7 @@ status codes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from time import perf_counter
 from typing import AsyncIterator, Dict, Iterable, List, Set, Union
 
@@ -28,6 +28,7 @@ from app.core.events.event_occurrences import (
     OccurrenceComputationError,
     PanchangamYear,
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
+    classify_condition,
     compute_occurrences,
 )
 from app.core.ports.panchangam_service import PanchangamServicePort
@@ -206,8 +207,9 @@ class SanthigiriEventService:
             if len(yearly_data) != expected_days:
                 raise IncompleteYearDataException(year)
 
+            occurrence_data = self._yearly_data_for_condition(condition, yearly_data, year)
             occurrences = compute_occurrences(
-                condition, yearly_data, year,
+                condition, occurrence_data, year,
                 cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
             )
             excluded = self._excluded_dates_for_yield(event, yearly_data, year, cutoffs)
@@ -262,8 +264,9 @@ class SanthigiriEventService:
             if len(yearly_data) != expected_days:
                 raise IncompleteYearDataException(year)
 
+            occurrence_data = self._yearly_data_for_condition(condition, yearly_data, year)
             occurrences = await run_in_threadpool(
-                compute_occurrences, condition, yearly_data, year,
+                compute_occurrences, condition, occurrence_data, year,
                 cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
             )
             excluded = await run_in_threadpool(
@@ -347,8 +350,9 @@ class SanthigiriEventService:
                 status = "generated"
                 detail = None
                 try:
+                    occurrence_data = self._yearly_data_for_condition(condition, yearly_data, year)
                     occurrences = await run_in_threadpool(
-                        compute_occurrences, condition, yearly_data, year,
+                        compute_occurrences, condition, occurrence_data, year,
                         cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
                     )
                 except UnsupportedOccurrenceCondition as exc:
@@ -457,6 +461,36 @@ class SanthigiriEventService:
         (unlike the request schema) requires every field."""
         return {field: changes.get(field, getattr(existing, field)) for field in self._UPDATE_FIELDS}
 
+    _LAST_OCCURRENCE_PADDING_DAYS = 35
+
+    def _yearly_data_for_condition(
+        self, condition: EventCondition, base_yearly_data: PanchangamYear, year: int
+    ) -> PanchangamYear:
+        """*base_yearly_data* (the plain ``Jan 1``–``Dec 31`` *year* window),
+        widened with an extra fetch padded across the Gregorian year boundary
+        when *condition* classifies as ``last_occurrence``.
+
+        A ``last_occurrence`` condition's Malayalam month can straddle the
+        boundary (Dhanu spans December of one year into January of the
+        next, for a single Kollam year) — resolving it correctly needs
+        visibility into the neighboring year, which
+        :func:`core.events.event_occurrences.compute_last_occurrence` uses
+        to disambiguate by Kollam year. Any other condition class is
+        returned unchanged, with no extra DB read.
+        """
+        try:
+            if classify_condition(condition) != "last_occurrence":
+                return base_yearly_data
+        except UnsupportedOccurrenceCondition:
+            return base_yearly_data
+
+        pad_start = date(year, 1, 1) - timedelta(days=self._LAST_OCCURRENCE_PADDING_DAYS)
+        pad_end = date(year, 12, 31) + timedelta(days=self._LAST_OCCURRENCE_PADDING_DAYS)
+        padding = self.panchangam_repo.get_by_date_range(
+            pad_start, pad_end, DEFAULT_LOCATION
+        )
+        return {**padding, **base_yearly_data}
+
     def _excluded_dates_for_yield(
         self,
         row: SanthigiriEventGet,
@@ -486,10 +520,11 @@ class SanthigiriEventService:
         if sibling is None:
             return set()
         sibling_condition = sibling.event_condition
+        sibling_data = self._yearly_data_for_condition(sibling_condition, yearly_data, year)
         try:
             return set(
                 compute_occurrences(
-                    sibling_condition, yearly_data, year,
+                    sibling_condition, sibling_data, year,
                     cutoffs.nazhika_cutoff, cutoffs.transition_hour_cutoff,
                 )
             )

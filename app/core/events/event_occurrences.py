@@ -115,51 +115,96 @@ def compute_single_day_occurrences(
     )
 
 
+def _last_occurrence_candidates(
+    condition: EventCondition,
+    yearly_data: PanchangamYear,
+    nazhika_cutoff: float,
+) -> List[date]:
+    """One resolved last-occurrence date per distinct Kollam year
+    (``data.kv.kv_year``) present in *yearly_data*, applying the Nazhika
+    sunrise cutoff / Nakshatra-transition fallback independently within
+    each Kollam-year group.
+
+    Grouping by Kollam year (rather than treating *yearly_data* as one
+    contiguous run) is what keeps a straddling Malayalam month — Dhanu spans
+    December of one Gregorian year into January of the next, per a single
+    Kollam year — from having its occurrence conflated with the neighboring
+    Kollam year's Dhanu that may also be present in a padded window.
+    """
+    by_kv_year: Dict[int, List[date]] = {}
+    for d, data in yearly_data.items():
+        if _matches_fields(condition, data):
+            by_kv_year.setdefault(data.kv.kv_year, []).append(d)
+
+    if by_kv_year:
+        candidates = []
+        for dates in by_kv_year.values():
+            dt = max(dates)
+            data = yearly_data[dt]
+            if data.nazhika_from_sunrise > nazhika_cutoff:
+                candidates.append(dt)
+            else:
+                candidates.append(dt - timedelta(days=1))
+        return candidates
+
+    if condition.ml_month is None or condition.nakshatra is None:
+        raise OccurrenceComputationError(
+            "No day matched the condition, and no Malayalam month/"
+            "nakshatra fallback is available."
+        )
+
+    transitions_by_kv_year: Dict[int, List] = {}
+    for data in yearly_data.values():
+        if data.kv.kv_month != condition.ml_month.id:
+            continue
+        for t in data.nakshatra_transitions:
+            if t.nakshatra == condition.nakshatra:
+                transitions_by_kv_year.setdefault(data.kv.kv_year, []).append(t)
+
+    if not transitions_by_kv_year:
+        raise OccurrenceComputationError(
+            f"No Nakshatra transition into {condition.nakshatra.name} found in "
+            f"{condition.ml_month.name}."
+        )
+    return [
+        _ist_date(max(transitions, key=lambda t: t.start_time).start_time)
+        for transitions in transitions_by_kv_year.values()
+    ]
+
+
 def compute_last_occurrence(
     condition: EventCondition,
     yearly_data: PanchangamYear,
     year: int,
     nazhika_cutoff: float = 7.5,
 ) -> date:
-    """The last day in *yearly_data* matching *condition*, applying the
-    Nazhika sunrise cutoff, falling back to the last Nakshatra-transition
-    into ``condition.nakshatra`` within ``condition.ml_month`` if no day in
-    the year matches directly.
+    """The last day matching *condition* whose date falls in *year*,
+    applying the Nazhika sunrise cutoff, falling back to the last
+    Nakshatra-transition into ``condition.nakshatra`` within
+    ``condition.ml_month`` if no day matches directly.
+
+    *yearly_data* may span more than *year* — callers pad the fetched window
+    across the Gregorian year boundary for ``last_occurance`` conditions,
+    since a straddling Malayalam month (Dhanu) needs visibility into the
+    neighboring year to resolve correctly (see
+    :func:`_last_occurrence_candidates`). Only the resulting candidate whose
+    Gregorian year equals *year* is returned — a straddling month's true
+    last occurrence may legitimately resolve to either the requested year or
+    the adjacent one, depending on which day it lands on.
     """
-    matches = sorted(
-        d for d, data in yearly_data.items() if _matches_fields(condition, data)
-    )
-    if matches:
-        dt = matches[-1]
-        data = yearly_data[dt]
-        if data.nazhika_from_sunrise > nazhika_cutoff:
-            return dt
-        return dt - timedelta(days=1)
-
-    if condition.ml_month is None or condition.nakshatra is None:
+    candidates = _last_occurrence_candidates(condition, yearly_data, nazhika_cutoff)
+    in_year = [d for d in candidates if d.year == year]
+    if not in_year:
         raise OccurrenceComputationError(
-            f"No day in {year} matched the condition, and no Malayalam month/"
-            "nakshatra fallback is available."
+            f"No occurrence of the condition resolved to a date in {year} "
+            "from the data available."
         )
-
-    month_data = [
-        data
-        for data in yearly_data.values()
-        if data.kv.kv_month == condition.ml_month.id
-    ]
-    transitions = [
-        t
-        for data in month_data
-        for t in data.nakshatra_transitions
-        if t.nakshatra == condition.nakshatra
-    ]
-    if not transitions:
+    if len(in_year) > 1:
         raise OccurrenceComputationError(
-            f"No Nakshatra transition into {condition.nakshatra.name} found in "
-            f"{condition.ml_month.name} of {year}."
+            f"Condition resolved to multiple candidate dates in {year}: "
+            f"{sorted(in_year)} — ambiguous last-occurrence condition."
         )
-    last_transition = sorted(transitions, key=lambda t: t.start_time)[-1]
-    return _ist_date(last_transition.start_time)
+    return in_year[0]
 
 
 def compute_transition_series(
