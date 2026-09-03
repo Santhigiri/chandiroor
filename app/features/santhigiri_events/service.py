@@ -24,7 +24,7 @@ from typing import AsyncIterator, Dict, Iterable, List, Set, Union
 from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
 
-from app.core.calendar.santhigiri_event_occurrences import (
+from app.core.events.event_occurrences import (
     OccurrenceComputationError,
     PanchangamYear,
     UnsupportedEventCondition as UnsupportedOccurrenceCondition,
@@ -55,10 +55,10 @@ from app.features.santhigiri_events.schemas import (
 from app.schemas.app_setting import EventCutoffsValue
 from app.features.etag.service import refresh_etags
 from app.utils.location import DEFAULT_LOCATION
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 
 class EventAlreadyExistsException(Exception):

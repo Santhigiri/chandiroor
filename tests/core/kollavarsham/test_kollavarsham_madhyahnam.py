@@ -6,7 +6,7 @@ third part (40%-60% of the daytime). The Malayalam month begins on the day of th
 Sankramanam (the Sun's entry into a new raasi) if that entry happens *before or
 during* Modyana, otherwise the next day. This is implemented by sampling the Sun's
 raasi at the *end* of Modyana (sunrise + 3/5 of the daytime) in
-``core.calendar.kollavarsham.get_kollavarsham_date``.
+``core.kollavarsham.kollavarsham.get_kollavarsham_date``.
 
 The boundaries below are cross-checked against published Kerala calendars:
 * Makaram 1, 1201 ME = 2026-01-15 (Makara Sankramanam 2026-01-14 afternoon,
@@ -24,9 +24,9 @@ from datetime import date, timedelta
 
 import pytest
 
-from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
-from app.core.calendar.kollavarsham import get_kollavarsham_date
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.astronomy.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.kollavarsham.kollavarsham import get_kollavarsham_date
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 
 LAT = round(Coordinates.SG_LATITUDE, 3)
 LON = round(Coordinates.SG_LONGITUDE, 3)

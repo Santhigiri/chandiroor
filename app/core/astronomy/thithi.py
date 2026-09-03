@@ -1,7 +1,7 @@
 from datetime import datetime
 from .calculations import get_moon_sidereal_longitude, get_sun_sidereal_longitude
 import math
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 def get_thithi(
     localdt: datetime,

@@ -5,10 +5,10 @@ from app.api.deps import EtagRepositoryDep, ReferenceRepositoryDep, UnitOfWorkDe
 from app.features.etag.service import build_enum_payload, conditional_json_response, enum_key
 from app.schemas.compact_panchangam_data import CompactSanthigiriEvent
 from app.schemas.location import LocationInfo
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 # The enum reference datasets are read from the database (not the Python enums)
 # so DB edits — e.g. to Santhigiri event names/descriptions — are reflected.

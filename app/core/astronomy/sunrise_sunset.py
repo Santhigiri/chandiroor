@@ -4,8 +4,8 @@ from skyfield.api import Topos
 from skyfield import almanac
 from datetime import date, datetime
 import pytz
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE, Coordinates
-from panchangam_astronomy.ephemeris import ephem, ts, sun
+from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
+from app.core.astronomy.ephemeris import ephem, ts, sun
 
 
 # A generation sweep produces ~2 distinct keys/day (this day plus the

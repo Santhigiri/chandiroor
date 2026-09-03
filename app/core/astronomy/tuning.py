@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from panchangam_astronomy.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+from app.core.astronomy.constants import NAKSHATRA_TRANSITION_STEP_DAYS
 
 
 @dataclass(frozen=True)

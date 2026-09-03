@@ -1,6 +1,6 @@
 """
 Unit tests for the pure occurrence-computation algorithms in
-core/calendar/santhigiri_event_occurrences.py — no DB involved.
+core/events/event_occurrences.py — no DB involved.
 """
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import datetime
 
 import pytest
 
-from panchangam_astronomy.transitions import NakshatraTransition
-from app.core.calendar.santhigiri_event_occurrences import (
+from app.core.astronomy.transitions import NakshatraTransition
+from app.core.events.event_occurrences import (
     OccurrenceComputationError,
     UnsupportedEventCondition,
     classify_condition,
@@ -18,10 +18,10 @@ from app.core.calendar.santhigiri_event_occurrences import (
     compute_single_day_occurrences,
     compute_transition_series,
 )
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 
 def _year_days(year: int, make, **overrides):

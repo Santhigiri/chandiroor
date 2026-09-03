@@ -1,19 +1,19 @@
-"""Tests for core/calendar/santhigiri_significant_dates.py — the live-fallback
+"""Tests for core/events/significant_dates.py — the live-fallback
 event matcher — and the PanchangamService overlay that uses it."""
 import dataclasses
 import datetime
 
-from app.core.calendar.santhigiri_significant_dates import (
+from app.core.events.significant_dates import (
     event_matches,
     match_condition_based_events,
 )
 from app.features.panchangam.repository import PanchangamRepository
 from app.features.panchangam.service import PanchangamService
 from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 TVM = Location.TVM
 

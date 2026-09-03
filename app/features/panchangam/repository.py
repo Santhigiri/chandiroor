@@ -27,16 +27,16 @@ from app.db.models.sunrise_sunset import SunriseSunset as SunriseSunsetRow
 from app.db.models.thithi_transition import ThithiTransition as ThithiTransitionRow
 
 # ── Domain types ──────────────────────────────────────────────────────────────
-from panchangam_astronomy.transitions import NakshatraTransition, ThithiTransition
-from app.core.calendar.kollavarsham_models import KollavarshamDate
+from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 from app.db.typing_utils import col as TypedColumn
 

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
-from panchangam_astronomy.pournami import is_poornima_live
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.constants import DEFAULT_TIMEZONE
 
 
 TEST_CASES = [

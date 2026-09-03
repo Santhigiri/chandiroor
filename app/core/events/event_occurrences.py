@@ -1,7 +1,8 @@
 """
-Compute which calendar days in a given year a Santhigiri event's condition
-matches, generalized over *any* :class:`EventCondition` rather than hardcoded
-to one event.
+Compute which calendar days in a given year an event's condition matches,
+generalized over *any* :class:`EventCondition` rather than hardcoded to one
+event. The same resolution serves the built-in Santhigiri observances and any
+custom (e.g. personal) event definition sharing the ``EventCondition`` shape.
 
 It is intentionally *pure*: it imports only domain/schema types — never
 ``db/`` or ``api/`` — so it respects the layer boundaries and stays
@@ -10,9 +11,9 @@ independently testable.
 Conditions fall into three algorithm classes:
 
 * **single_day** — the condition pins one calendar day (see
-  :func:`core.calendar.santhigiri_significant_dates.pins_single_day`).
+  :func:`core.events.significant_dates.pins_single_day`).
   Every day is matched independently via
-  :func:`core.calendar.santhigiri_significant_dates.event_matches`.
+  :func:`core.events.significant_dates.event_matches`.
 * **last_occurrence** — ``last_occurance=True``: the last day in the
   condition's Malayalam month whose sunrise-Nakshatra matches, with the
   7.5-Nazhika cutoff rule, falling back to the last Nakshatra-transition in
@@ -31,9 +32,9 @@ from typing import Dict, List, Literal
 
 import pytz
 
-from panchangam_astronomy.pournami import is_poornima_live
-from app.core.calendar.santhigiri_significant_dates import event_matches, pins_single_day
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.events.significant_dates import event_matches, pins_single_day
+from app.core.astronomy.constants import DEFAULT_TIMEZONE
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import EventCondition
 

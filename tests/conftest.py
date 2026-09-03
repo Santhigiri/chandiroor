@@ -29,16 +29,16 @@ import app.db.database  # noqa: F401
 import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
 from app.db.seed import seed_lookup_tables
 
-from panchangam_astronomy.nakshatra_transition import NakshatraTransition
-from panchangam_astronomy.thithi_transition import ThithiTransition
-from app.core.calendar.kollavarsham import KollavarshamDate
+from app.core.astronomy.nakshatra_transition import NakshatraTransition
+from app.core.astronomy.thithi_transition import ThithiTransition
+from app.core.kollavarsham.kollavarsham import KollavarshamDate
 from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
-from app.utils.malayalam_masa import MalayalamMasa
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import SanthigiriEvent
-from panchangam_astronomy.enums.thithi import Thithi
+from app.core.astronomy.enums.thithi import Thithi
 
 
 # ── Engine / session fixtures ─────────────────────────────────────────────────

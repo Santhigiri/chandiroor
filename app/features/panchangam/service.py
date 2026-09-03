@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-from panchangam_astronomy.tuning import AstronomyTuning
+from app.core.astronomy.tuning import AstronomyTuning
 from app.core.ports.settings_service import SettingsServicePort
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.panchangam_data import PanchangamData
@@ -83,7 +83,7 @@ class PanchangamService:
         live-computed day still carries its condition-based events.
         """
         from app.core.calendar.panchangam import get_panchangam_data
-        from app.core.calendar.santhigiri_significant_dates import (
+        from app.core.events.significant_dates import (
             match_condition_based_events,
         )
 
@@ -115,7 +115,7 @@ class PanchangamService:
         which the route handler converts to a 400.
         """
         from app.core.calendar.panchangam import get_panchangam_data
-        from app.core.calendar.santhigiri_significant_dates import (
+        from app.core.events.significant_dates import (
             match_condition_based_events,
         )
 
@@ -143,7 +143,7 @@ class PanchangamService:
         if no rising/setting is found for the given date/coordinate (e.g. polar
         day/night).
         """
-        from panchangam_astronomy.sunrise_sunset import get_sunrise_sunset
+        from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
 
         latitude = round(latitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
         longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)

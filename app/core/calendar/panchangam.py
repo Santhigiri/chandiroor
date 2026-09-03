@@ -2,18 +2,18 @@ from datetime import datetime, time
 from time import perf_counter
 from typing import Any, Dict, Optional
 import pytz
-from panchangam_astronomy.calculations import get_sun_sidereal_longitude, get_time
-from panchangam_astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
-from panchangam_astronomy.nakshatra_transition import calc_nakshatra_transition_for_date
-from panchangam_astronomy.sunrise_sunset import get_sunrise_sunset
-from panchangam_astronomy.thithi import get_thithi
-from panchangam_astronomy.enums.thithi import Thithi
-from panchangam_astronomy.pournami import is_poornima_live
-from panchangam_astronomy.thithi_transition import calc_thithi_transition_for_date
-from panchangam_astronomy.tuning import AstronomyTuning
-from app.core.calendar.kollavarsham import get_kollavarsham_date
+from app.core.astronomy.calculations import get_sun_sidereal_longitude, get_time
+from app.core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
+from app.core.astronomy.nakshatra_transition import calc_nakshatra_transition_for_date
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.astronomy.thithi import get_thithi
+from app.core.astronomy.enums.thithi import Thithi
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
+from app.core.astronomy.tuning import AstronomyTuning
+from app.core.kollavarsham.kollavarsham import get_kollavarsham_date
 from datetime import date
-from panchangam_astronomy.constants import DEFAULT_TIMEZONE, Coordinates
+from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
@@ -86,7 +86,7 @@ def get_panchangam_data(
     )
 
     # santhigiri_significant_dates are overlaid by PanchangamService from the
-    # editable DB event definitions (see core/calendar/santhigiri_significant_dates.py);
+    # editable DB event definitions (see core/events/significant_dates.py);
     # get_panchangam_data stays pure and returns an empty list here.
     return panchangam_data
 

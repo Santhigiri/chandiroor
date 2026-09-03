@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Dict, List
-from panchangam_astronomy.thithi_transition import ThithiTransition
+from app.core.astronomy.thithi_transition import ThithiTransition
 from app.schemas.panchangam_data import PanchangamData
 
 

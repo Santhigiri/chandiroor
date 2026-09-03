@@ -1,5 +1,5 @@
-from panchangam_astronomy.constants import NAKSHATRA_BOUNDARIES
-from panchangam_astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.constants import NAKSHATRA_BOUNDARIES
+from app.core.astronomy.enums.nakshatra import Nakshatra
 
 
 def calc_nakshatra_from_lon(longitude: float) -> Nakshatra:

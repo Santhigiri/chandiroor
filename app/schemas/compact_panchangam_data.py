@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from .panchangam_data import PanchangamData
-from app.utils.malayalam_masa import MalayalamMasa
+from app.core.kollavarsham.enums.masa import MalayalamMasa
 
 
 class CompactKollavarshamDate(BaseModel):

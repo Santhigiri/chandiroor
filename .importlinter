@@ -1,0 +1,35 @@
+# import-linter contract.
+#
+# Run locally:  lint-imports        (pip install -r requirements-dev.txt)
+# Enforced in CI by .github/workflows/lint.yml on every push / PR to develop.
+
+[importlinter]
+root_package = app
+
+[importlinter:contract:astronomy-isolation]
+name = app.core.astronomy is a self-contained computation layer
+type = forbidden
+source_modules =
+    app.core.astronomy
+forbidden_modules =
+    app.api
+    app.main
+    app.db
+    app.features
+    app.schemas
+    app.utils
+    app.core.calendar
+    app.core.events
+    app.core.kollavarsham
+    app.core.config
+    app.core.ports
+    app.core.security
+# app.core.astronomy takes datetimes + coordinates/timezone and returns floats,
+# ints, or plain dataclasses/Pydantic value objects. It must not reach into HTTP,
+# persistence, config, security, or the app-level domain enums/helpers — it
+# vendors the enums it needs under app/core/astronomy/enums/ and its own
+# constants.py. Keeping this boundary means the package stays independently
+# testable and the dependency direction (app -> core.astronomy, never the
+# reverse) can be checked mechanically instead of by review.
+#
+# If you add a new app/core/<sibling> package, add it to forbidden_modules above.

@@ -2,7 +2,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Dict, Tuple
 
-from panchangam_astronomy.constants import Coordinates, DEFAULT_TIMEZONE
+from app.core.astronomy.constants import Coordinates, DEFAULT_TIMEZONE
 
 
 class Location(Enum):
