@@ -172,6 +172,63 @@ def test_last_occurrence_transition_date_uses_ist_not_utc(make_panchangam_data):
     assert result == transition_day
 
 
+def test_last_occurrence_disambiguates_across_year_boundary(make_panchangam_data):
+    """A straddling Malayalam month (like Dhanu) can put two distinct Kollam
+    years' fragments in the same padded window — a December fragment of one
+    Kollam year and a December fragment of the *next* Kollam year both
+    appear near the same Gregorian year boundary. Matches must be grouped by
+    ``kv_year`` so the later fragment (a different Kollam year, no match set
+    on it here) never masks the earlier fragment's true last match, which
+    itself spills into the following January.
+    """
+    yearly = _year_days(2026, make_panchangam_data)
+    yearly.update(_year_days(2025, make_panchangam_data))
+    yearly.update(_year_days(2027, make_panchangam_data))
+    condition = EventCondition(
+        ml_month=MalayalamMasa.DHANU, nakshatra=Nakshatra.CHOTHI, last_occurance=True
+    )
+
+    earlier = datetime.date(2025, 12, 20)
+    later = datetime.date(2026, 1, 5)
+    for d in (earlier, later):
+        yearly[d] = make_panchangam_data(
+            d, nakshatra=Nakshatra.CHOTHI, kv_month=MalayalamMasa.DHANU,
+            kv_year=1201, nazhika_from_sunrise=20.0,
+        )
+
+    # The true last occurrence (Jan 5, 2026) belongs to 2026, not 2025 — even
+    # though a match also exists in December 2025.
+    assert compute_last_occurrence(condition, yearly, 2026) == later
+    with pytest.raises(OccurrenceComputationError):
+        compute_last_occurrence(condition, yearly, 2025)
+
+
+def test_last_occurrence_keeps_distinct_kollam_years_separate(make_panchangam_data):
+    """Two different Kollam years' occurrences of the same straddling month,
+    each resolving into a different Gregorian year, must not be conflated —
+    each year's generation picks only its own group's candidate."""
+    yearly = _year_days(2026, make_panchangam_data)
+    yearly.update(_year_days(2025, make_panchangam_data))
+    yearly.update(_year_days(2027, make_panchangam_data))
+    condition = EventCondition(
+        ml_month=MalayalamMasa.DHANU, nakshatra=Nakshatra.CHOTHI, last_occurance=True
+    )
+
+    prior_kv_year_match = datetime.date(2026, 1, 5)  # kv_year 1201, tail in Jan 2026
+    next_kv_year_match = datetime.date(2027, 1, 10)  # kv_year 1202, tail in Jan 2027
+    yearly[prior_kv_year_match] = make_panchangam_data(
+        prior_kv_year_match, nakshatra=Nakshatra.CHOTHI, kv_month=MalayalamMasa.DHANU,
+        kv_year=1201, nazhika_from_sunrise=20.0,
+    )
+    yearly[next_kv_year_match] = make_panchangam_data(
+        next_kv_year_match, nakshatra=Nakshatra.CHOTHI, kv_month=MalayalamMasa.DHANU,
+        kv_year=1202, nazhika_from_sunrise=20.0,
+    )
+
+    assert compute_last_occurrence(condition, yearly, 2026) == prior_kv_year_match
+    assert compute_last_occurrence(condition, yearly, 2027) == next_kv_year_match
+
+
 def test_last_occurrence_raises_when_nothing_found(make_panchangam_data):
     year = 2026
     yearly = _year_days(year, make_panchangam_data, nakshatra=Nakshatra.ASWATHI)
