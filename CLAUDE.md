@@ -400,6 +400,7 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 | `python-jose[cryptography]` | Mint/verify JWT access & refresh tokens (`core/security.py`) |
 | `bcrypt` | Password hashing for user credentials |
 | `pydantic-settings` | Typed settings (JWT config) in `core/config.py` |
+| `google-auth` | Verifies Google ID tokens (`core/security.py::verify_google_id_token`) — currently unused by any router; see the `POST /auth/google` gap below |
 | `pytz` | Timezone handling |
 | `de421.bsp` | NASA/JPL ephemeris file (16.8 MB) loaded by Skyfield for Sun/Moon/Earth positions |
 
@@ -460,6 +461,15 @@ Authentication:
 - `GET  /api/v1/auth/me` — the current user (requires `user` or `admin`)
 - `POST /api/v1/auth/users` — create a user (admin only)
 
+Guruvani quotes (read public; writes require the `admin` role):
+
+- `GET    /api/v1/guruvani` — list every quote, ordered by `sort_order` (public)
+- `GET    /api/v1/guruvani/random` — fetch one quote at random (public)
+- `GET    /api/v1/guruvani/{id}` — fetch one quote (public)
+- `POST   /api/v1/guruvani` — create a quote (admin)
+- `PUT    /api/v1/guruvani/{id}` — partial-update a quote (admin)
+- `DELETE /api/v1/guruvani/{id}` — delete a quote (admin)
+
 Panchangam parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
 
 ---
@@ -486,6 +496,7 @@ Current coverage:
 - `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path.
 - `tests/features/santhigiri_events/` — event-definition CRUD and occurrence-generation, end-to-end, including admin-role enforcement and ETag invalidation.
 - `tests/features/settings/` — `AppSettingRepository`, the admin settings CRUD endpoints, and settings→panchangam integration (e.g. `seed_year_range` gating `get_by_year`/`get_by_month`).
+- `features/guruvani/` has no test coverage yet (no `tests/features/guruvani/` directory) — a gap, not a deliberate omission; follow the `auth`/`santhigiri_events` test shape (repository round-trips + router CRUD + role-guard checks) when adding it.
 
 Tests use an in-memory SQLite engine (the FK pragma listener in `app/db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/features/etag/test_service.py` for the fixture pattern).
 
@@ -548,10 +559,10 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 
 ## Known Issues and Active Work
 
-- `core/events/significant_dates.py` is an empty placeholder. The live computation path (`get_santhigiri_significant_dates_without_occurances`) is commented out in `panchangam.py` — Santhigiri event dates come from the DB only, so a date outside 2021–2030 served via the live-computation fallback will have an empty `santhigiri_significant_dates`.
+- `core/events/significant_dates.py` is implemented and live: `match_condition_based_events()` matches single-day-pinned event conditions against a computed day, and `PanchangamService._compute()`/`get_panchangam_at_instant()` (`features/panchangam/service.py`) call it to overlay `santhigiri_significant_dates` onto any live-computation fallback (a date missing from the DB, or the `/instant` endpoint). "Last occurrence" and month/nakshatra-only conditions are still out of scope for this matcher (see its module docstring) — they need whole-year context and remain the job of `core/events/event_occurrences.py`, used only by the DB-writing occurrence-generation endpoints.
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
-- `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution and validate with the transition miss checker on startup.
+- `NAKSHATRA_TRANSITION_STEP_DAYS` is `0.01` for 2021–2027 and 2029–2030. For 2028 it must be `0.05`. This is a fragile per-year constant; treat any change with caution. `app/utils/check_nakshatra_transitions.py`/`check_thithi_transitions.py` hold standalone transition-miss-checker functions for validating a change against a generated cache — they are **not** wired into app startup or CI, so run them manually after touching this constant.
 - `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every feature now follows this pattern.
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
 - The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
@@ -565,6 +576,6 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - Do not call `core/astronomy/`, `core/calendar/`, or a concrete `db/` repository directly from route handlers — go through `features/panchangam/service.py` (or the relevant feature's `service.py`).
 - Do not define new Pydantic models inside `core/` or `db/` modules.
 - Do not add new event definitions in `core/` or `api/`. All event definitions belong in `utils/santhigiri_events.py`.
-- Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with the transition miss checker.
+- Do not change `NAKSHATRA_TRANSITION_STEP_DAYS` without re-validating every year's cache with `app/utils/check_nakshatra_transitions.py`/`check_thithi_transitions.py` (run manually — they are not part of startup or CI).
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.
 - Do not hardcode Malayalam or Sanskrit display names as string literals in new code. Domain logic keys off the typed enum (`.name` slug / `.id`); display text is DB-owned — read it from the reference tables. The only place display strings are literals is `db/sql/02_seed.sql`.
