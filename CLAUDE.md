@@ -370,12 +370,9 @@ The step size for the search (`step_days`) is critical for accuracy. The nakshat
 
 ### Pournami (Full Moon)
 
-Pournami detection is not simply "is today's Thithi Pournami?" because a Thithi can span across midnight. The implementation checks that:
+The full moon is a **night** observance at the Ashram, so Pournami detection is not "is today's Thithi Pournami?" — a Thithi can span across midnight, and the old day-end (23:59:59) heuristic misattributed Pournami near sunrise/sunset boundaries. The current rule: a day is the Pournami day when its night — the window from that day's *sunset* to the next day's *sunrise* — contains the greatest duration of the Pournami thithi (Thithi 15), compared against its neighbouring nights.
 
-1. The Thithi at 23:59:59 of **today** is Pournami, AND
-2. The Thithi at 23:59:59 of **yesterday** was not Pournami.
-
-This ensures Pournami is attributed to exactly one calendar day. Implemented in `core/astronomy/pournami.py`.
+`is_poornima()` (`core/astronomy/pournami.py`) takes pre-computed thithi transitions and sunrise/sunset values (from the cache/DB) and applies this night-overlap rule without any redundant ephemeris computation. `is_poornima_live()` is the convenience wrapper for callers that don't already hold those values (the single-day live-computation fallback, legacy paths, tests) — it computes them on the fly and delegates to `is_poornima()`.
 
 ### Santhigiri Events
 
