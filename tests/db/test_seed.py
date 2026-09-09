@@ -3,6 +3,7 @@ from sqlmodel import select
 
 from app.db.models.location import Location as LocationRow
 from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.chandra_masa import ChandraMasa as ChandraMasaRow
 from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
@@ -10,6 +11,7 @@ from app.db.models.thithi import Thithi as ThithiRow
 from app.db.seed import seed_lookup_tables
 from app.utils.location import Location
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
@@ -27,6 +29,7 @@ def test_seed_inserts_exact_enum_counts(session):
     assert _count(session, ThithiRow) == 30
     assert _count(session, NakshatraRow) == 27
     assert _count(session, MalayalamMasaRow) == 12
+    assert _count(session, ChandraMasaRow) == 12
     assert _count(session, LocationRow) == len(list(Location))
     assert _count(session, SanthigiriEventRow) == len(EVENT_DEFINITIONS_BY_ID)
 
@@ -59,6 +62,9 @@ def test_seed_values_match_enums(session):
     masa = session.get(MalayalamMasaRow, MalayalamMasa.MEENAM.id)
     assert masa is not None and masa.name == MalayalamMasa.MEENAM.name
 
+    chandra_masa = session.get(ChandraMasaRow, ChandraMasa.PHALGUNA.id)
+    assert chandra_masa is not None and chandra_masa.name == ChandraMasa.PHALGUNA.name
+
     tvm = session.get(LocationRow, Location.TVM.id)
     assert tvm is not None
     assert tvm.name == Location.TVM.code
@@ -76,5 +82,6 @@ def test_seed_is_idempotent(session):
     assert _count(session, ThithiRow) == 30
     assert _count(session, NakshatraRow) == 27
     assert _count(session, MalayalamMasaRow) == 12
+    assert _count(session, ChandraMasaRow) == 12
     assert _count(session, PakshaRow) == len(list(Paksha))
     assert _count(session, LocationRow) == len(list(Location))

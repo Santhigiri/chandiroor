@@ -19,6 +19,7 @@ from app.core.events.event_occurrences import (
     compute_transition_series,
 )
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
 from app.core.astronomy.enums.thithi import Thithi
@@ -40,6 +41,10 @@ def test_classify_single_day_conditions():
     assert classify_condition(EventCondition(en_day=1, en_month=1)) == "single_day"
     assert classify_condition(EventCondition(ml_day=10, ml_month=MalayalamMasa.MEDAM)) == "single_day"
     assert classify_condition(EventCondition(thithi=Thithi.DASHAMI_SHUKLA)) == "single_day"
+    assert (
+        classify_condition(EventCondition(chandra_masa_day=5, chandra_masa_month=ChandraMasa.CHAITRA))
+        == "single_day"
+    )
 
 
 def test_classify_last_occurrence_condition():
@@ -56,6 +61,8 @@ def test_classify_transition_series_condition():
 def test_classify_unsupported_condition():
     with pytest.raises(UnsupportedEventCondition):
         classify_condition(EventCondition(ml_month=MalayalamMasa.CHINGAM))
+    with pytest.raises(UnsupportedEventCondition):
+        classify_condition(EventCondition(chandra_masa_month=ChandraMasa.CHAITRA))
 
 
 # ── compute_single_day_occurrences ──────────────────────────────────────────
@@ -76,6 +83,22 @@ def test_single_day_no_matches_returns_empty(make_panchangam_data):
     yearly = _year_days(2026, make_panchangam_data)
     condition = EventCondition(en_day=31, en_month=2)  # Feb 31 never exists
     assert compute_single_day_occurrences(condition, yearly) == []
+
+
+def test_single_day_matches_chandra_masa_day_and_month(make_panchangam_data):
+    year = 2026
+    yearly = _year_days(year, make_panchangam_data)
+    target = datetime.date(year, 4, 10)
+    yearly[target] = make_panchangam_data(
+        target, chandra_masa=ChandraMasa.CHAITRA, chandra_masa_day=12,
+    )
+    other = datetime.date(year, 5, 12)
+    yearly[other] = make_panchangam_data(
+        other, chandra_masa=ChandraMasa.VAISHAKHA, chandra_masa_day=12,
+    )
+
+    condition = EventCondition(chandra_masa_day=12, chandra_masa_month=ChandraMasa.CHAITRA)
+    assert compute_single_day_occurrences(condition, yearly) == [target]
 
 
 # ── compute_last_occurrence ──────────────────────────────────────────────────

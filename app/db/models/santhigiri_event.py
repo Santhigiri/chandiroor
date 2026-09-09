@@ -10,6 +10,7 @@ from app.core.astronomy.enums.nakshatra import Nakshatra as NakshatraEnum
 from app.utils.santhigiri_events import EventCondition
 from app.core.astronomy.enums.thithi import Thithi as ThithiEnum
 from app.core.kollavarsham.enums.masa import MalayalamMasa as MalayalamMasaEnum
+from app.core.chandramasa.enums.masa import ChandraMasa as ChandraMasaEnum
 
 if TYPE_CHECKING:
     from app.db.models.nakshatra import Nakshatra
@@ -54,6 +55,9 @@ class SanthigiriEvent(SQLModel, table=True):
     ml_month:       Optional[int]  = None
     ml_year:        Optional[int]  = None
 
+    chandra_masa_day:   Optional[int] = None
+    chandra_masa_month: Optional[int] = None
+
     en_day:         Optional[int]  = None
     en_month:       Optional[int]  = None
     en_year:        Optional[int]  = None
@@ -95,6 +99,9 @@ class SanthigiriEvent(SQLModel, table=True):
         nakshatra_id : Optional[int] = ec.nakshatra.id if ec.nakshatra is not None else None
         thithi_id : Optional[int] = ec.thithi.id if ec.thithi is not None else None
         ml_month: Optional[int] = ec.ml_month.id if ec.ml_month is not None else None
+        chandra_masa_month: Optional[int] = (
+            ec.chandra_masa_month.id if ec.chandra_masa_month is not None else None
+        )
         yields_to_event_id: Optional[str] = event.yields_to_event_id
         return SanthigiriEvent(
             id = event_id,
@@ -106,6 +113,8 @@ class SanthigiriEvent(SQLModel, table=True):
             ml_day=ec.ml_day,
             ml_month=ml_month,
             ml_year=ec.ml_year,
+            chandra_masa_day=ec.chandra_masa_day,
+            chandra_masa_month=chandra_masa_month,
             en_day=ec.en_day,
             en_month=ec.en_month,
             en_year=ec.en_year,
@@ -128,6 +137,12 @@ class SanthigiriEvent(SQLModel, table=True):
             ml_day=self.ml_day,
             ml_month=MalayalamMasaEnum.from_id(self.ml_month) if self.ml_month is not None else None,
             ml_year=self.ml_year,
+            chandra_masa_day=self.chandra_masa_day,
+            chandra_masa_month=(
+                ChandraMasaEnum.from_id(self.chandra_masa_month)
+                if self.chandra_masa_month is not None
+                else None
+            ),
             en_day=self.en_day,
             en_month=self.en_month,
             en_year=self.en_year,

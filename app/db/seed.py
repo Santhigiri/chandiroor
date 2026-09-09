@@ -12,12 +12,14 @@ from sqlmodel import Session, select
 from app.db.models.app_setting import AppSetting as AppSettingRow
 from app.db.models.location import Location as LocationRow
 from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.chandra_masa import ChandraMasa as ChandraMasaRow
 from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
 from app.utils.location import Location
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
@@ -52,6 +54,8 @@ def seed_santhigiri_events(session: Session) -> None:
                 ml_day=c.ml_day,
                 ml_month=c.ml_month.id if c.ml_month else None,
                 ml_year=c.ml_year,
+                chandra_masa_day=c.chandra_masa_day,
+                chandra_masa_month=c.chandra_masa_month.id if c.chandra_masa_month else None,
                 en_day=c.en_day,
                 en_month=c.en_month,
                 en_year=c.en_year,
@@ -133,6 +137,9 @@ def seed_lookup_tables(session: Session) -> None:
 
     for m in MalayalamMasa:
         session.merge(MalayalamMasaRow(id=m.id, name=m.name))
+
+    for m in ChandraMasa:
+        session.merge(ChandraMasaRow(id=m.id, name=m.name))
 
     for loc in Location:
         session.merge(

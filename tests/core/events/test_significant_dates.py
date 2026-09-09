@@ -11,8 +11,9 @@ from app.features.panchangam.repository import PanchangamRepository
 from app.features.panchangam.service import PanchangamService
 from app.utils.location import Location
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
-from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID, EventCondition
 from app.core.astronomy.enums.thithi import Thithi
 
 TVM = Location.TVM
@@ -55,6 +56,28 @@ def test_matches_sanyasadeeksha_on_thithi(make_panchangam_data):
     assert event_matches(
         _event("SANYASADHEEKSHA_VARSHIKAM").event_condition, data
     ) is True
+
+
+def test_matches_chandra_masa_day_and_month(make_panchangam_data):
+    """A synthetic Chandra Masa day+month condition matches a day whose
+    lunar-month fields agree."""
+    data = make_panchangam_data(
+        datetime.date(2026, 4, 22),
+        chandra_masa=ChandraMasa.CHAITRA,
+        chandra_masa_day=10,
+    )
+    condition = EventCondition(chandra_masa_day=10, chandra_masa_month=ChandraMasa.CHAITRA)
+    assert event_matches(condition, data) is True
+
+
+def test_chandra_masa_condition_does_not_match_wrong_month(make_panchangam_data):
+    data = make_panchangam_data(
+        datetime.date(2026, 4, 22),
+        chandra_masa=ChandraMasa.VAISHAKHA,
+        chandra_masa_day=10,
+    )
+    condition = EventCondition(chandra_masa_day=10, chandra_masa_month=ChandraMasa.CHAITRA)
+    assert event_matches(condition, data) is False
 
 
 # ── event_matches: negatives ──────────────────────────────────────────────────

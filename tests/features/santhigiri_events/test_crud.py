@@ -159,6 +159,26 @@ def test_create_event(client, admin_auth):
     assert data["sort_order"] is not None  # auto-assigned
 
 
+def test_create_event_with_chandra_masa_condition(client, admin_auth):
+    body = {
+        "id": "CHANDRA_MASA_EVENT",
+        "name": "Chandra Masa Event",
+        "description": "Falls on Chaitra 10",
+        "chandra_masa_day": 10,
+        "chandra_masa_month": 1,  # Chaitra
+    }
+    r = client.post(EVENTS_URL, headers=admin_auth, json=body)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["chandra_masa_day"] == 10
+    assert data["chandra_masa_month"] == 1
+
+    # Round-trips through GET too.
+    fetched = client.get(f"{EVENTS_URL}/CHANDRA_MASA_EVENT").json()
+    assert fetched["chandra_masa_day"] == 10
+    assert fetched["chandra_masa_month"] == 1
+
+
 def test_create_event_with_day_offset(client, admin_auth):
     body = {
         "id": "SHIFTED_EVENT",

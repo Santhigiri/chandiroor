@@ -11,6 +11,7 @@ from app.core.astronomy.enums.thithi import Thithi
 from app.core.astronomy.pournami import is_poornima_live
 from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
 from app.core.astronomy.tuning import AstronomyTuning
+from app.core.chandramasa.chandramasa import get_chandra_masa_date
 from app.core.kollavarsham.kollavarsham import get_kollavarsham_date
 from datetime import date
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
@@ -50,6 +51,12 @@ def get_panchangam_data(
         longitude = longitude,
         timezone = timezone,
         epsilon = tuning.kollavarsham_epsilon)
+    chandra_masa = get_chandra_masa_date(
+        dt = localdt,
+        latitude = latitude,
+        longitude = longitude,
+        timezone = timezone,
+        tuning = tuning)
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
@@ -75,6 +82,7 @@ def get_panchangam_data(
     panchangam_data = PanchangamData(
         date= localdt,
         kv=kv,
+        chandra_masa=chandra_masa,
         thithi_transitions= thithi_transitions,
         nakshatra_transitions= nakshatra_transitions,
         thithi = thithi,

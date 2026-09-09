@@ -87,6 +87,20 @@ INSERT INTO malayalam_masa (id, name, ml, en) VALUES
   (11, 'KUMBHAM', 'കുംഭം', 'Kumbham'),
   (12, 'MEENAM', 'മീനം', 'Meenam');
 
+INSERT INTO chandra_masa (id, name, ml, en) VALUES
+  (1, 'CHAITRA', 'ചൈത്രം', 'Chaitra'),
+  (2, 'VAISHAKHA', 'വൈശാഖം', 'Vaishakha'),
+  (3, 'JYESHTHA', 'ജ്യേഷ്ഠം', 'Jyeshtha'),
+  (4, 'ASHADHA', 'ആഷാഢം', 'Ashadha'),
+  (5, 'SHRAVANA', 'ശ്രാവണം', 'Shravana'),
+  (6, 'BHADRAPADA', 'ഭാദ്രപദം', 'Bhadrapada'),
+  (7, 'ASHWINA', 'ആശ്വിനം', 'Ashwina'),
+  (8, 'KARTIKA', 'കാർത്തികം', 'Kartika'),
+  (9, 'MARGASHIRSHA', 'മാർഗശീർഷം', 'Margashirsha'),
+  (10, 'PAUSHA', 'പൗഷം', 'Pausha'),
+  (11, 'MAGHA', 'മാഘം', 'Magha'),
+  (12, 'PHALGUNA', 'ഫാൽഗുനം', 'Phalguna');
+
 INSERT INTO location (id, name, label, latitude, longitude, timezone) VALUES
   (1, 'tvm', 'Trivandrum, Kerala, India', 8.645, 76.938, 'Asia/Kolkata');
 

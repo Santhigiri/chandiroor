@@ -190,7 +190,7 @@ def test_day_response_carries_location_descriptor(client):
 
 # ── Enum reference endpoints ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "events", "locations"])
+@pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "chandra-masa", "events", "locations"])
 def test_reference_etag_round_trip(client, name):
     first = client.get(f"/api/v1/panchangam/{name}")
     assert first.status_code == 200

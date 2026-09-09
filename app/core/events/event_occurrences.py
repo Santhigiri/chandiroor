@@ -93,6 +93,10 @@ def _matches_fields(condition: EventCondition, data: PanchangamData) -> bool:
         return False
     if condition.ml_year is not None and condition.ml_year != data.kv.kv_year:
         return False
+    if condition.chandra_masa_day is not None and condition.chandra_masa_day != data.chandra_masa.masa_day:
+        return False
+    if condition.chandra_masa_month is not None and condition.chandra_masa_month.id != data.chandra_masa.masa:
+        return False
     if condition.en_day is not None and condition.en_day != data.date.day:
         return False
     if condition.en_month is not None and condition.en_month != data.date.month:
@@ -130,6 +134,11 @@ def _last_occurrence_candidates(
     December of one Gregorian year into January of the next, per a single
     Kollam year — from having its occurrence conflated with the neighboring
     Kollam year's Dhanu that may also be present in a padded window.
+
+    The no-direct-match fallback below only understands ``ml_month`` +
+    ``nakshatra``; a ``chandra_masa_month`` condition (like every other
+    field besides ``ml_month``) participates in the direct field-match above
+    but has no Nakshatra-transition fallback of its own.
     """
     by_kv_year: Dict[int, List[date]] = {}
     for d, data in yearly_data.items():

@@ -33,14 +33,15 @@ def pins_single_day(condition: EventCondition) -> bool:
     """True when the condition fixes an event to one calendar day.
 
     A day is pinned by any of: a full-moon requirement, an English day, a
-    Malayalam day, or a Thithi. Conditions with none of these constrain at most a
-    month or a nakshatra and would match many days a year, so they are left to
-    the bespoke offline logic.
+    Malayalam day, a Chandra Masa (lunar month) day, or a Thithi. Conditions
+    with none of these constrain at most a month or a nakshatra and would
+    match many days a year, so they are left to the bespoke offline logic.
     """
     return bool(
         condition.is_poornima
         or condition.en_day is not None
         or condition.ml_day is not None
+        or condition.chandra_masa_day is not None
         or condition.thithi is not None
     )
 
@@ -69,6 +70,10 @@ def event_matches(
     if condition.ml_month is not None and condition.ml_month.id != data.kv.kv_month:
         return False
     if condition.ml_year is not None and condition.ml_year != data.kv.kv_year:
+        return False
+    if condition.chandra_masa_day is not None and condition.chandra_masa_day != data.chandra_masa.masa_day:
+        return False
+    if condition.chandra_masa_month is not None and condition.chandra_masa_month.id != data.chandra_masa.masa:
         return False
     if condition.en_day is not None and condition.en_day != data.date.day:
         return False

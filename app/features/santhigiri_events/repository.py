@@ -49,7 +49,8 @@ class SanthigiriEventRepository(SanthigiriEventsRepositoryPort):
     # and attempt an INSERT instead of an UPDATE).
     _MUTABLE_FIELDS = (
         "name", "description", "sort_order", "nakshatra_id", "thithi_id",
-        "ml_day", "ml_month", "ml_year", "en_day", "en_month", "en_year",
+        "ml_day", "ml_month", "ml_year", "chandra_masa_day", "chandra_masa_month",
+        "en_day", "en_month", "en_year",
         "occurance", "is_poornima", "last_occurance", "day_offset",
         "yields_to_event_id",
     )

@@ -42,6 +42,8 @@ class SanthigiriEventBase(BaseModel):
     ml_day: Optional[int] = Field(default=None, ge=1, le=32)
     ml_month: Optional[int] = Field(default=None, ge=1, le=12)
     ml_year: Optional[int] = None
+    chandra_masa_day: Optional[int] = Field(default=None, ge=1, le=32)
+    chandra_masa_month: Optional[int] = Field(default=None, ge=1, le=12)
     en_day: Optional[int] = Field(default=None, ge=1, le=31)
     en_month: Optional[int] = Field(default=None, ge=1, le=12)
     en_year: Optional[int] = None
@@ -91,6 +93,8 @@ class SanthigiriEventUpdate(BaseModel):
     ml_day: Optional[int] = Field(default=None, ge=1, le=32)
     ml_month: Optional[int] = Field(default=None, ge=1, le=12)
     ml_year: Optional[int] = None
+    chandra_masa_day: Optional[int] = Field(default=None, ge=1, le=32)
+    chandra_masa_month: Optional[int] = Field(default=None, ge=1, le=12)
     en_day: Optional[int] = Field(default=None, ge=1, le=31)
     en_month: Optional[int] = Field(default=None, ge=1, le=12)
     en_year: Optional[int] = None

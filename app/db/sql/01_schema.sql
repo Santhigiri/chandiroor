@@ -51,6 +51,15 @@ CREATE TABLE malayalam_masa (
 	UNIQUE (name)
 );
 
+CREATE TABLE chandra_masa (
+	id SERIAL NOT NULL,
+	name VARCHAR NOT NULL,
+	ml VARCHAR,
+	en VARCHAR,
+	PRIMARY KEY (id),
+	UNIQUE (name)
+);
+
 CREATE TABLE nakshatra (
 	id SERIAL NOT NULL,
 	name VARCHAR NOT NULL,
@@ -119,10 +128,12 @@ CREATE TABLE santhigiri_event (
 	sort_order INTEGER NOT NULL, 
 	nakshatra_id INTEGER, 
 	thithi_id INTEGER, 
-	ml_day INTEGER, 
-	ml_month INTEGER, 
-	ml_year INTEGER, 
-	en_day INTEGER, 
+	ml_day INTEGER,
+	ml_month INTEGER,
+	ml_year INTEGER,
+	chandra_masa_day INTEGER,
+	chandra_masa_month INTEGER,
+	en_day INTEGER,
 	en_month INTEGER, 
 	en_year INTEGER, 
 	occurance INTEGER, 
@@ -139,14 +150,25 @@ CREATE TABLE santhigiri_event (
 CREATE INDEX ix_santhigiri_event_sort_order ON santhigiri_event (sort_order);
 
 CREATE TABLE kollavarsham_date (
-	date DATE NOT NULL, 
-	location_id INTEGER NOT NULL, 
-	kv_day INTEGER NOT NULL, 
-	kv_month INTEGER NOT NULL, 
-	kv_year INTEGER NOT NULL, 
-	PRIMARY KEY (date, location_id), 
-	FOREIGN KEY(date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE, 
+	date DATE NOT NULL,
+	location_id INTEGER NOT NULL,
+	kv_day INTEGER NOT NULL,
+	kv_month INTEGER NOT NULL,
+	kv_year INTEGER NOT NULL,
+	PRIMARY KEY (date, location_id),
+	FOREIGN KEY(date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE,
 	FOREIGN KEY(kv_month) REFERENCES malayalam_masa (id)
+);
+
+CREATE TABLE chandra_masa_date (
+	date DATE NOT NULL,
+	location_id INTEGER NOT NULL,
+	masa_id INTEGER NOT NULL,
+	masa_day INTEGER NOT NULL,
+	masa_type INTEGER NOT NULL,
+	PRIMARY KEY (date, location_id),
+	FOREIGN KEY(date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE,
+	FOREIGN KEY(masa_id) REFERENCES chandra_masa (id)
 );
 
 CREATE TABLE nakshatra_transitions (
