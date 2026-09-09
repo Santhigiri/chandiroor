@@ -427,6 +427,33 @@ def test_row_to_panchangam_data_raises_without_kollavarsham():
         _row_to_panchangam_data(row, TVM, [])
 
 
+def test_get_by_date_falls_back_to_live_chandra_masa_when_missing(seeded_session):
+    """A row written before chandra_masa_date existed (or a DB whose seed
+    predates the feature) must not 500 the whole day -- it falls back to a
+    live computation instead of raising, unlike kv_row/ss_row above which
+    have no equivalent standalone path."""
+    date = datetime.date(2026, 1, 2)
+    seeded_session.add(PanchangamRow(
+        date=date, location_id=TVM.id, thithi_id=Thithi.POORNIMA.id,
+        nakshatra_id=Nakshatra.CHOTHI.id, nazhika_from_sunrise=0.0,
+    ))
+    seeded_session.add(KollavarshamDateRow(
+        date=date, location_id=TVM.id, kv_day=1, kv_month=12, kv_year=1201,
+    ))
+    seeded_session.add(SunriseSunsetRow(
+        date=date, location_id=TVM.id,
+        sunrise=datetime.datetime(2026, 1, 2, 0, 45, tzinfo=datetime.timezone.utc),
+        sunset=datetime.datetime(2026, 1, 2, 12, 30, tzinfo=datetime.timezone.utc),
+    ))
+    seeded_session.commit()
+
+    fetched = PanchangamRepository(seeded_session).get_by_date(date, TVM)
+
+    assert fetched is not None
+    assert fetched.chandra_masa.date == date
+    assert fetched.chandra_masa.masa_day >= 1
+
+
 def test_get_by_date_raises_without_sunrise(seeded_session):
     """get_by_date surfaces the missing-sunrise guard in _row_to_panchangam_data."""
     date = datetime.date(2026, 1, 2)
