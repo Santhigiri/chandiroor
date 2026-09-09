@@ -86,6 +86,19 @@ enums no longer carry display text, so `db/seed.py` seeds those columns as
 NULL; real databases still populate them from `02_seed.sql`. Safe to apply any
 time — existing rows already have values.
 
+`0007_add_chandra_masa.sql` adds the `chandra_masa`/`chandra_masa_date` tables
+and `santhigiri_event.chandra_masa_day`/`chandra_masa_month` columns for a
+database bootstrapped before the Chandra Masa feature merged (`582d479`), plus
+the 12 lookup rows with their `ml`/`en` text — `db/seed.py`'s
+`seed_chandra_masa_if_empty()` (called from `utils/lifespan.py` on every
+startup) only backfills `id`/`name` on an empty table, since app code can't
+hardcode display text, so this migration is still needed to get `ml`/`en`
+populated on Neon. Its `chandra_masa` insert uses `ON CONFLICT (id) DO UPDATE`
+rather than `DO NOTHING` so it fills in `ml`/`en` even if the startup seeder
+already inserted structural-only rows first. Does not backfill
+`chandra_masa_date` rows for existing panchangam data — re-run
+`POST /api/v1/panchangam/generate` for that after applying.
+
 Migrations live in `db/sql/migrations/`, numbered in application order. Most
 are idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s, etc.) so
 re-running them is harmless — the exception is a column *type* change (e.g.
