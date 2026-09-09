@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from app.core.astronomy.tuning import AstronomyTuning
+from app.core.chandramasa.chandramasa import ChandraMasaNotFoundError
 from app.core.ports.settings_service import SettingsServicePort
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.panchangam_data import PanchangamData
@@ -26,6 +27,11 @@ _cal = calendar.Calendar(firstweekday=6)
 # calls from many nearby callers on the same day collapse onto one cache
 # entry. Must be applied here, before the cached call, not inside it.
 SUNRISE_SUNSET_CACHE_GRID_DEGREES = 1
+
+
+# ChandraMasaNotFoundError is imported directly above and re-exported as-is so
+# router.py only needs to import from this module, matching the convention in
+# features/santhigiri_events/service.py.
 
 
 class YearOutOfRange(Exception):

@@ -15,7 +15,11 @@ from app.features.panchangam.schemas.get_monthly_panchangam_params import GetMon
 from app.features.panchangam.schemas.get_sunrise_sunset_params import GetSunriseSunsetParams
 from app.features.panchangam.schemas.get_yearly_panchangam_params import GetYearlyPanchangamParams
 from app.features.panchangam.schemas.sunrise_sunset_response import SunriseSunsetResponse
-from app.features.panchangam.service import PanchangamService, YearOutOfRange
+from app.features.panchangam.service import (
+    ChandraMasaNotFoundError,
+    PanchangamService,
+    YearOutOfRange,
+)
 from app.schemas.compact_panchangam_data import CompactPanchangamData
 from app.features.etag.service import (
     build_year_payload,
@@ -45,7 +49,10 @@ def panchangam(
     location: Annotated[Location, Depends(get_location)],
 ):
 
-    data = service.get_by_date(day, location)
+    try:
+        data = service.get_by_date(day, location)
+    except ChandraMasaNotFoundError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return CompactPanchangamData.from_panchangam_data(data)
 
 
@@ -103,6 +110,8 @@ def panchangam_instant(
         )
     except (ValueError, ZoneInfoNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except ChandraMasaNotFoundError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return CompactPanchangamData.from_panchangam_data(data)
 
 
@@ -121,7 +130,7 @@ def panchangam_monthly(
             month=params.month,
             location=location,
         )
-    except YearOutOfRange as exc:
+    except (YearOutOfRange, ChandraMasaNotFoundError) as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return {
         day: CompactPanchangamData.from_panchangam_data(value)
@@ -150,6 +159,6 @@ def panchangam_yearly(
             year_key(params.year, location.code),
             lambda: build_year_payload(service, params.year, location),
         )
-    except YearOutOfRange as exc:
+    except (YearOutOfRange, ChandraMasaNotFoundError) as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
