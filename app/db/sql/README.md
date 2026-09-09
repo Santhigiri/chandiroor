@@ -62,12 +62,21 @@ a full regeneration of these files.
 
 ## Migrations
 
-There is no migration framework in this repo (no Alembic) — `01_schema.sql`
-is a bootstrap-only snapshot of the current `db/models/` schema, regenerated
-wholesale rather than diffed. `init_db()` (`db/database.py`) only creates
-*missing* tables at startup; it never `ALTER`s an existing one. So a schema
-change made to `db/models/` after a database has already been bootstrapped
-needs a hand-written, one-time `ALTER TABLE` script applied directly:
+Schema changes now go through **Alembic** (`app/db/alembic/`, driven by
+`alembic.ini` at the repo root) — see `db/alembic/README.md` for the full
+workflow. `01_schema.sql` remains a bootstrap-only snapshot for standing up a
+brand-new database from scratch; it is not regenerated when an Alembic
+migration is added. `init_db()` (`db/database.py`) only creates *missing*
+tables at startup; it never `ALTER`s an existing one, so a schema change
+still needs an explicit migration applied (now via `alembic upgrade head`,
+not a hand-written SQL file).
+
+The migrations below `db/sql/migrations/` are the pre-Alembic history —
+kept for the record, not added to. They are already reflected in
+`01_schema.sql` and in Alembic's `0001_baseline_schema` revision, so a fresh
+database never needs to apply them directly; they only matter for an
+existing database that predates a given change and was never migrated
+before Alembic was introduced:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/migrations/0001_add_yields_to_event_id.sql
