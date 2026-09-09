@@ -29,6 +29,7 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from app.core.chandramasa.chandramasa import get_chandra_masa_date
 from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.features.panchangam.ports import PanchangamRepositoryPort
@@ -63,13 +64,24 @@ def _row_to_panchangam_data(
 
     cm_row = row.chandra_masa
     if cm_row is None:
-        raise ValueError("cm_row is None")
-    chandra_masa = ChandraMasaDate(
-        date=cm_row.date,
-        masa=cm_row.masa_id,
-        masa_day=cm_row.masa_day,
-        masa_type=cm_row.masa_type,
-    )
+        # A row written before chandra_masa_date existed (or a DB whose seed
+        # predates this feature) has no sub-row here yet -- fall back to a
+        # live, self-contained computation rather than 500ing the whole day.
+        # get_chandra_masa_date is @lru_cache'd and only needs date+location,
+        # unlike kv_row/ss_row below which have no equivalent standalone path.
+        chandra_masa = get_chandra_masa_date(
+            dt=row.date,
+            latitude=location.latitude,
+            longitude=location.longitude,
+            timezone=location.timezone,
+        )
+    else:
+        chandra_masa = ChandraMasaDate(
+            date=cm_row.date,
+            masa=cm_row.masa_id,
+            masa_day=cm_row.masa_day,
+            masa_type=cm_row.masa_type,
+        )
 
     # One-to-one now that panchangam is keyed by (date, location_id).
     ss_row = row.sunrise_sunset
