@@ -140,12 +140,19 @@ def dhanu_event(client, admin_auth):
     return "DHANU_LAST_CHOTHI"
 
 
-def _generate(client, admin_auth, event_id, year):
-    return client.post(
+def _generate_job(client, admin_auth, event_id, year) -> dict:
+    """Start the occurrence job and return its finished status dict —
+    ``TestClient`` runs the endpoint's ``BackgroundTasks`` to completion as
+    part of the same ASGI call, so the job is already ``succeeded``/``failed``
+    by the time the initial POST returns."""
+    started = client.post(
         f"{EVENTS_URL}/{event_id}/occurrences",
         headers=admin_auth,
         json={"start_year": year, "end_year": year},
     )
+    assert started.status_code == 202, started.text
+    job_id = started.json()["job_id"]
+    return client.get(f"/api/v1/generation-jobs/{job_id}", headers=admin_auth).json()
 
 
 def test_straddling_last_occurrence_resolves_to_the_later_year(
@@ -153,9 +160,9 @@ def test_straddling_last_occurrence_resolves_to_the_later_year(
 ):
     """The true last occurrence (Jan 5, 2026) is correctly attributed to
     2026, not the earlier (but not-actually-last) December 2025 match."""
-    r = _generate(client, admin_auth, dhanu_event, 2026)
-    assert r.status_code == 200
-    assert r.json()["occurrences"]["2026"] == ["2026-01-05"]
+    job = _generate_job(client, admin_auth, dhanu_event, 2026)
+    assert job["status"] == "succeeded", job
+    assert job["result"]["occurrences"]["2026"] == ["2026-01-05"]
 
 
 def test_straddling_last_occurrence_is_not_misattributed_to_the_earlier_year(
@@ -166,7 +173,8 @@ def test_straddling_last_occurrence_is_not_misattributed_to_the_earlier_year(
     the "last occurrence". With the fix, 2025's window is padded far enough
     to see the true (January) last match, correctly recognizes it does not
     belong to 2025, and reports no computable occurrence for 2025 instead of
-    a wrong one.
+    a wrong one — now surfacing as a failed job rather than a synchronous 422,
+    since it's only discoverable once the background job scans the data.
     """
-    r = _generate(client, admin_auth, dhanu_event, 2025)
-    assert r.status_code == 422
+    job = _generate_job(client, admin_auth, dhanu_event, 2025)
+    assert job["status"] == "failed", job

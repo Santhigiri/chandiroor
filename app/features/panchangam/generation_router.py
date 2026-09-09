@@ -1,77 +1,135 @@
 """
 Write endpoint for (re)generating Panchangam data, mounted under ``/api/v1``:
 
-* ``POST /api/v1/panchangam/generate`` — compute a date range from the astronomy
-  code and write it to the DB, overwriting any existing rows                (admin)
+* ``POST /api/v1/panchangam/generate`` — start a background job that computes a
+  date range from the astronomy code and writes it to the DB, overwriting any
+  existing rows                                                            (admin)
 
 Authorization mirrors the rest of the API: generating overwrites the ashram's
 authoritative calendar data, so it requires the ``admin`` role. The handler stays
 thin: parse, delegate to ``PanchangamGenerationService``. Invalid ranges are
-rejected by the request schema (422) before the stream ever starts; there are no
-other domain errors to translate, since the panchangam table is the parent — any
-date is generatable.
+rejected by the request schema (422) before a job is ever created.
 
-The response is streamed as newline-delimited JSON (NDJSON) rather than a single
-JSON object, since a large range can take a while: one ``PanchangamGenerateProgress``
-line per day, then a final ``PanchangamGenerateResult`` line (or a
-``PanchangamGenerateError`` line if something fails partway through — see
-``schemas/panchangam_generation.py`` for the line shapes). The request-scoped
-session from ``Depends(get_session)`` is captured into the closure and used for
-the whole stream — FastAPI keeps a ``yield``-based dependency open until the
-response finishes sending (including a streamed one), so it's still valid for
-the duration of the generator.
+The run itself happens in a FastAPI ``BackgroundTasks`` callback, detached from
+this request — it keeps going even if the client that started it disconnects,
+navigates away, or the frontend is simply never reopened. The response returns
+immediately (202) with a job id; poll ``GET /api/v1/generation-jobs/{job_id}``
+(or ``GET /api/v1/generation-jobs/active`` if the id was lost) for progress and
+the final result. A ``generation_job`` row with ``status="running"`` acts as a
+cross-instance lock — see ``db/models/generation_job.py`` — so only one
+generation run (of any kind: this endpoint or the Santhigiri event-occurrence
+endpoints in ``features/santhigiri_events/router.py``) can be in flight at a
+time, even across multiple API instances sharing the same database. A second
+call while one is running gets ``409 Conflict``.
+
+The background run needs its own DB session — the request-scoped one is torn
+down once the response finishes, which for a long generation run could happen
+before the work is done. ``_build_generation_service`` re-wires a
+``PanchangamGenerationService`` from a freshly opened session, exactly like
+``api/deps.py::get_panchangam_generation_service`` does for the request-scoped
+one, and ``_run_and_close`` makes sure that session is closed once the run
+(succeeded or failed) is done.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session
-from starlette.responses import StreamingResponse
 
-from app.api.deps import get_location, get_panchangam_generation_service, require_role
-from app.db.database import get_session
-from app.features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
-from app.features.panchangam.schemas.panchangam_generation import (
-    PanchangamGenerateError,
-    PanchangamGenerateRequest,
+from app.api.deps import (
+    SessionDep,
+    get_app_setting_repository,
+    get_current_principal,
+    get_etag_repository,
+    get_generation_job_repository,
+    get_location,
+    get_panchangam_repository,
+    get_panchangam_service_for_etag_refresh,
+    get_reference_repository,
+    get_settings_service,
+    get_unit_of_work,
+    require_role,
+    Principal,
 )
+from app.features.generation_jobs.ports import JobAlreadyRunningException
+from app.features.generation_jobs.schemas import GenerationJobStarted
+from app.features.generation_jobs.service import run_generation_job
+from app.features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
+from app.features.panchangam.schemas.panchangam_generation import PanchangamGenerateRequest
 from app.utils.location import Location
 from app.utils.roles import Role
 
 router = APIRouter(prefix="/panchangam", tags=["panchangam-generation"])
 
+JOB_TYPE = "panchangam_generate"
+
+
+def _build_generation_service(session: Session) -> PanchangamGenerationService:
+    panchangam_repository = get_panchangam_repository(session)
+    settings_service = get_settings_service(
+        get_app_setting_repository(session), get_unit_of_work(session)
+    )
+    return PanchangamGenerationService(
+        reference_repository=get_reference_repository(session),
+        repository=panchangam_repository,
+        settings=settings_service,
+        etag_repository=get_etag_repository(session),
+        panchangam_service_for_etag_refresh=get_panchangam_service_for_etag_refresh(
+            panchangam_repository
+        ),
+        unit_of_work=get_unit_of_work(session),
+    )
+
+
+async def _run_and_close(job_id: str, session: Session, service: PanchangamGenerationService,
+                          payload: PanchangamGenerateRequest, location: Location) -> None:
+    try:
+        events = service.generate_streaming(payload, location)
+        job_repository = get_generation_job_repository(session)
+        await run_generation_job(job_id, events, job_repository, get_unit_of_work(session))
+    finally:
+        session.close()
+
 
 @router.post(
     "/generate",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=GenerationJobStarted,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
-async def generate_panchangam(
+def generate_panchangam(
     payload: PanchangamGenerateRequest,
-    session: Annotated[Session, Depends(get_session)],
     location: Annotated[Location, Depends(get_location)],
-    service: Annotated[PanchangamGenerationService, Depends(get_panchangam_generation_service)],
-) -> StreamingResponse:
-    # Validated before the stream opens so an oversized range gets a real 422
-    # instead of a 200 with an NDJSON error line — once StreamingResponse
-    # starts, the status code can no longer change.
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    background_tasks: BackgroundTasks,
+    request_session: SessionDep,
+) -> GenerationJobStarted:
+    # A brand-new Session bound to the SAME engine as the request-scoped one
+    # (never the request-scoped Session itself, which FastAPI tears down once
+    # this response finishes sending — before a long generation run is done).
+    session = Session(request_session.get_bind())
     try:
-        service.validate_span(payload)
-    except SpanTooLarge as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
-
-    async def _stream():
+        service = _build_generation_service(session)
         try:
-            async for event in service.generate_streaming(payload, location):
-                yield event.model_dump_json() + "\n"
+            service.validate_span(payload)
         except SpanTooLarge as exc:
-            # The stream's response already started with a 200 by the time this
-            # can be raised (span is only known once generate_streaming starts
-            # iterating), so — like every other mid-stream failure — it surfaces
-            # as an error line rather than a true 422; clients must check `type`
-            # on the last line.
-            session.rollback()
-            yield PanchangamGenerateError(detail=str(exc)).model_dump_json() + "\n"
-        except Exception as exc:
-            session.rollback()
-            yield PanchangamGenerateError(detail=str(exc)).model_dump_json() + "\n"
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
-    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+        job_repository = get_generation_job_repository(session)
+        try:
+            job = job_repository.start(
+                JOB_TYPE,
+                payload.model_dump(mode="json"),
+                principal.username,
+            )
+            session.commit()
+        except JobAlreadyRunningException:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="A data-generation job is already running. Wait for it to finish.",
+            )
+    except Exception:
+        session.close()
+        raise
+
+    background_tasks.add_task(_run_and_close, job.id, session, service, payload, location)
+    return GenerationJobStarted(job_id=job.id, job_type=job.job_type, status=job.status)

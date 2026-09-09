@@ -18,6 +18,7 @@ from app.db.models.dataset_etag import DatasetEtag
 from app.db.models.user import User
 from app.db.models.guruvani import Guruvani
 from app.db.models.app_setting import AppSetting
+from app.db.models.generation_job import GenerationJob
 
 __all__ = [
     "Paksha",
@@ -38,4 +39,5 @@ __all__ = [
     "User",
     "Guruvani",
     "AppSetting",
+    "GenerationJob",
 ]

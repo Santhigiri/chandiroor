@@ -224,3 +224,22 @@ CREATE TABLE thithi_transitions (
 
 CREATE INDEX idx_thithi_transitions_date ON thithi_transitions (panchangam_date, location_id, start_time);
 
+CREATE TABLE generation_job (
+	id VARCHAR NOT NULL,
+	job_type VARCHAR NOT NULL,
+	status VARCHAR NOT NULL,
+	lock_key INTEGER,
+	params JSON NOT NULL,
+	progress JSON,
+	result JSON,
+	error VARCHAR,
+	started_by VARCHAR,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_generation_job_lock_key UNIQUE (lock_key)
+);
+
+CREATE INDEX ix_generation_job_job_type ON generation_job (job_type);
+CREATE INDEX ix_generation_job_status ON generation_job (status);
+
