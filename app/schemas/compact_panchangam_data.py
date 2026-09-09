@@ -5,12 +5,19 @@ from pydantic import BaseModel
 
 from .panchangam_data import PanchangamData
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 
 
 class CompactKollavarshamDate(BaseModel):
     kv_day: int
     kv_year: int
     masa: str
+
+
+class CompactChandraMasaDate(BaseModel):
+    masa: str
+    masa_day: int
+    is_adhika: bool
 
 
 class CompactThithiTransition(BaseModel):
@@ -38,6 +45,7 @@ class CompactLocation(BaseModel):
 class CompactPanchangamData(BaseModel):
     date: date
     kv: CompactKollavarshamDate
+    chandra_masa: CompactChandraMasaDate
     thithi_transitions: List[CompactThithiTransition]
     nakshatra_transitions: List[CompactNakshatraTransition]
     thithi: str
@@ -61,6 +69,11 @@ class CompactPanchangamData(BaseModel):
                 kv_day=data.kv.kv_day,
                 kv_year=data.kv.kv_year,
                 masa=MalayalamMasa.from_id(data.kv.kv_month).name,
+            ),
+            chandra_masa=CompactChandraMasaDate(
+                masa=ChandraMasa.from_id(data.chandra_masa.masa).name,
+                masa_day=data.chandra_masa.masa_day,
+                is_adhika=data.chandra_masa.is_adhika,
             ),
             thithi_transitions=[
                 CompactThithiTransition(

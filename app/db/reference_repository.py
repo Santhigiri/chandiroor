@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from app.db.models.chandra_masa import ChandraMasa as ChandraMasaRow
 from app.db.models.location import Location as LocationRow
 from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from app.db.models.nakshatra import Nakshatra as NakshatraRow
@@ -60,6 +61,12 @@ class ReferenceRepository:
 
     def list_masas(self) -> List[Dict[str, Any]]:
         rows = self._s.exec(select(MalayalamMasaRow).order_by(col(MalayalamMasaRow.id))).all()
+        return [
+            {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
+        ]
+
+    def list_chandra_masas(self) -> List[Dict[str, Any]]:
+        rows = self._s.exec(select(ChandraMasaRow).order_by(col(ChandraMasaRow.id))).all()
         return [
             {"name": m.name, "id": m.id, "ml": m.ml, "en": m.en} for m in rows
         ]

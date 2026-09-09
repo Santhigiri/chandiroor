@@ -32,6 +32,7 @@ _ENUM_READERS = {
     "thithi": "list_thithis",
     "nakshatra": "list_nakshatras",
     "masa": "list_masas",
+    "chandra_masa": "list_chandra_masas",
     "events": "list_events",
     "locations": "list_locations",
 }

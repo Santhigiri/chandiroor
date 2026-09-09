@@ -6,6 +6,7 @@ from app.features.etag.service import build_enum_payload, conditional_json_respo
 from app.schemas.compact_panchangam_data import CompactSanthigiriEvent
 from app.schemas.location import LocationInfo
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.roles import Role
 from app.core.astronomy.enums.thithi import Thithi
@@ -77,6 +78,19 @@ def masa_reference(
     unit_of_work: UnitOfWorkDep,
 ) -> Response:
     return _reference_response(request, reference_repository, etag_repository, unit_of_work, "masa")
+
+
+@router.get(
+    '/chandra-masa',
+    response_model= List[ChandraMasa]
+)
+def chandra_masa_reference(
+    request: Request,
+    reference_repository: ReferenceRepositoryDep,
+    etag_repository: EtagRepositoryDep,
+    unit_of_work: UnitOfWorkDep,
+) -> Response:
+    return _reference_response(request, reference_repository, etag_repository, unit_of_work, "chandra_masa")
 
 
 @router.get(

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.db.models.chandra_masa_date import ChandraMasaDate
     from app.db.models.kollavarsham_date import KollavarshamDate
     from app.db.models.location import Location
     from app.db.models.nakshatra import Nakshatra
@@ -41,6 +42,7 @@ class Panchangam(SQLModel, table=True):
     nakshatra:             Optional["Nakshatra"]                = Relationship(back_populates="panchangams")
     location:              Optional["Location"]                 = Relationship()
     kollavarsham:          Optional["KollavarshamDate"] = Relationship(back_populates="panchangam")
+    chandra_masa:          Optional["ChandraMasaDate"]  = Relationship(back_populates="panchangam")
     sunrise_sunset:        Optional["SunriseSunset"]    = Relationship(
         back_populates="panchangam",
         # location_id is shared with SunriseSunset.location's FK to location.

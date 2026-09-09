@@ -31,6 +31,8 @@ from app.db.seed import seed_lookup_tables
 
 from app.core.astronomy.nakshatra_transition import NakshatraTransition
 from app.core.astronomy.thithi_transition import ThithiTransition
+from app.core.chandramasa.chandramasa_models import ChandraMasaDate
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.kollavarsham.kollavarsham import KollavarshamDate
 from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
@@ -95,6 +97,9 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         kv_month: MalayalamMasa = MalayalamMasa.MEENAM,
         kv_day: int = 5,
         kv_year: int = 1201,
+        chandra_masa: ChandraMasa = ChandraMasa.PHALGUNA,
+        chandra_masa_day: int = 5,
+        chandra_masa_is_adhika: bool = False,
         thithi_transitions: Optional[List[ThithiTransition]] = None,
         nakshatra_transitions: Optional[List[NakshatraTransition]] = None,
         santhigiri_significant_dates: Optional[List[SanthigiriEvent]] = None,
@@ -128,9 +133,17 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
             kv_year=kv_year,
         )
 
+        cm = ChandraMasaDate(
+            date=date,
+            masa=chandra_masa.id,
+            masa_day=chandra_masa_day,
+            is_adhika=chandra_masa_is_adhika,
+        )
+
         return PanchangamData(
             date=date,
             kv=kv,
+            chandra_masa=cm,
             thithi_transitions=thithi_transitions,
             nakshatra_transitions=nakshatra_transitions,
             thithi=thithi,

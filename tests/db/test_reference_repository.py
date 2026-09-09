@@ -2,6 +2,7 @@
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.reference_repository import ReferenceRepository
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.paksha import Paksha
 from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
@@ -32,6 +33,14 @@ def test_list_nakshatras_and_masas(seeded_session):
     assert chothi["name"] == Nakshatra.CHOTHI.name
     meenam = next(m for m in repo.list_masas() if m["id"] == MalayalamMasa.MEENAM.id)
     assert meenam["name"] == MalayalamMasa.MEENAM.name
+
+
+def test_list_chandra_masas(seeded_session):
+    repo = ReferenceRepository(seeded_session)
+    masas = repo.list_chandra_masas()
+    assert len(masas) == 12
+    phalguna = next(m for m in masas if m["id"] == ChandraMasa.PHALGUNA.id)
+    assert phalguna["name"] == ChandraMasa.PHALGUNA.name
 
 
 # ── Events from the editable definition table ─────────────────────────────────

@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_serializer
 from datetime import date, datetime
 
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.schemas.location import LocationInfo
 from app.core.astronomy.enums.nakshatra import Nakshatra
@@ -13,6 +14,7 @@ from app.core.astronomy.enums.thithi import Thithi
 class PanchangamData(BaseModel):
     date: date
     kv: KollavarshamDate
+    chandra_masa: ChandraMasaDate
     thithi_transitions: List[ThithiTransition]
     nakshatra_transitions: List[NakshatraTransition]
     thithi: Thithi

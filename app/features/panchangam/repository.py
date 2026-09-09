@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
 # ── SQL model aliases ─────────────────────────────────────────────────────────
+from app.db.models.chandra_masa_date import ChandraMasaDate as ChandraMasaDateRow
 from app.db.models.kollavarsham_date import KollavarshamDate as KollavarshamDateRow
 from app.db.models.nakshatra_transition import NakshatraTransition as NakshatraTransitionRow
 from app.db.models.panchangam import Panchangam as PanchangamRow
@@ -28,6 +29,7 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
+from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.schemas.location import LocationInfo
@@ -58,6 +60,16 @@ def _row_to_panchangam_data(
         kv_year=kv_row.kv_year,
     )
 
+    cm_row = row.chandra_masa
+    if cm_row is None:
+        raise ValueError("cm_row is None")
+    chandra_masa = ChandraMasaDate(
+        date=cm_row.date,
+        masa=cm_row.masa_id,
+        masa_day=cm_row.masa_day,
+        is_adhika=cm_row.is_adhika,
+    )
+
     # One-to-one now that panchangam is keyed by (date, location_id).
     ss_row = row.sunrise_sunset
 
@@ -85,6 +97,7 @@ def _row_to_panchangam_data(
     return PanchangamData(
         date=row.date,
         kv=kv,
+        chandra_masa=chandra_masa,
         thithi_transitions=thithi_transitions,
         nakshatra_transitions=nakshatra_transitions,
         thithi=Thithi.from_id(row.thithi_id),
@@ -132,6 +145,7 @@ def _ssd_row_to_event(row: SanthigiriEventDateRow) -> SanthigiriEvent:
 
 _LOAD_OPTIONS = (
     selectinload(TypedColumn(PanchangamRow.kollavarsham)),
+    selectinload(TypedColumn(PanchangamRow.chandra_masa)),
     selectinload(TypedColumn(PanchangamRow.sunrise_sunset)),
     selectinload(TypedColumn(PanchangamRow.thithi_transitions)),
     selectinload(TypedColumn(PanchangamRow.nakshatra_transitions)),
@@ -251,6 +265,15 @@ class PanchangamRepository(PanchangamRepositoryPort):
                 kv_day=data.kv.kv_day,
                 kv_month=data.kv.kv_month,
                 kv_year=data.kv.kv_year,
+            )
+        )
+        self._s.add(
+            ChandraMasaDateRow(
+                date=data.date,
+                location_id=location.id,
+                masa_id=data.chandra_masa.masa,
+                masa_day=data.chandra_masa.masa_day,
+                is_adhika=data.chandra_masa.is_adhika,
             )
         )
         self._s.add(
@@ -387,6 +410,12 @@ class PanchangamRepository(PanchangamRepositoryPort):
             delete(KollavarshamDateRow).where(
                 col(KollavarshamDateRow.date) == date,
                 col(KollavarshamDateRow.location_id) == location.id,
+            )
+        )
+        self._s.exec(
+            delete(ChandraMasaDateRow).where(
+                col(ChandraMasaDateRow.date) == date,
+                col(ChandraMasaDateRow.location_id) == location.id,
             )
         )
         self._s.exec(
