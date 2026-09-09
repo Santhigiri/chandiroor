@@ -29,7 +29,6 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
-from app.core.chandramasa.chandramasa import get_chandra_masa_date
 from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.features.panchangam.ports import PanchangamRepositoryPort
@@ -69,6 +68,11 @@ def _row_to_panchangam_data(
         # live, self-contained computation rather than 500ing the whole day.
         # get_chandra_masa_date is @lru_cache'd and only needs date+location,
         # unlike kv_row/ss_row below which have no equivalent standalone path.
+        # Imported lazily (not at module level) so the common DB-hit path --
+        # importing this module at all -- never pulls in Skyfield/the
+        # ephemeris; see tests/core/astronomy/test_lazy_astronomy.py.
+        from app.core.chandramasa.chandramasa import get_chandra_masa_date
+
         chandra_masa = get_chandra_masa_date(
             dt=row.date,
             latitude=location.latitude,
