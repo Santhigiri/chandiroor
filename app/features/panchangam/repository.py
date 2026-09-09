@@ -36,6 +36,7 @@ from app.schemas.location import LocationInfo
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import Location
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 from app.core.astronomy.enums.thithi import Thithi
@@ -118,6 +119,8 @@ def event_row_to_event(ev: SanthigiriEventRow) -> SanthigiriEvent:
         ml_day=ev.ml_day,
         ml_month=MalayalamMasa.from_id(ev.ml_month) if ev.ml_month else None,
         ml_year=ev.ml_year,
+        chandra_masa_day=ev.chandra_masa_day,
+        chandra_masa_month=ChandraMasa.from_id(ev.chandra_masa_month) if ev.chandra_masa_month else None,
         en_day=ev.en_day,
         en_month=ev.en_month,
         en_year=ev.en_year,

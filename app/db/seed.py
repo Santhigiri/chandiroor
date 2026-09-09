@@ -54,6 +54,8 @@ def seed_santhigiri_events(session: Session) -> None:
                 ml_day=c.ml_day,
                 ml_month=c.ml_month.id if c.ml_month else None,
                 ml_year=c.ml_year,
+                chandra_masa_day=c.chandra_masa_day,
+                chandra_masa_month=c.chandra_masa_month.id if c.chandra_masa_month else None,
                 en_day=c.en_day,
                 en_month=c.en_month,
                 en_year=c.en_year,

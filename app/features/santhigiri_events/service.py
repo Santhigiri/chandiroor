@@ -57,6 +57,7 @@ from app.schemas.app_setting import EventCutoffsValue
 from app.features.etag.service import refresh_etags
 from app.utils.location import DEFAULT_LOCATION
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.utils.santhigiri_events import EventCondition
 from app.core.astronomy.enums.thithi import Thithi
@@ -412,6 +413,8 @@ class SanthigiriEventService:
             ml_day=ec.ml_day,
             ml_month=ec.ml_month.id if ec.ml_month is not None else None,
             ml_year=ec.ml_year,
+            chandra_masa_day=ec.chandra_masa_day,
+            chandra_masa_month=ec.chandra_masa_month.id if ec.chandra_masa_month is not None else None,
             en_day=ec.en_day,
             en_month=ec.en_month,
             en_year=ec.en_year,
@@ -431,12 +434,17 @@ class SanthigiriEventService:
         nakshatra_id = get("nakshatra_id")
         thithi_id = get("thithi_id")
         ml_month = get("ml_month")
+        chandra_masa_month = get("chandra_masa_month")
         return EventCondition(
             nakshatra=Nakshatra.from_id(nakshatra_id) if nakshatra_id is not None else None,
             thithi=Thithi.from_id(thithi_id) if thithi_id is not None else None,
             ml_day=get("ml_day"),
             ml_month=MalayalamMasa.from_id(ml_month) if ml_month is not None else None,
             ml_year=get("ml_year"),
+            chandra_masa_day=get("chandra_masa_day"),
+            chandra_masa_month=(
+                ChandraMasa.from_id(chandra_masa_month) if chandra_masa_month is not None else None
+            ),
             en_day=get("en_day"),
             en_month=get("en_month"),
             en_year=get("en_year"),
@@ -448,7 +456,8 @@ class SanthigiriEventService:
 
     _UPDATE_FIELDS = (
         "name", "description", "sort_order", "nakshatra_id", "thithi_id",
-        "ml_day", "ml_month", "ml_year", "en_day", "en_month", "en_year",
+        "ml_day", "ml_month", "ml_year", "chandra_masa_day", "chandra_masa_month",
+        "en_day", "en_month", "en_year",
         "occurance", "is_poornima", "last_occurance", "day_offset",
         "yields_to_event_id",
     )

@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.astronomy.enums.nakshatra import Nakshatra
 from app.core.astronomy.enums.thithi import Thithi
 
@@ -14,6 +15,8 @@ class EventCondition:
     ml_day: Optional[int] = None
     ml_month: Optional[MalayalamMasa] = None
     ml_year: Optional[int] = None
+    chandra_masa_day: Optional[int] = None
+    chandra_masa_month: Optional[ChandraMasa] = None
     en_day: Optional[int] = None
     en_month: Optional[int] = None
     en_year: Optional[int] = None
