@@ -112,25 +112,6 @@ def seed_app_settings_if_empty(session: Session) -> bool:
     return True
 
 
-def seed_chandra_masa_if_empty(session: Session) -> bool:
-    """Seed the Chandra Masa lookup rows only when the table is empty; commit
-    and return True.
-
-    Backfills a database whose ``chandra_masa`` table was created (by
-    ``init_db()``'s create-missing-tables pass) after the feature merged, but
-    never populated because ``db/sql/02_seed.sql`` was applied before the
-    table existed. Only structural columns (id/name) are seeded, same as
-    ``seed_lookup_tables`` — the localized ``ml``/``en`` columns are left NULL
-    and must still come from ``db/sql/02_seed.sql`` on a real database.
-    """
-    if session.exec(select(ChandraMasaRow).limit(1)).first() is not None:
-        return False
-    for m in ChandraMasa:
-        session.merge(ChandraMasaRow(id=m.id, name=m.name))
-    session.commit()
-    return True
-
-
 def seed_lookup_tables(session: Session) -> None:
     """Insert all Paksha, Thithi, Nakshatra, MalayalamMasa, Location, SanthigiriEvent,
     and default AppSetting values."""
