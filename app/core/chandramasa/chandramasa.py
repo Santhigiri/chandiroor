@@ -19,6 +19,13 @@ from app.core.kollavarsham.kollavarsham import get_madhyahnam_raasi
 _MAX_MASA_SPAN_DAYS = 32
 
 
+class ChandraMasaNotFoundError(Exception):
+    """Raised when no Amanta month start can be found within
+    ``_MAX_MASA_SPAN_DAYS`` of the requested date/location — a
+    computation failure rather than a bug, so callers should translate
+    it into an error response instead of letting it crash the request."""
+
+
 def _active_thithi(transitions: List[ThithiTransition], instant) -> Thithi:
     """Thithi whose [start_time, end_time) interval contains `instant`.
 
@@ -73,7 +80,7 @@ def _walk_to_paksha_start(
             if prev_active.paksha == Paksha.KRISHNA:
                 return current
         current += timedelta(days=step)
-    raise RuntimeError(
+    raise ChandraMasaNotFoundError(
         f"No Amanta month start found walking from {start} (step={step})"
     )
 

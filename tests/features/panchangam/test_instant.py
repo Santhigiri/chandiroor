@@ -138,3 +138,23 @@ def test_instant_endpoint_unknown_timezone_is_400(client):
     params["timezone"] = "Not/A_Zone"
     r = client.get("/api/v1/panchangam/instant", params=params)
     assert r.status_code == 400
+
+
+def test_instant_endpoint_returns_422_instead_of_crashing_when_chandra_masa_unresolvable(
+    client, monkeypatch
+):
+    """A ChandraMasaNotFoundError raised deep in the live-computation fallback
+    (core/chandramasa) must surface as a handled 422 response, not an
+    unhandled 500 crash — see app/core/chandramasa/chandramasa.py and
+    features/panchangam/router.py."""
+    from app.core.chandramasa.chandramasa import ChandraMasaNotFoundError
+
+    def _boom(*args, **kwargs):
+        raise ChandraMasaNotFoundError("no Amanta month start found")
+
+    monkeypatch.setattr(
+        "app.core.calendar.panchangam.get_chandra_masa_date", _boom
+    )
+    r = client.get("/api/v1/panchangam/instant", params=_params("12:00"))
+    assert r.status_code == 422
+    assert "amanta" in r.json()["detail"].lower()

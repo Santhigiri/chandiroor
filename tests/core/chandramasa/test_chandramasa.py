@@ -26,7 +26,14 @@ from datetime import date, timedelta
 import pytest
 
 from app.core.astronomy.constants import Coordinates, DEFAULT_TIMEZONE
-from app.core.chandramasa.chandramasa import classify_masa_type, get_chandra_masa_date
+from app.core.astronomy.enums.paksha import Paksha
+from app.core.astronomy.enums.thithi import Thithi
+from app.core.chandramasa import chandramasa
+from app.core.chandramasa.chandramasa import (
+    ChandraMasaNotFoundError,
+    classify_masa_type,
+    get_chandra_masa_date,
+)
 from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.chandramasa.enums.masa_type import MasaType
 
@@ -136,3 +143,31 @@ def test_classify_masa_type_many_crossings_is_still_kshaya():
 def test_classify_masa_type_single_day_month_is_adhika():
     """A single-sample sequence has no crossings by construction."""
     assert classify_masa_type([5]) == MasaType.ADHIKA
+
+
+# ── ChandraMasaNotFoundError ────────────────────────────────────────────────
+# get_panchangam_data / PanchangamService are expected to let this propagate
+# rather than crash on an unhandled RuntimeError — the router translates it
+# into a 422 response (see tests/features/panchangam/test_instant.py-style
+# API tests and features/panchangam/router.py).
+
+def test_walk_to_paksha_start_raises_when_no_boundary_found(monkeypatch):
+    """If the sunrise thithi never lands in Shukla Paksha within the search
+    span (a data/astronomy anomaly), a bounded search must fail loudly with a
+    typed exception instead of looping forever or crashing with a bare
+    RuntimeError."""
+    always_krishna = Thithi.PRATHAMA_KRISHNA
+    assert always_krishna.paksha == Paksha.KRISHNA
+    monkeypatch.setattr(
+        chandramasa, "_sunrise_active_thithi", lambda *a, **k: always_krishna
+    )
+    # A date/coordinate combination not exercised by any other test in this
+    # module, so this call can't be served from get_chandra_masa_date's
+    # @lru_cache instead of actually invoking the (monkeypatched) walk.
+    unused_day = date(2025, 11, 3)
+    get_chandra_masa_date.cache_clear()
+    try:
+        with pytest.raises(ChandraMasaNotFoundError):
+            get_chandra_masa_date(dt=unused_day, latitude=LAT, longitude=LON, timezone=TZ)
+    finally:
+        get_chandra_masa_date.cache_clear()
