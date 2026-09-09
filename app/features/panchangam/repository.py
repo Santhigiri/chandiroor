@@ -67,7 +67,7 @@ def _row_to_panchangam_data(
         date=cm_row.date,
         masa=cm_row.masa_id,
         masa_day=cm_row.masa_day,
-        is_adhika=cm_row.is_adhika,
+        masa_type=cm_row.masa_type,
     )
 
     # One-to-one now that panchangam is keyed by (date, location_id).
@@ -273,7 +273,7 @@ class PanchangamRepository(PanchangamRepositoryPort):
                 location_id=location.id,
                 masa_id=data.chandra_masa.masa,
                 masa_day=data.chandra_masa.masa_day,
-                is_adhika=data.chandra_masa.is_adhika,
+                masa_type=data.chandra_masa.masa_type,
             )
         )
         self._s.add(

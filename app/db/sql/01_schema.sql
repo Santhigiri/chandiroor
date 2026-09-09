@@ -163,7 +163,7 @@ CREATE TABLE chandra_masa_date (
 	location_id INTEGER NOT NULL,
 	masa_id INTEGER NOT NULL,
 	masa_day INTEGER NOT NULL,
-	is_adhika BOOLEAN NOT NULL,
+	masa_type INTEGER NOT NULL,
 	PRIMARY KEY (date, location_id),
 	FOREIGN KEY(date, location_id) REFERENCES panchangam (date, location_id) ON DELETE CASCADE,
 	FOREIGN KEY(masa_id) REFERENCES chandra_masa (id)

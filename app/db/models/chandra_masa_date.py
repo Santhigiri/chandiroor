@@ -32,7 +32,7 @@ class ChandraMasaDate(SQLModel, table=True):
     location_id: int           = Field(primary_key=True)
     masa_id:     int  = Field(foreign_key="chandra_masa.id")  # ChandraMasa id (1–12)
     masa_day:    int  # day of the lunar (Amanta) month
-    is_adhika:   bool  # leap month: no solar Sankranti occurred within it
+    masa_type:   int  # MasaType id: 1=Nija (regular), 2=Adhika (leap), 3=Kshaya (deficit)
 
     masa:       Optional["ChandraMasa"] = Relationship(back_populates="chandra_masa_dates")
     panchangam: Optional["Panchangam"]  = Relationship(back_populates="chandra_masa")

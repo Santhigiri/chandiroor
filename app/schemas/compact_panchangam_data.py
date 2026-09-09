@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from .panchangam_data import PanchangamData
 from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.core.chandramasa.enums.masa import ChandraMasa
+from app.core.chandramasa.enums.masa_type import MasaType
 
 
 class CompactKollavarshamDate(BaseModel):
@@ -17,7 +18,7 @@ class CompactKollavarshamDate(BaseModel):
 class CompactChandraMasaDate(BaseModel):
     masa: str
     masa_day: int
-    is_adhika: bool
+    masa_type: str
 
 
 class CompactThithiTransition(BaseModel):
@@ -73,7 +74,7 @@ class CompactPanchangamData(BaseModel):
             chandra_masa=CompactChandraMasaDate(
                 masa=ChandraMasa.from_id(data.chandra_masa.masa).name,
                 masa_day=data.chandra_masa.masa_day,
-                is_adhika=data.chandra_masa.is_adhika,
+                masa_type=MasaType.from_id(data.chandra_masa.masa_type).name,
             ),
             thithi_transitions=[
                 CompactThithiTransition(
