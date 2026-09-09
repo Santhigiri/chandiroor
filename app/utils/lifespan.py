@@ -8,6 +8,7 @@ from app.features.auth.ports import UserCreate
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.database import engine, init_db
+from app.db.seed import seed_chandra_masa_if_empty
 from app.features.auth.auth_repository import AuthRepository
 from app.utils.roles import Role
 
@@ -43,8 +44,12 @@ async def lifespan(app: FastAPI):
 
     # Ensure the schema exists (idempotent). Seed data is loaded out-of-band via
     # the SQL files in db/sql/ against the Neon/Postgres database — the app no
-    # longer imports the pickle cache at startup.
+    # longer imports the pickle cache at startup. chandra_masa is a partial
+    # exception: init_db() can create the table on a DB that predates it, but
+    # never populates it, so backfill structural rows here if it's still empty.
     init_db()
+    with Session(engine) as session:
+        seed_chandra_masa_if_empty(session)
     _seed_admin_user()
 
     elapsed = time() - start
