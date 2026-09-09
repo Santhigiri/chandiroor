@@ -427,11 +427,27 @@ def test_row_to_panchangam_data_raises_without_kollavarsham():
         _row_to_panchangam_data(row, TVM, [])
 
 
-def test_get_by_date_falls_back_to_live_chandra_masa_when_missing(seeded_session):
-    """A row written before chandra_masa_date existed (or a DB whose seed
-    predates the feature) must not 500 the whole day -- it falls back to a
-    live computation instead of raising, unlike kv_row/ss_row above which
-    have no equivalent standalone path."""
+def test_row_to_panchangam_data_returns_none_without_chandra_masa():
+    """A row with no chandra_masa child is treated as not-yet-available, not
+    a data bug -- unlike kv_row/ss_row above, every row didn't always carry
+    one (the table postdates the feature), so the repository defers to the
+    caller's own missing-date live-computation fallback instead of raising."""
+    row = PanchangamRow(
+        date=datetime.date(2026, 1, 2), location_id=TVM.id,
+        thithi_id=Thithi.POORNIMA.id, nakshatra_id=Nakshatra.CHOTHI.id,
+        nazhika_from_sunrise=0.0,
+        kollavarsham=KollavarshamDateRow(
+            date=datetime.date(2026, 1, 2), location_id=TVM.id,
+            kv_day=1, kv_month=12, kv_year=1201,
+        ),
+    )
+    assert _row_to_panchangam_data(row, TVM, []) is None
+
+
+def test_get_by_date_treats_missing_chandra_masa_as_not_found(seeded_session):
+    """get_by_date returns None -- the same as a date with no row at all --
+    rather than crashing or computing anything itself; PanchangamService's
+    existing found-or-compute fallback is what handles this."""
     date = datetime.date(2026, 1, 2)
     seeded_session.add(PanchangamRow(
         date=date, location_id=TVM.id, thithi_id=Thithi.POORNIMA.id,
@@ -447,24 +463,52 @@ def test_get_by_date_falls_back_to_live_chandra_masa_when_missing(seeded_session
     ))
     seeded_session.commit()
 
-    fetched = PanchangamRepository(seeded_session).get_by_date(date, TVM)
-
-    assert fetched is not None
-    assert fetched.chandra_masa.date == date
-    assert fetched.chandra_masa.masa_day >= 1
+    assert PanchangamRepository(seeded_session).get_by_date(date, TVM) is None
 
 
-def test_get_by_date_raises_without_sunrise(seeded_session):
-    """get_by_date surfaces the missing-sunrise guard in _row_to_panchangam_data."""
-    date = datetime.date(2026, 1, 2)
+def test_get_by_date_range_omits_dates_missing_chandra_masa(seeded_session, make_panchangam_data):
+    """A batch fetch drops the chandra-masa-less date rather than raising or
+    computing it inline, same as get_by_date -- the caller's found.get(day)
+    fallback (PanchangamService) is what backfills it."""
+    good_date = datetime.date(2026, 1, 3)
+    bad_date = datetime.date(2026, 1, 4)
+    repo = PanchangamRepository(seeded_session)
+    repo.upsert(make_panchangam_data(good_date), TVM)
+    seeded_session.commit()
     seeded_session.add(PanchangamRow(
-        date=date, location_id=TVM.id, thithi_id=Thithi.POORNIMA.id,
+        date=bad_date, location_id=TVM.id, thithi_id=Thithi.POORNIMA.id,
         nakshatra_id=Nakshatra.CHOTHI.id, nazhika_from_sunrise=0.0,
     ))
     seeded_session.add(KollavarshamDateRow(
-        date=date, location_id=TVM.id, kv_day=1, kv_month=12, kv_year=1201,
+        date=bad_date, location_id=TVM.id, kv_day=1, kv_month=12, kv_year=1201,
+    ))
+    seeded_session.add(SunriseSunsetRow(
+        date=bad_date, location_id=TVM.id,
+        sunrise=datetime.datetime(2026, 1, 4, 0, 45, tzinfo=datetime.timezone.utc),
+        sunset=datetime.datetime(2026, 1, 4, 12, 30, tzinfo=datetime.timezone.utc),
     ))
     seeded_session.commit()
+
+    result = repo.get_by_date_range(good_date, bad_date, TVM)
+
+    assert set(result) == {good_date}
+
+
+def test_get_by_date_raises_without_sunrise(seeded_session, make_panchangam_data):
+    """get_by_date surfaces the missing-sunrise guard in _row_to_panchangam_data."""
+    date = datetime.date(2026, 1, 2)
+    data = make_panchangam_data(date)
+    repo = PanchangamRepository(seeded_session)
+    repo.upsert(data, TVM)
+    seeded_session.commit()
+    # Remove just the sunrise_sunset child so the ss_row guard is reached
+    # (chandra_masa/kollavarsham stay present, as a real row's always would).
+    row = seeded_session.exec(
+        select(SunriseSunsetRow).where(SunriseSunsetRow.date == date)
+    ).one()
+    seeded_session.delete(row)
+    seeded_session.commit()
+    seeded_session.expire_all()
 
     with pytest.raises(ValueError):
         PanchangamRepository(seeded_session).get_by_date(date, TVM)

@@ -29,7 +29,6 @@ from app.db.models.thithi_transition import ThithiTransition as ThithiTransition
 
 # ── Domain types ──────────────────────────────────────────────────────────────
 from app.core.astronomy.transitions import NakshatraTransition, ThithiTransition
-from app.core.chandramasa.chandramasa import get_chandra_masa_date
 from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.features.panchangam.ports import PanchangamRepositoryPort
@@ -51,7 +50,20 @@ def _row_to_panchangam_data(
     row: PanchangamRow,
     location: Location,
     santhigiri_events: List[SanthigiriEvent],
-) -> PanchangamData:
+) -> Optional[PanchangamData]:
+    """Convert one fully-loaded ``PanchangamRow`` to ``PanchangamData``.
+
+    Returns ``None`` for a row written before ``chandra_masa_date`` existed
+    (or a DB whose seed predates the Chandra Masa feature) -- the repository
+    is a pure DB row <-> domain object translator, so it never falls back to
+    live computation itself; a ``None`` here is treated by the getters below
+    exactly like a date with no row at all, letting the caller's own
+    live-computation fallback (``PanchangamService._compute()``, the single
+    orchestration point for that) handle it instead. ``kv_row``/``ss_row``
+    below stay hard ``ValueError``s: unlike ``chandra_masa``, every row has
+    always carried them, so a gap there is a genuine data bug, not an
+    expected transient state.
+    """
     kv_row = row.kollavarsham
     if kv_row is None:
         raise ValueError("kv_row is None")
@@ -64,24 +76,13 @@ def _row_to_panchangam_data(
 
     cm_row = row.chandra_masa
     if cm_row is None:
-        # A row written before chandra_masa_date existed (or a DB whose seed
-        # predates this feature) has no sub-row here yet -- fall back to a
-        # live, self-contained computation rather than 500ing the whole day.
-        # get_chandra_masa_date is @lru_cache'd and only needs date+location,
-        # unlike kv_row/ss_row below which have no equivalent standalone path.
-        chandra_masa = get_chandra_masa_date(
-            dt=row.date,
-            latitude=location.latitude,
-            longitude=location.longitude,
-            timezone=location.timezone,
-        )
-    else:
-        chandra_masa = ChandraMasaDate(
-            date=cm_row.date,
-            masa=cm_row.masa_id,
-            masa_day=cm_row.masa_day,
-            masa_type=cm_row.masa_type,
-        )
+        return None
+    chandra_masa = ChandraMasaDate(
+        date=cm_row.date,
+        masa=cm_row.masa_id,
+        masa_day=cm_row.masa_day,
+        masa_type=cm_row.masa_type,
+    )
 
     # One-to-one now that panchangam is keyed by (date, location_id).
     ss_row = row.sunrise_sunset
@@ -223,12 +224,17 @@ class PanchangamRepository(PanchangamRepositoryPort):
         # Ashram events are location-independent — fetch once by date and attach
         # the same list to each location's day.
         events_by_date = self._events_by_dates([row.date for row in rows])
-        return {
-            row.date: _row_to_panchangam_data(
+        result: Dict[datetime.date, PanchangamData] = {}
+        for row in rows:
+            data = _row_to_panchangam_data(
                 row, location, events_by_date.get(row.date, [])
             )
-            for row in rows
-        }
+            # A None here (missing chandra_masa) is omitted, same as a date
+            # with no row at all -- the caller's own missing-date fallback
+            # (PanchangamService._compute()) picks it up from there.
+            if data is not None:
+                result[row.date] = data
+        return result
 
     def get_by_month(
         self, year: int, month: int, location: Location
