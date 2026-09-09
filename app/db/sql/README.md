@@ -98,6 +98,13 @@ re-running it is harmless. Does not backfill `chandra_masa_date` rows for
 existing panchangam data — re-run `POST /api/v1/panchangam/generate` for that
 after applying.
 
+`0008_add_generation_job_table.sql` adds the `generation_job` table backing
+background data-generation runs. Unlike the other migrations here it is
+purely additive (a brand-new table with no FKs into existing ones), so
+`init_db()` already creates it automatically the next time the app starts
+against an already-deployed database — this migration only matters to a
+deploy script that wants the table present before that first restart.
+
 Migrations live in `db/sql/migrations/`, numbered in application order. Most
 are idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s, etc.) so
 re-running them is harmless — the exception is a column *type* change (e.g.
