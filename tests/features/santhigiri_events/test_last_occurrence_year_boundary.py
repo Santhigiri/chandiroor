@@ -142,16 +142,16 @@ def dhanu_event(client, admin_auth):
 
 def _generate_job(client, admin_auth, event_id, year) -> dict:
     """Start the occurrence job and return its finished status dict —
-    ``TestClient`` runs the endpoint's ``BackgroundTasks`` to completion as
-    part of the same ASGI call, so the job is already ``succeeded``/``failed``
-    by the time the initial POST returns."""
+    ``TestClient`` drains the endpoint's NDJSON stream to completion as part
+    of the same call, so the job is already ``succeeded``/``failed`` by the
+    time the initial POST returns."""
     started = client.post(
         f"{EVENTS_URL}/{event_id}/occurrences",
         headers=admin_auth,
         json={"start_year": year, "end_year": year},
     )
-    assert started.status_code == 202, started.text
-    job_id = started.json()["job_id"]
+    assert started.status_code == 200, started.text
+    job_id = started.headers["x-job-id"]
     return client.get(f"/api/v1/generation-jobs/{job_id}", headers=admin_auth).json()
 
 
