@@ -22,22 +22,28 @@ codes.
 Both occurrence-generation endpoints take the same ``{start_year, end_year}``
 body (``SanthigiriEventsGenerateRequest``, an inclusive range) and — like
 ``POST /panchangam/generate`` (``features/panchangam/generation_router.py``) —
-return immediately with a ``GenerationJobStarted`` (202) and run the actual
-computation in a background task, detached from the request. This is what
+respond with a live NDJSON stream (one JSON object per line) of progress/result
+events as the range is (re)computed, with the job's id/type available
+immediately via the ``X-Job-Id``/``X-Job-Type`` response headers. The run is
+never tied to this particular HTTP connection staying open:
+``ResilientStreamingResponse`` (``features/generation_jobs/streaming.py``) keeps
+driving it to completion even if the admin who started it closes the tab, and
+every event is persisted into the ``generation_job`` row as it happens (see
+``features/generation_jobs/service.py::stream_generation_job``). This is what
 lets a wide range (one event scanning every day of a year, sometimes with a
 live Pournami check; the all-events endpoint doing that once per event
-definition) keep running to completion even if the admin who started it
-closes the tab. Poll ``GET /api/v1/generation-jobs/{job_id}`` (or
+definition) keep running to completion regardless of the client. Poll
+``GET /api/v1/generation-jobs/{job_id}`` (or
 ``GET /api/v1/generation-jobs/active`` if the id was lost) for progress and
-the final result — see ``features/generation_jobs/``. A ``generation_job``
-row with ``status="running"`` is a cross-instance lock shared with the
-panchangam-generate endpoint: only one generation run of any kind can be in
-flight at a time, even across multiple API instances sharing the same
-database, so a second call while one is running gets ``409 Conflict``.
+the final result without the live stream — see ``features/generation_jobs/``.
+A ``generation_job`` row with ``status="running"`` is a cross-instance lock
+shared with the panchangam-generate endpoint: only one generation run of any
+kind can be in flight at a time, even across multiple API instances sharing
+the same database, so a second call while one is running gets ``409 Conflict``.
 """
-from typing import Annotated
+from typing import Annotated, AsyncIterator
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session
 
 from app.api.deps import (
@@ -58,7 +64,8 @@ from app.api.deps import (
 )
 from app.features.generation_jobs.ports import JobAlreadyRunningException
 from app.features.generation_jobs.schemas import GenerationJobStarted
-from app.features.generation_jobs.service import run_generation_job
+from app.features.generation_jobs.service import stream_generation_job
+from app.features.generation_jobs.streaming import ResilientStreamingResponse
 from app.features.santhigiri_events.ports import EventNotFoundException
 from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
@@ -220,31 +227,33 @@ def _start_job(
     )
 
 
-async def _run_and_close(job_id: str, session: Session, events) -> None:
+async def _stream_and_close(job_id: str, session: Session, events) -> AsyncIterator[str]:
     try:
         job_repository = get_generation_job_repository(session)
-        await run_generation_job(job_id, events, job_repository, get_unit_of_work(session))
+        async for line in stream_generation_job(
+            job_id, events, job_repository, get_unit_of_work(session)
+        ):
+            yield line
     finally:
         session.close()
 
 
 @router.post(
     "/{event_id}/occurrences",
-    status_code=status.HTTP_202_ACCEPTED,
-    response_model=GenerationJobStarted,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def generate_event_occurrences(
     event_id: str,
     payload: SanthigiriEventsGenerateRequest,
     principal: Annotated[Principal, Depends(get_current_principal)],
-    background_tasks: BackgroundTasks,
     request_session: SessionDep,
-) -> GenerationJobStarted:
-    """Start a background job (re)computing *event_id*'s occurrence dates
-    across ``[payload.start_year, payload.end_year]`` from the DB's
-    panchangam data, replacing whatever was stored for that event in each of
-    those years. Poll ``GET /api/v1/generation-jobs/{job_id}`` for progress."""
+) -> ResilientStreamingResponse:
+    """Stream *event_id*'s occurrence dates being (re)computed across
+    ``[payload.start_year, payload.end_year]`` from the DB's panchangam data,
+    replacing whatever was stored for that event in each of those years. The
+    job's id is available immediately via the ``X-Job-Id`` response header;
+    poll ``GET /api/v1/generation-jobs/{job_id}`` for progress if the live
+    stream is lost."""
     params = {"event_id": event_id, **payload.model_dump(mode="json")}
     session, service, started = _start_job(
         request_session,
@@ -258,25 +267,27 @@ def generate_event_occurrences(
     events = service.generate_occurrences_streaming(
         event_id, payload.start_year, payload.end_year
     )
-    background_tasks.add_task(_run_and_close, started.job_id, session, events)
-    return started
+    return ResilientStreamingResponse(
+        _stream_and_close(started.job_id, session, events),
+        media_type="application/x-ndjson",
+        headers={"X-Job-Id": started.job_id, "X-Job-Type": started.job_type},
+    )
 
 
 @router.post(
     "/generate",
-    status_code=status.HTTP_202_ACCEPTED,
-    response_model=GenerationJobStarted,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def generate_all_event_occurrences(
     payload: SanthigiriEventsGenerateRequest,
     principal: Annotated[Principal, Depends(get_current_principal)],
-    background_tasks: BackgroundTasks,
     request_session: SessionDep,
-) -> GenerationJobStarted:
-    """Start a background job (re)computing every event definition's
-    occurrence dates across ``[payload.start_year, payload.end_year]``. Poll
-    ``GET /api/v1/generation-jobs/{job_id}`` for progress."""
+) -> ResilientStreamingResponse:
+    """Stream every event definition's occurrence dates being (re)computed
+    across ``[payload.start_year, payload.end_year]``. The job's id is
+    available immediately via the ``X-Job-Id`` response header; poll
+    ``GET /api/v1/generation-jobs/{job_id}`` for progress if the live stream
+    is lost."""
     session, service, started = _start_job(
         request_session,
         ALL_EVENTS_JOB_TYPE,
@@ -288,5 +299,8 @@ def generate_all_event_occurrences(
     events = service.generate_all_occurrences_streaming(
         payload.start_year, payload.end_year
     )
-    background_tasks.add_task(_run_and_close, started.job_id, session, events)
-    return started
+    return ResilientStreamingResponse(
+        _stream_and_close(started.job_id, session, events),
+        media_type="application/x-ndjson",
+        headers={"X-Job-Id": started.job_id, "X-Job-Type": started.job_type},
+    )

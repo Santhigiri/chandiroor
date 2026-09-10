@@ -8,14 +8,15 @@ data (same approach as ``tests/test_panchangam_generation.py`` — there is no
 offline pickle-cache pipeline any more, see CLAUDE.md), so occurrences are
 computed against real astronomical data rather than synthetic fixtures.
 
-Both endpoints only start a background job and return immediately (202) —
-the actual computation runs detached from the request via FastAPI
-``BackgroundTasks`` (see ``features/generation_jobs/``). ``TestClient`` drives
-the whole ASGI lifecycle (including background tasks) to completion before a
-call returns, though, so by the time ``client.post(...)`` comes back the job
-has already finished — ``_run_job``/``_run_job_all`` below do the POST and
-then a single GET on ``/api/v1/generation-jobs/{job_id}`` to read the job's
-final status/result, mirroring how a real client would poll.
+Both endpoints stream progress as NDJSON while they work — the job's id is on
+the response's ``X-Job-Id`` header, available before the body is read — and
+keep running to completion even if the client disconnects mid-stream (see
+``features/generation_jobs/streaming.py::ResilientStreamingResponse``).
+``TestClient`` reads the whole streamed body synchronously before a call
+returns, so by the time ``client.post(...)`` comes back the job has already
+finished — ``_generate_job``/``_generate_all_job`` below do the POST (draining
+the stream) and then a single GET on ``/api/v1/generation-jobs/{job_id}`` to
+read the job's final status/result, mirroring how a real client would poll.
 """
 from __future__ import annotations
 
@@ -134,16 +135,16 @@ def _generate(client, admin_auth, event_id, start_year=YEAR, end_year=YEAR):
 
 
 def _get_job(client, admin_auth, started) -> dict:
-    assert started.status_code == 202, started.text
-    job_id = started.json()["job_id"]
+    assert started.status_code == 200, started.text
+    job_id = started.headers["x-job-id"]
     return client.get(f"/api/v1/generation-jobs/{job_id}", headers=admin_auth).json()
 
 
 def _generate_job(client, admin_auth, event_id, start_year=YEAR, end_year=YEAR) -> dict:
     """Start the single-event occurrence job and return its finished status
-    dict — ``TestClient`` runs the endpoint's ``BackgroundTasks`` to
-    completion as part of the same ASGI call, so the job is already
-    ``succeeded``/``failed`` by the time the initial POST returns."""
+    dict — ``TestClient`` drains the endpoint's NDJSON stream to completion
+    as part of the same call, so the job is already ``succeeded``/``failed``
+    by the time the initial POST returns."""
     return _get_job(
         client, admin_auth, _generate(client, admin_auth, event_id, start_year, end_year)
     )

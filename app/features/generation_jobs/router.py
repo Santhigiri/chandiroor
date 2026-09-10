@@ -8,10 +8,14 @@ under ``/api/v1``:
 A job is started by ``POST /api/v1/panchangam/generate``,
 ``POST /api/v1/panchangam/events/{event_id}/occurrences``, or
 ``POST /api/v1/panchangam/events/generate`` (see their routers) — each
-returns a ``GenerationJobStarted`` (202) with the new job's id and continues
-the run in a background task. ``/active`` exists so a client that navigated
-away or reloaded mid-run (losing the job id) can find it again and keep
-showing progress; ``/{job_id}`` is the steady-state polling endpoint.
+responds with a live NDJSON stream of progress/result events (the job's id is
+available immediately via the ``X-Job-Id`` response header), and keeps the run
+going to completion even if that stream's connection is lost, persisting
+every event into the job row along the way (see
+``features/generation_jobs/service.py``/``streaming.py``). ``/active`` exists
+so a client that navigated away or reloaded mid-run (losing the job id, or the
+live stream) can find it again and keep showing progress; ``/{job_id}`` is the
+steady-state polling endpoint for the same purpose once the id is known.
 
 Gated at the ``admin`` role, same as the endpoints that start a job — this is
 internal ops visibility, not ashram-facing reference data.
