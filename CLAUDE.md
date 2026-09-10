@@ -439,7 +439,7 @@ Panchangam data (public — anonymous allowed, any supplied token still validate
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
 - `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
 - `GET /api/v1/panchangam/sunrise-sunset?day=..&latitude=..&longitude=..` — sunrise/sunset (UTC) for an arbitrary coordinate/date, always live-computed
-- `POST /api/v1/panchangam/generate` — (admin) start a background job that recomputes a date range from the astronomy code and overwrites the corresponding DB rows; returns `202` with a job id immediately (`PanchangamGenerationService` + `features/generation_jobs/`) — see "Background generation jobs" below
+- `POST /api/v1/panchangam/generate` — (admin) recompute a date range from the astronomy code and overwrite the corresponding DB rows, streamed as NDJSON (`PanchangamGenerationService`)
 
 Reference datasets (public, ETag-validated, read from the DB):
 
@@ -451,13 +451,9 @@ Santhigiri event definitions (read public; writes require the `admin` role):
 - `GET    /api/v1/panchangam/events/{event_id}` — fetch one event's full definition (public)
 - `PUT    /api/v1/panchangam/events/{event_id}` — partial-update an event definition (admin)
 - `DELETE /api/v1/panchangam/events/{event_id}` — delete an event definition (admin)
-- `POST   /api/v1/panchangam/events/{event_id}/occurrences` — (admin) start a background job (re)generating one event's occurrence dates over a year range; returns `202` with a job id
-- `POST   /api/v1/panchangam/events/generate` — (admin) start a background job (re)generating every event's occurrence dates over a year range; returns `202` with a job id
-
-Background generation jobs (admin only — internal ops visibility, see below):
-
-- `GET /api/v1/generation-jobs/active` — the currently running job, if any
-- `GET /api/v1/generation-jobs/{job_id}` — one job's status/progress/result/error
+- `POST   /api/v1/panchangam/events/{event_id}/occurrences` — (re)generate one event's occurrence dates over a year range (admin)
+- `POST   /api/v1/panchangam/events/{event_id}/occurrences/stream` — same, streamed one NDJSON line per year (admin)
+- `POST   /api/v1/panchangam/events/generate` — (re)generate every event's occurrence dates over a year range, streamed (admin)
 
 Authentication:
 
@@ -506,8 +502,7 @@ Current coverage:
 - `tests/features/auth/test_router.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
 - `tests/features/auth/test_google_auth.py` — skipped; see its module docstring for the dropped `/auth/google` feature.
 - `tests/features/etag/` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
-- `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path (asserting on the started job's final status via `GET /generation-jobs/{job_id}` — `TestClient` runs `BackgroundTasks` to completion as part of the same call, so the job has already finished by the time the initial `POST` returns).
-- `tests/features/generation_jobs/` — `GenerationJobRepository`'s lock semantics (only one `"running"` job at a time, freed on success/failure) and `run_generation_job`'s progress/result/failure recording.
+- `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path.
 - `tests/features/santhigiri_events/` — event-definition CRUD and occurrence-generation, end-to-end, including admin-role enforcement and ETag invalidation.
 - `tests/features/settings/` — `AppSettingRepository`, the admin settings CRUD endpoints, and settings→panchangam integration (e.g. `seed_year_range` gating `get_by_year`/`get_by_month`).
 - `features/guruvani/` has no test coverage yet (no `tests/features/guruvani/` directory) — a gap, not a deliberate omission; follow the `auth`/`santhigiri_events` test shape (repository round-trips + router CRUD + role-guard checks) when adding it.
@@ -541,23 +536,12 @@ These are critical for the transition-detection logic, which calls the same func
 
 ### Regenerating data (live, DB-driven — no offline pipeline)
 
-There is no offline pickle-cache pipeline anymore; both base panchangam data and Santhigiri event occurrences are (re)computed directly against Postgres through admin endpoints, each of which starts a **background generation job** rather than computing inline — see "Background generation jobs" below:
+There is no offline pickle-cache pipeline anymore; both base panchangam data and Santhigiri event occurrences are (re)computed directly against Postgres through admin endpoints:
 
-1. **Base panchangam data** — `POST /api/v1/panchangam/generate` (admin, `PanchangamGenerationService`) recomputes a date range from the astronomy code and overwrites the corresponding rows. Use this after changing computation logic in `core/astronomy/`/`core/calendar/`/`core/kollavarsham/`.
+1. **Base panchangam data** — `POST /api/v1/panchangam/generate` (admin, `PanchangamGenerationService`) recomputes a date range from the astronomy code and overwrites the corresponding rows, streaming NDJSON progress. Use this after changing computation logic in `core/astronomy/`/`core/calendar/`/`core/kollavarsham/`.
 2. **Santhigiri event occurrences** — `POST /api/v1/panchangam/events/{event_id}/occurrences` (one event) or `POST /api/v1/panchangam/events/generate` (all events) recompute occurrence dates for a year range from the DB's panchangam data (via `core/events/event_occurrences.py`) and overwrite `santhigiri_event_dates`. Use this after adding/editing an event definition.
 
 Both paths commit atomically with an ETag refresh (`features/etag/service.py`) so cached clients revalidate correctly. Neither writes to disk or requires a separate seed-regeneration step.
-
-### Background generation jobs
-
-All three generation endpoints above (`POST /panchangam/generate`, `POST /panchangam/events/{event_id}/occurrences`, `POST /panchangam/events/generate`) share the same shape, implemented by `features/generation_jobs/` (`ports.py` + `repository.py` + `service.py`, no `router.py` of its own beyond the read-only status endpoints):
-
-- The endpoint validates what it can cheaply (request shape, an admin-configured span/year-range cap, and — for the single-event endpoint — that the event id exists), inserts a `generation_job` row (`db/models/generation_job.py`) with `status="running"`, and returns **`202 Accepted`** with `{job_id, job_type, status}` immediately. It does **not** wait for the work to finish.
-- The actual computation — the same `PanchangamGenerationService.generate_streaming`/`SanthigiriEventService.generate_occurrences_streaming`/`generate_all_occurrences_streaming` async generators used before — runs in a FastAPI `BackgroundTasks` callback (`features/generation_jobs/service.py::run_generation_job`), driven by a **freshly opened DB session bound to the same engine as the request's** (`Session(request_session.get_bind())`, never the request-scoped session itself, which FastAPI tears down once the response finishes sending). This is what lets the run keep going, and keep being visible, even after the client that started it disconnects, navigates away, or is never reopened.
-- `run_generation_job` writes each yielded progress model into the job's `progress` column (overwriting the previous one — only the **latest** snapshot is kept, not a full history) and the final result/failure into `result`/`error` + `status`. It never lets an exception escape, since there is no HTTP request left to propagate one to.
-- Poll `GET /api/v1/generation-jobs/{job_id}` for status; `GET /api/v1/generation-jobs/active` finds the currently running job (if any) for a client that lost track of its id — e.g. the admin reloaded the page or reopened the tab mid-run.
-- **Only one generation job — of any of the three kinds — runs at a time, across every API instance sharing the database.** This is enforced by `generation_job.lock_key`: a nullable integer column with a unique constraint, set to the constant `1` while `status="running"` and cleared back to `NULL` the moment the job finishes (succeeded or failed). A second `start()` while one is already running hits a real DB `IntegrityError` at insert time (translated to `JobAlreadyRunningException` → `409 Conflict`) — this needs nothing but the shared Postgres database, no external lock service, and works correctly even if multiple API processes/instances are running.
-- A cheap pre-check that fails (bad event id, oversized span) raises its `HTTPException` **before** the job row is inserted, so it never leaves a stuck `"running"` lock behind. Anything only discoverable by actually scanning a year's data (incomplete year, an unsupported/uncomputable event condition) is *not* checked before responding — it surfaces as the job ending up `status="failed"` with `error` set, not as a synchronous HTTP error code.
 
 ---
 

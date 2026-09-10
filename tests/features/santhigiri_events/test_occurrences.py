@@ -7,21 +7,12 @@ Seeds an in-memory DB with a full year of real, live-computed 2022 panchangam
 data (same approach as ``tests/test_panchangam_generation.py`` — there is no
 offline pickle-cache pipeline any more, see CLAUDE.md), so occurrences are
 computed against real astronomical data rather than synthetic fixtures.
-
-Both endpoints stream progress as NDJSON while they work — the job's id is on
-the response's ``X-Job-Id`` header, available before the body is read — and
-keep running to completion even if the client disconnects mid-stream (see
-``features/generation_jobs/streaming.py::ResilientStreamingResponse``).
-``TestClient`` reads the whole streamed body synchronously before a call
-returns, so by the time ``client.post(...)`` comes back the job has already
-finished — ``_generate_job``/``_generate_all_job`` below do the POST (draining
-the stream) and then a single GET on ``/api/v1/generation-jobs/{job_id}`` to
-read the job's final status/result, mirroring how a real client would poll.
 """
 from __future__ import annotations
 
 import calendar
 import datetime
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -124,29 +115,10 @@ def admin_auth(client) -> dict:
 
 
 def _generate(client, admin_auth, event_id, start_year=YEAR, end_year=YEAR):
-    """Raw POST response — for tests asserting on the synchronous
-    pre-checks (auth, event existence, year-span validation) that still run
-    before a job is created."""
     return client.post(
         f"{EVENTS_URL}/{event_id}/occurrences",
         headers=admin_auth,
         json={"start_year": start_year, "end_year": end_year},
-    )
-
-
-def _get_job(client, admin_auth, started) -> dict:
-    assert started.status_code == 200, started.text
-    job_id = started.headers["x-job-id"]
-    return client.get(f"/api/v1/generation-jobs/{job_id}", headers=admin_auth).json()
-
-
-def _generate_job(client, admin_auth, event_id, start_year=YEAR, end_year=YEAR) -> dict:
-    """Start the single-event occurrence job and return its finished status
-    dict — ``TestClient`` drains the endpoint's NDJSON stream to completion
-    as part of the same call, so the job is already ``succeeded``/``failed``
-    by the time the initial POST returns."""
-    return _get_job(
-        client, admin_auth, _generate(client, admin_auth, event_id, start_year, end_year)
     )
 
 
@@ -155,21 +127,16 @@ def _stored_etag(api_engine) -> str:
         return EtagRepository(s).get(year_key(YEAR, Location.TVM.code))
 
 
+def _lines(response) -> list[dict]:
+    """Parse an NDJSON response body into a list of line objects."""
+    return [json.loads(line) for line in response.text.strip().split("\n") if line]
+
+
 def _generate_all(client, admin_auth, start_year=YEAR, end_year=YEAR):
-    """Raw POST response — for tests asserting on the synchronous
-    pre-checks (auth, year-span validation) that still run before a job is
-    created."""
     return client.post(
         f"{EVENTS_URL}/generate",
         headers=admin_auth,
         json={"start_year": start_year, "end_year": end_year},
-    )
-
-
-def _generate_all_job(client, admin_auth, start_year=YEAR, end_year=YEAR) -> dict:
-    """Start the all-events occurrence job and return its finished status dict."""
-    return _get_job(
-        client, admin_auth, _generate_all(client, admin_auth, start_year, end_year)
     )
 
 
@@ -214,9 +181,9 @@ def test_generate_rejects_oversized_range(client, admin_auth):
 # ── Class A: single-day-pinned ──────────────────────────────────────────────
 
 def test_generate_single_day_event_matches_offline_pipeline(client, admin_auth):
-    job = _generate_job(client, admin_auth, "POURNAMI")
-    assert job["status"] == "succeeded", job
-    body = job["result"]
+    r = _generate(client, admin_auth, "POURNAMI")
+    assert r.status_code == 200
+    body = r.json()
     assert body["event_id"] == "POURNAMI"
     assert body["start_year"] == YEAR
     assert body["end_year"] == YEAR
@@ -226,23 +193,24 @@ def test_generate_single_day_event_matches_offline_pipeline(client, admin_auth):
 # ── Class B: last-occurrence-in-month ───────────────────────────────────────
 
 def test_generate_last_occurrence_event_matches_offline_pipeline(client, admin_auth):
-    job = _generate_job(client, admin_auth, "NAVAPOOJITHAM")
-    assert job["status"] == "succeeded", job
-    assert job["result"]["occurrences"][str(YEAR)] == ["2022-09-01"]
+    r = _generate(client, admin_auth, "NAVAPOOJITHAM")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["occurrences"][str(YEAR)] == ["2022-09-01"]
 
 
 def test_generate_sishya_bday_matches_offline_pipeline(client, admin_auth):
-    job = _generate_job(client, admin_auth, "SHISHYAPOOJITHA_BDAY")
-    assert job["status"] == "succeeded", job
-    assert job["result"]["occurrences"][str(YEAR)] == ["2022-10-30"]
+    r = _generate(client, admin_auth, "SHISHYAPOOJITHA_BDAY")
+    assert r.status_code == 200
+    assert r.json()["occurrences"][str(YEAR)] == ["2022-10-30"]
 
 
 # ── Class C: every-transition-in-year ───────────────────────────────────────
 
 def test_generate_transition_series_event_matches_offline_pipeline(client, admin_auth):
-    job = _generate_job(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
-    assert job["status"] == "succeeded", job
-    assert len(job["result"]["occurrences"][str(YEAR)]) == 13
+    r = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
+    assert r.status_code == 200
+    assert len(r.json()["occurrences"][str(YEAR)]) == 13
 
 
 # ── yields_to_event_id: cross-event exclusion ───────────────────────────────
@@ -266,8 +234,8 @@ def test_yields_to_excludes_shared_date_single_event(client, admin_auth):
         client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA", "NAVAPOOJITHAM"
     ).status_code == 200
 
-    nav = _generate_job(client, admin_auth, "NAVAPOOJITHAM")["result"]
-    jty = _generate_job(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")["result"]
+    nav = _generate(client, admin_auth, "NAVAPOOJITHAM").json()
+    jty = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA").json()
 
     assert nav["occurrences"][str(YEAR)] == ["2022-09-01"]
     assert "2022-09-01" not in jty["occurrences"][str(YEAR)]
@@ -277,14 +245,17 @@ def test_yields_to_excludes_shared_date_single_event(client, admin_auth):
 def test_yields_to_excludes_shared_date_bulk_generate(client, admin_auth):
     _set_yields_to(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA", "NAVAPOOJITHAM")
 
-    job = _generate_all_job(client, admin_auth)
-    assert job["status"] == "succeeded", job
-    result = job["result"]
-    assert result["generated"] >= 1
+    r = _generate_all(client, admin_auth)
+    progress = {
+        line["event_id"]: line for line in _lines(r) if line["type"] == "progress"
+    }
 
-    jty = _generate_job(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")["result"]
+    assert progress["NAVAPOOJITHAM"]["status"] == "generated"
+    assert progress["JANMAGRIHA_THEERTHA_YATHRA"]["status"] == "generated"
+    assert progress["JANMAGRIHA_THEERTHA_YATHRA"]["count"] == 12
+
+    jty = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA").json()
     assert "2022-09-01" not in jty["occurrences"][str(YEAR)]
-    assert len(jty["occurrences"][str(YEAR)]) == 12
 
 
 def test_yields_to_survives_sibling_deletion(client, admin_auth):
@@ -295,9 +266,9 @@ def test_yields_to_survives_sibling_deletion(client, admin_auth):
     )
 
     # ON DELETE SET NULL cleared yields_to_event_id — exclusion no longer applies.
-    job = _generate_job(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
-    assert job["status"] == "succeeded", job
-    dates = job["result"]["occurrences"][str(YEAR)]
+    r = _generate(client, admin_auth, "JANMAGRIHA_THEERTHA_YATHRA")
+    assert r.status_code == 200
+    dates = r.json()["occurrences"][str(YEAR)]
     assert "2022-09-01" in dates
     assert len(dates) == 13
 
@@ -313,10 +284,10 @@ def _set_day_offset(client, admin_auth, event_id, day_offset):
 
 
 def test_generate_shifts_single_day_occurrences_by_day_offset(client, admin_auth):
-    baseline = _generate_job(client, admin_auth, "POURNAMI")["result"]["occurrences"][str(YEAR)]
+    baseline = _generate(client, admin_auth, "POURNAMI").json()["occurrences"][str(YEAR)]
 
     assert _set_day_offset(client, admin_auth, "POURNAMI", 2).status_code == 200
-    shifted = _generate_job(client, admin_auth, "POURNAMI")["result"]["occurrences"][str(YEAR)]
+    shifted = _generate(client, admin_auth, "POURNAMI").json()["occurrences"][str(YEAR)]
 
     expected = [
         (datetime.date.fromisoformat(d) + datetime.timedelta(days=2)).isoformat()
@@ -325,59 +296,53 @@ def test_generate_shifts_single_day_occurrences_by_day_offset(client, admin_auth
     assert shifted == expected
 
 
-def test_generate_offset_crossing_year_boundary_fails_the_job(client, admin_auth):
+def test_generate_offset_crossing_year_boundary_is_422(client, admin_auth):
     # NAVOLI_JYOTHIR_DINAM is pinned to May 6 — shifting it far enough to cross
     # into a different year isn't possible with a small offset, so instead pin
-    # a fresh event right at year-end and shift it across the boundary. This is
-    # only discoverable once the background job actually scans the year's data,
-    # so it surfaces as a failed job, not a synchronous 422.
+    # a fresh event right at year-end and shift it across the boundary.
     client.post(
         EVENTS_URL,
         headers=admin_auth,
         json={"id": "YEAR_END", "name": "n", "description": "d", "en_day": 31, "en_month": 12, "day_offset": 2},
     )
-    job = _generate_job(client, admin_auth, "YEAR_END")
-    assert job["status"] == "failed", job
+    r = _generate(client, admin_auth, "YEAR_END")
+    assert r.status_code == 422
 
 
 # ── Errors ───────────────────────────────────────────────────────────────────
 
 def test_generate_missing_event_is_404(client, admin_auth):
-    # A cheap check the router runs before ever creating a job — never worth
-    # discovering only after a job has "started".
     r = _generate(client, admin_auth, "NOPE")
     assert r.status_code == 404
 
 
-def test_generate_incomplete_year_fails_the_job(client, admin_auth):
-    job = _generate_job(client, admin_auth, "POURNAMI", start_year=2023, end_year=2023)
-    assert job["status"] == "failed", job
-    assert "2023" in job["error"]
+def test_generate_incomplete_year_is_422(client, admin_auth):
+    r = _generate(client, admin_auth, "POURNAMI", start_year=2023, end_year=2023)
+    assert r.status_code == 422
 
 
-def test_generate_multi_year_range_incomplete_year_fails_the_job(client, admin_auth):
+def test_generate_multi_year_range_incomplete_year_is_422(client, admin_auth):
     # 2022 is fully seeded but 2023 is not — the whole range must fail, and
     # nothing for 2022 should be (re)written as a side effect.
-    job = _generate_job(client, admin_auth, "POURNAMI", start_year=YEAR, end_year=2023)
-    assert job["status"] == "failed", job
-    assert "2023" in job["error"]
+    r = _generate(client, admin_auth, "POURNAMI", start_year=YEAR, end_year=2023)
+    assert r.status_code == 422
 
 
-def test_generate_unsupported_condition_fails_the_job(client, admin_auth):
+def test_generate_unsupported_condition_is_422(client, admin_auth):
     client.post(
         EVENTS_URL,
         headers=admin_auth,
         json={"id": "MONTH_ONLY", "name": "n", "description": "d", "ml_month": 5},
     )
-    job = _generate_job(client, admin_auth, "MONTH_ONLY")
-    assert job["status"] == "failed", job
+    r = _generate(client, admin_auth, "MONTH_ONLY")
+    assert r.status_code == 422
 
 
 # ── Idempotency / replace semantics ─────────────────────────────────────────
 
 def test_regenerate_replaces_rather_than_appends(client, admin_auth):
-    first = _generate_job(client, admin_auth, "POURNAMI")["result"]["occurrences"]
-    second = _generate_job(client, admin_auth, "POURNAMI")["result"]["occurrences"]
+    first = _generate(client, admin_auth, "POURNAMI").json()["occurrences"]
+    second = _generate(client, admin_auth, "POURNAMI").json()["occurrences"]
     assert first == second
 
 
@@ -391,7 +356,7 @@ def test_generate_bumps_year_etag(client, admin_auth, api_engine):
     )
     before = _stored_etag(api_engine)
 
-    _generate_job(client, admin_auth, "NEW_EVENT")
+    _generate(client, admin_auth, "NEW_EVENT")
 
     after = _stored_etag(api_engine)
     assert after != before
@@ -434,31 +399,30 @@ def test_generate_all_rejects_oversized_range(client, admin_auth):
     assert r.status_code == 422
 
 
-def test_generate_all_reports_summary(client, admin_auth):
-    # The job row only keeps the LATEST progress snapshot (not a full history
-    # of every (year, event) pair the way the old NDJSON stream did) — polling
-    # it mid-run is what shows intermediate progress in production; here we
-    # confirm the final result summary and that the last progress snapshot
-    # reflects the whole run having completed.
-    job = _generate_all_job(client, admin_auth)
-    assert job["status"] == "succeeded", job
+def test_generate_all_streams_progress_per_event(client, admin_auth):
+    r = _generate_all(client, admin_auth)
+    assert r.status_code == 200
+    lines = _lines(r)
 
-    progress = job["progress"]
-    assert progress["completed"] == progress["total"]
-    assert progress["percent"] == 100.0
-    assert progress["year"] == YEAR
+    progress = [line for line in lines if line["type"] == "progress"]
+    assert len(progress) >= 1
+    assert [p["completed"] for p in progress] == list(range(1, len(progress) + 1))
+    assert all(p["total"] == len(progress) for p in progress)
+    assert all(p["year"] == YEAR for p in progress)
+    assert progress[-1]["percent"] == 100.0
 
-    result = job["result"]
+    pournami = next(p for p in progress if p["event_id"] == "POURNAMI")
+    assert pournami["status"] == "generated"
+    assert pournami["count"] == 12
+
+    result = lines[-1]
+    assert result["type"] == "complete"
     assert result["start_year"] == YEAR
     assert result["end_year"] == YEAR
     assert result["years"] == [YEAR]
-    assert result["total_events"] == progress["total"]
-    assert result["generated"] + result["skipped"] + result["errors"] == progress["total"]
+    assert result["total_events"] == len(progress)
+    assert result["generated"] + result["skipped"] + result["errors"] == len(progress)
     assert result["generated"] >= 1
-
-    # POURNAMI's own occurrences got (re)written by the same run.
-    pournami = _generate_job(client, admin_auth, "POURNAMI")["result"]
-    assert len(pournami["occurrences"][str(YEAR)]) == 12
 
 
 def test_generate_all_reports_unsupported_condition_as_skipped(client, admin_auth):
@@ -467,35 +431,57 @@ def test_generate_all_reports_unsupported_condition_as_skipped(client, admin_aut
         headers=admin_auth,
         json={"id": "MONTH_ONLY", "name": "n", "description": "d", "ml_month": 5},
     )
-    job = _generate_all_job(client, admin_auth)
-    assert job["status"] == "succeeded", job
-    assert job["result"]["skipped"] >= 1
+    r = _generate_all(client, admin_auth)
+    lines = _lines(r)
+    month_only = next(
+        line
+        for line in lines
+        if line["type"] == "progress" and line["event_id"] == "MONTH_ONLY"
+    )
+    assert month_only["status"] == "skipped"
+    assert month_only["count"] == 0
+    assert month_only["detail"]
+
+    result = lines[-1]
+    assert result["type"] == "complete"
+    assert result["skipped"] >= 1
 
 
-def test_generate_all_incomplete_year_fails_the_job(client, admin_auth):
-    job = _generate_all_job(client, admin_auth, start_year=2023, end_year=2023)
-    assert job["status"] == "failed", job
-    assert "2023" in job["error"]
+def test_generate_all_incomplete_year_is_error_line(client, admin_auth):
+    r = _generate_all(client, admin_auth, start_year=2023, end_year=2023)
+    assert r.status_code == 200
+    lines = _lines(r)
+    assert lines == [
+        {"type": "error", "detail": "Panchangam data for 2023 is not fully seeded."}
+    ]
 
 
 def test_generate_all_multi_year_range_reports_first_incomplete_year(client, admin_auth):
     # Only 2022 is seeded; a range spanning into 2023 must fail on 2023 without
     # persisting anything for 2022, even though 2022 alone would succeed.
-    job = _generate_all_job(client, admin_auth, start_year=YEAR, end_year=2023)
-    assert job["status"] == "failed", job
-    assert "2023" in job["error"]
+    r = _generate_all(client, admin_auth, start_year=YEAR, end_year=2023)
+    assert r.status_code == 200
+    lines = _lines(r)
+    assert lines[-1] == {
+        "type": "error",
+        "detail": "Panchangam data for 2023 is not fully seeded.",
+    }
 
 
 def test_generate_all_replaces_rather_than_appends(client, admin_auth):
-    _generate_all_job(client, admin_auth)
-    first_pournami = _generate_job(client, admin_auth, "POURNAMI")["result"]
-    _generate_all_job(client, admin_auth)
-    second_pournami = _generate_job(client, admin_auth, "POURNAMI")["result"]
-    assert first_pournami["occurrences"] == second_pournami["occurrences"]
+    first = _generate_all(client, admin_auth)
+    second = _generate_all(client, admin_auth)
+    first_pournami = next(
+        line for line in _lines(first) if line.get("event_id") == "POURNAMI"
+    )
+    second_pournami = next(
+        line for line in _lines(second) if line.get("event_id") == "POURNAMI"
+    )
+    assert first_pournami["count"] == second_pournami["count"]
 
 
 def test_generate_all_bumps_year_etag(client, admin_auth, api_engine):
     before = _stored_etag(api_engine)
-    _generate_all_job(client, admin_auth)
+    _generate_all(client, admin_auth)
     after = _stored_etag(api_engine)
     assert after != before
