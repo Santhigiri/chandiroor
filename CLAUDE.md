@@ -543,6 +543,10 @@ There is no offline pickle-cache pipeline anymore; both base panchangam data and
 
 Both paths commit atomically with an ETag refresh (`features/etag/service.py`) so cached clients revalidate correctly. Neither writes to disk or requires a separate seed-regeneration step.
 
+### Bulk regeneration script
+
+`scripts/generate_year_spans.py` is the offline counterpart to the two admin endpoints above, for regenerating the *whole* configured year span (the `seed_year_range` setting, 2021–2030 by default) in one run without going through HTTP or an admin session. It builds the same `PanchangamGenerationService`/`SanthigiriEventService` the routes use (mirroring the wiring in `api/deps.py`) and drives their streaming generators directly against `DATABASE_URL`, printing the same per-day/per-year progress a client would read from the NDJSON stream. Panchangam data is regenerated one calendar year at a time so a multi-year run stays within the `max_generate_span_days` cap regardless of how wide the overall span is. Run it locally (`python scripts/generate_year_spans.py`, optionally with `--start-year`/`--end-year`/`--location`/`--skip-panchangam`/`--skip-events`) or manually via the `Generate year spans` GitHub Actions workflow (`.github/workflows/generate-year-spans.yml`, `workflow_dispatch` only — it needs a `DATABASE_URL` secret pointed at the target database).
+
 ---
 
 ## Ephemeris File

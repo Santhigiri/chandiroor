@@ -1,0 +1,57 @@
+name: Generate year spans
+
+# Manually regenerates panchangam data and Santhigiri event occurrences for
+# the database's available year span (scripts/generate_year_spans.py), e.g.
+# after a change to the astronomy/calendar computation code. Requires the
+# DATABASE_URL secret to point at the target Neon/Postgres database.
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "First year to regenerate (blank = the seed_year_range setting's start_year)"
+        required: false
+        type: string
+      end_year:
+        description: "Last year to regenerate, inclusive (blank = the seed_year_range setting's end_year)"
+        required: false
+        type: string
+      location:
+        description: "Location code to generate for (blank = the default_location_code setting)"
+        required: false
+        type: string
+      skip_panchangam:
+        description: "Skip regenerating base panchangam data"
+        required: false
+        type: boolean
+        default: false
+      skip_events:
+        description: "Skip regenerating Santhigiri event occurrences"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run generation script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          args=()
+          if [ -n "${{ inputs.start_year }}" ]; then args+=(--start-year "${{ inputs.start_year }}"); fi
+          if [ -n "${{ inputs.end_year }}" ]; then args+=(--end-year "${{ inputs.end_year }}"); fi
+          if [ -n "${{ inputs.location }}" ]; then args+=(--location "${{ inputs.location }}"); fi
+          if [ "${{ inputs.skip_panchangam }}" = "true" ]; then args+=(--skip-panchangam); fi
+          if [ "${{ inputs.skip_events }}" = "true" ]; then args+=(--skip-events); fi
+          python scripts/generate_year_spans.py "${args[@]}"
