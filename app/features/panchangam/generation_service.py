@@ -149,6 +149,24 @@ class PanchangamGenerationService:
         from app.core.calendar.panchangam import get_panchangam_data_range
 
         start = perf_counter()
+        # Resolve every year's tuning up front, on this coroutine, rather than
+        # handing get_panchangam_data_range the live self.settings.get_astronomy_tuning
+        # bound method: that method queries the DB through self.settings'
+        # AppSettingRepositoryPort, which shares this service's Session — and
+        # get_panchangam_data_range runs inside run_in_threadpool, a *different*
+        # OS thread. A DB call from that thread racing the heartbeat loop's
+        # job_repository.update_progress()/commit() below (same Session, main
+        # thread) corrupts SQLAlchemy's Session state ("This session is in
+        # 'prepared' state; no further SQL can be emitted..."). A plain dict
+        # lookup has no such thread-safety concern. +/-1 year covers the
+        # padding get_panchangam_data_range applies internally for Chandra
+        # Masa's month-boundary walk (up to _MAX_MASA_SPAN_DAYS days either
+        # side — see its docstring), which can spill into an adjacent year.
+        tuning_by_year = {
+            year: self.settings.get_astronomy_tuning(year)
+            for year in range(req.start_date.year - 1, req.end_date.year + 2)
+        }
+
         compute_task = asyncio.ensure_future(
             run_in_threadpool(
                 get_panchangam_data_range,
@@ -157,7 +175,7 @@ class PanchangamGenerationService:
                 location.latitude,
                 location.longitude,
                 location.timezone,
-                self.settings.get_astronomy_tuning,
+                lambda year: tuning_by_year[year],
             )
         )
         while not compute_task.done():
