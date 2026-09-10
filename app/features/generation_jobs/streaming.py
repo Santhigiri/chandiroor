@@ -20,14 +20,31 @@ guarantee there.
 Send failures against an already-closed connection are swallowed — there is
 nothing left to receive them — but the iterator (and therefore the DB writes
 it performs) keeps running regardless.
+
+``__init__`` also stamps ``Cache-Control``/``X-Accel-Buffering`` headers on
+every instance: a reverse proxy or load balancer sitting in front of the API
+(e.g. nginx, or Cloud Run's own front end) will otherwise buffer the whole
+chunked body before forwarding it, so the client never sees a progress line
+until the run is already finished — the job still completes correctly (the
+DB writes aren't affected), but the live NDJSON push degrades into "nothing,
+then the final result," indistinguishable from progress not being wired up
+at all. These headers are the standard opt-out for that buffering.
 """
 from __future__ import annotations
 
+from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
 
 class ResilientStreamingResponse(StreamingResponse):
+    def __init__(self, *args, background: BackgroundTask | None = None, **kwargs) -> None:
+        super().__init__(*args, background=background, **kwargs)
+        self.headers["Cache-Control"] = "no-cache, no-transform"
+        # nginx-specific hint to disable proxy-side response buffering for
+        # this response; harmless (unrecognized) on any other front end.
+        self.headers["X-Accel-Buffering"] = "no"
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
             await send(
