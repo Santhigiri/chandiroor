@@ -5,13 +5,20 @@ keeping the affected years' ETags in lockstep.
 
 The full :class:`schemas.panchangam_data.PanchangamData` for each day (thithi,
 nakshatra, transitions, sunrise/sunset, kollavarsham, nazhika) is embedded in the
-compact ``/year`` payload, so every write commits together with a recomputation
-of the affected years' ETags via :func:`features.etag.service.refresh_etags` —
-exactly as :class:`features.santhigiri_events.service.SanthigiriEventService` does — so cached
-clients revalidate correctly. Nothing commits until that single call at the end,
-so the whole range is still one atomic transaction — ``generate_streaming``
-yielding progress after each day is purely a visibility improvement, it does not
-change when the write becomes durable.
+compact ``/year`` payload, so the affected years' ETags are recomputed via
+:func:`features.etag.service.refresh_etags` once every day's row has been
+upserted — exactly as :class:`features.santhigiri_events.service.SanthigiriEventService`
+does — so cached clients revalidate correctly. This method itself never calls
+commit — ``self.repository.upsert`` only flushes — but its caller,
+:func:`features.generation_jobs.service.stream_generation_job`, commits the
+*shared* session after every yielded event (progress or result) to persist the
+job's own progress/result row. Since that's the same session
+``self.repository``/``self.unit_of_work`` were built from
+(``generation_router.py::_build_generation_service``), each of those commits
+durably writes that day's panchangam row too — so a day's data is visible to
+other DB clients as soon as its progress line is emitted, not held back until
+the whole range finishes. ``refresh_etags``'s own commit at the end is what
+makes the recomputed ETags durable, not what makes the panchangam rows durable.
 
 This is a dedicated write-path service (a frozen dataclass built from the
 ``PanchangamRepositoryPort``, ``SettingsServicePort``, ``EtagRepositoryPort``,
