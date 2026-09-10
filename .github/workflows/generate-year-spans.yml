@@ -76,6 +76,7 @@ jobs:
       - name: Run generation script
         env:
           DATABASE_URL: ${{ steps.db.outputs.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           args=()
           if [ -n "${{ inputs.start_year }}" ]; then args+=(--start-year "${{ inputs.start_year }}"); fi
