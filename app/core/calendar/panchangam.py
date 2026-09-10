@@ -22,7 +22,11 @@ from app.core.chandramasa.chandramasa import (
     get_chandra_masa_date,
     get_chandra_masa_dates_for_range,
 )
-from app.core.kollavarsham.kollavarsham import get_kollavarsham_date, get_kollavarsham_dates_for_range
+from app.core.kollavarsham.kollavarsham import (
+    get_kollavarsham_date,
+    get_kollavarsham_dates_for_range,
+    get_madhyahnam_raasi_for_range,
+)
 from datetime import date, timedelta
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.schemas.location import LocationInfo
@@ -222,6 +226,17 @@ def get_panchangam_data_range(
         paksha_by_day[d] = _active_at(thithi_by_day[d], sunrise).thithi.paksha
         d += timedelta(days=1)
 
+    # Single epsilon for the whole padded range, from start's own year's tuning:
+    # kollavarsham_epsilon has no per-year admin override (unlike
+    # nakshatra_step_days), so unlike the Thithi/Nakshatra chunking above, there
+    # is no real per-year value to stitch across -- matches the same
+    # single-tuning-per-month simplification Chandra Masa's own classification
+    # already makes.
+    raasi_by_day = get_madhyahnam_raasi_for_range(
+        masa_padded_start, masa_padded_end, latitude, longitude, timezone,
+        tuning_for_year(start.year).kollavarsham_epsilon, sunrise_sunset_by_day,
+    )
+
     kv_by_day: Dict[date, object] = {}
     chandra_masa_by_day: Dict[date, object] = {}
     seg_start = start
@@ -230,12 +245,13 @@ def get_panchangam_data_range(
         seg_end = min(end, date(seg_start.year, 12, 31))
         kv_by_day.update(
             get_kollavarsham_dates_for_range(
-                seg_start, seg_end, latitude, longitude, timezone, tuning.kollavarsham_epsilon
+                seg_start, seg_end, latitude, longitude, timezone, tuning.kollavarsham_epsilon,
+                raasi_by_day,
             )
         )
         chandra_masa_by_day.update(
             get_chandra_masa_dates_for_range(
-                seg_start, seg_end, latitude, longitude, timezone, tuning, paksha_by_day
+                seg_start, seg_end, latitude, longitude, timezone, tuning, paksha_by_day, raasi_by_day,
             )
         )
         seg_start = seg_end + timedelta(days=1)

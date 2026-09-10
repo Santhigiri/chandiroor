@@ -1,6 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
-from typing import Dict
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pytz
 
 from app.core.astronomy.calculations import (
     get_sun_sidereal_longitude,
@@ -10,7 +13,9 @@ from app.core.astronomy.constants import (
     DEFAULT_TIMEZONE,
 )
 
-from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.astronomy.ephemeris import ts
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset, get_sunrise_sunset_for_range
+from app.core.astronomy.thithi_transition import get_ayanamsa_for_datetimes, get_tropical_longitude
 from app.core.kollavarsham.kollavarsham_models import KollavarshamDate
 from app.core.kollavarsham.enums.masa import MalayalamMasa
 
@@ -18,6 +23,13 @@ from app.core.kollavarsham.enums.masa import MalayalamMasa
 # A Malayalam solar month is <32 days; both the per-day binary search below and
 # the range-batched forward pass rely on this bound.
 _MAX_MALAYALAM_MONTH_DAYS = 32
+
+# Sweet spot for get_madhyahnam_raasi_for_range's range-batched Sun-position
+# search -- see core.calendar.panchangam._TRANSITION_CHUNK_DAYS's docstring for
+# why this isn't "one call for the whole range": this search's apparent()
+# position call hits the same non-linear-with-array-size skyfield nutation
+# (iau2000a) cost the Thithi/Nakshatra transition search does.
+_RAASI_CHUNK_DAYS = 30
 
 
 def get_raasi(longitude: float, epsilon: float = 1e-6) -> int:
@@ -67,6 +79,85 @@ def get_madhyahnam_raasi(
     )
 
     return get_raasi(longitude, epsilon)
+
+
+def _time_array_for_local_datetimes(local_datetimes: List[datetime], timezone: str):
+    """Vectorized equivalent of calling ``core.astronomy.calculations.get_time``
+    once per instant: builds one Skyfield ``Time`` array from a list of naive
+    local datetimes, instead of N separate scalar ``Time`` objects.
+
+    Truncates to whole seconds (drops microseconds), matching ``get_time``'s
+    own precision -- ``datetime.second`` is an integer, so the existing
+    scalar path already loses microsecond precision the same way.
+    """
+    tz = pytz.timezone(timezone)
+    years, months, days, hours, minutes, seconds = [], [], [], [], [], []
+    for local_dt in local_datetimes:
+        utc_dt = tz.localize(local_dt).astimezone(pytz.UTC)
+        years.append(utc_dt.year)
+        months.append(utc_dt.month)
+        days.append(utc_dt.day)
+        hours.append(utc_dt.hour)
+        minutes.append(utc_dt.minute)
+        seconds.append(utc_dt.second)
+    return ts.utc(years, months, days, hours, minutes, seconds)
+
+
+def get_madhyahnam_raasi_for_range(
+    start: date,
+    end: date,
+    latitude: float,
+    longitude: float,
+    timezone: str = DEFAULT_TIMEZONE,
+    epsilon: float = 1e-6,
+    sunrise_sunset_by_day: Optional[Dict[date, Tuple[datetime, datetime]]] = None,
+) -> Dict[date, int]:
+    """Bulk equivalent of calling :func:`get_madhyahnam_raasi` once per day in
+    ``[start, end]`` (inclusive).
+
+    :func:`get_madhyahnam_raasi` evaluates the Sun's position with one scalar
+    Skyfield call per day -- its own ``@lru_cache`` barely helps in a
+    generation sweep, since each day's madhyahnam instant is a distinct,
+    effectively-unique timestamp. This instead builds one vectorized Skyfield
+    ``Time`` array covering a whole ~``_RAASI_CHUNK_DAYS``-day chunk's worth of
+    madhyahnam instants (via :func:`_time_array_for_local_datetimes`) and
+    evaluates the Sun's position for the whole chunk in a single call, chunked
+    for the same reason (skyfield's non-linear-with-array-size nutation cost)
+    as the Thithi/Nakshatra transition search -- see
+    ``core.calendar.panchangam._TRANSITION_CHUNK_DAYS``'s docstring.
+
+    *sunrise_sunset_by_day*, if the caller already has it (e.g.
+    :func:`core.calendar.panchangam.get_panchangam_data_range`, which needs it
+    for other fields too), is reused instead of triggering a second
+    :func:`core.astronomy.sunrise_sunset.get_sunrise_sunset_for_range` call
+    over the same range.
+    """
+    if sunrise_sunset_by_day is None:
+        sunrise_sunset_by_day = get_sunrise_sunset_for_range(start, end, latitude, longitude, timezone)
+
+    dates: List[date] = []
+    d = start
+    while d <= end:
+        dates.append(d)
+        d += timedelta(days=1)
+
+    result: Dict[date, int] = {}
+    for i in range(0, len(dates), _RAASI_CHUNK_DAYS):
+        chunk = dates[i:i + _RAASI_CHUNK_DAYS]
+        madhyahnam_instants = []
+        for d in chunk:
+            sunrise, sunset = sunrise_sunset_by_day[d]
+            madhyahnam = sunrise + (sunset - sunrise) * 3 / 5
+            madhyahnam_instants.append(madhyahnam.replace(tzinfo=None))
+
+        t = _time_array_for_local_datetimes(madhyahnam_instants, timezone)
+        tropical_longitude = get_tropical_longitude(t, "sun")
+        ayanamsa = get_ayanamsa_for_datetimes(t.utc_datetime())
+        sidereal_longitude = (tropical_longitude - ayanamsa) % 360
+
+        for d, lon in zip(chunk, sidereal_longitude):
+            result[d] = get_raasi(float(lon), epsilon)
+    return result
 
 
 @lru_cache(maxsize=1000)
@@ -144,6 +235,7 @@ def get_kollavarsham_dates_for_range(
     longitude: float,
     timezone: str = DEFAULT_TIMEZONE,
     epsilon: float = 1e-6,
+    raasi_by_day: Optional[Dict[date, int]] = None,
 ) -> Dict[date, KollavarshamDate]:
     """Bulk equivalent of calling :func:`get_kollavarsham_date` once per day in
     ``[start, end]`` (inclusive).
@@ -167,17 +259,27 @@ def get_kollavarsham_dates_for_range(
     ``start`` through ``end``, even though the padding days themselves may
     undercount (their preceding raasi run is unknown and irrelevant, since
     they are not part of the returned result).
+
+    *raasi_by_day*, if the caller already has one covering
+    ``[start - _MAX_MALAYALAM_MONTH_DAYS, end]`` (e.g.
+    :func:`core.calendar.panchangam.get_panchangam_data_range`, which needs
+    the same values for Chandra Masa too), is used directly instead of this
+    function computing its own via
+    :func:`get_madhyahnam_raasi_for_range`.
     """
     padded_start = start - timedelta(days=_MAX_MALAYALAM_MONTH_DAYS)
+
+    if raasi_by_day is None:
+        raasi_by_day = get_madhyahnam_raasi_for_range(
+            padded_start, end, latitude, longitude, timezone, epsilon
+        )
 
     result: Dict[date, KollavarshamDate] = {}
     running_day = 0
     prev_raasi = None
     d = padded_start
     while d <= end:
-        raasi = get_madhyahnam_raasi(
-            dt=d, latitude=latitude, longitude=longitude, timezone=timezone, epsilon=epsilon
-        )
+        raasi = raasi_by_day[d]
         running_day = running_day + 1 if raasi == prev_raasi else 1
         prev_raasi = raasi
         if d >= start:

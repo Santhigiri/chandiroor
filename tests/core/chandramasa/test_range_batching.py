@@ -16,32 +16,37 @@ from app.core.chandramasa.chandramasa import (
     get_chandra_masa_dates_for_range,
 )
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
+from app.core.kollavarsham.kollavarsham import get_madhyahnam_raasi_for_range
 
 START = date(2026, 2, 1)
 END = date(2026, 4, 15)  # spans at least 2 Chandra Masa month boundaries
 TUNING = AstronomyTuning()
 
 
-def _paksha_by_day(start: date, end: date):
-    """Build the paksha_by_day map the same way the real caller
-    (core.calendar.panchangam.get_panchangam_data_range) does: from a
-    range-batched Thithi transition search, not the per-day path."""
+def _paksha_and_raasi_by_day(start: date, end: date):
+    """Build the paksha_by_day/raasi_by_day maps the same way the real caller
+    (core.calendar.panchangam.get_panchangam_data_range) does: from
+    range-batched searches, not the per-day path."""
     padded_start = start - timedelta(days=_MAX_MASA_SPAN_DAYS + 1)
     padded_end = end + timedelta(days=_MAX_MASA_SPAN_DAYS)
     thithi_by_day = calc_thithi_transitions_for_range(padded_start, padded_end, DEFAULT_TIMEZONE, TUNING)
-    out = {}
+    raasi_by_day = get_madhyahnam_raasi_for_range(
+        padded_start, padded_end, Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE, DEFAULT_TIMEZONE
+    )
+    paksha_by_day = {}
     d = padded_start
     while d <= padded_end:
         sunrise, _ = get_sunrise_sunset(d, Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE, DEFAULT_TIMEZONE)
-        out[d] = _active_at(thithi_by_day[d], sunrise).thithi.paksha
+        paksha_by_day[d] = _active_at(thithi_by_day[d], sunrise).thithi.paksha
         d += timedelta(days=1)
-    return out
+    return paksha_by_day, raasi_by_day
 
 
 def test_range_matches_per_day():
+    paksha_by_day, raasi_by_day = _paksha_and_raasi_by_day(START, END)
     batched = get_chandra_masa_dates_for_range(
         START, END, Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE, DEFAULT_TIMEZONE, TUNING,
-        _paksha_by_day(START, END),
+        paksha_by_day, raasi_by_day,
     )
     d = START
     while d <= END:
@@ -61,9 +66,10 @@ def test_range_matches_across_a_chunk_boundary():
     two chunks must stitch back together with no gap or duplicate."""
     start = date(2026, 1, 20)
     end = date(2026, 3, 10)  # 50 days -- crosses at least one 30-day chunk edge
+    paksha_by_day, raasi_by_day = _paksha_and_raasi_by_day(start, end)
     batched = get_chandra_masa_dates_for_range(
         start, end, Coordinates.SG_LATITUDE, Coordinates.SG_LONGITUDE, DEFAULT_TIMEZONE, TUNING,
-        _paksha_by_day(start, end),
+        paksha_by_day, raasi_by_day,
     )
     d = start
     while d <= end:

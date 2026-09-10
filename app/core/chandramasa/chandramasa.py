@@ -177,6 +177,26 @@ def _classify_month(
     return masa, masa_type
 
 
+def _classify_month_from_raasi_by_day(
+    month_start: date, month_end: date, raasi_by_day: Dict[date, int],
+) -> Tuple[ChandraMasa, MasaType]:
+    """Same as :func:`_classify_month`, but reading each day's raasi from a
+    precomputed *raasi_by_day* map instead of calling the per-day
+    :func:`core.kollavarsham.kollavarsham.get_madhyahnam_raasi` once per day
+    in the month -- used by :func:`get_chandra_masa_dates_for_range`, whose
+    caller has already computed a range-batched raasi map (see that
+    function's docstring)."""
+    raasi_sequence = []
+    d = month_start - timedelta(days=1)
+    while d < month_end:
+        raasi_sequence.append(raasi_by_day[d])
+        d += timedelta(days=1)
+
+    masa = ChandraMasa.from_id(raasi_sequence[-1] + 1)
+    masa_type = classify_masa_type(raasi_sequence)
+    return masa, masa_type
+
+
 def get_chandra_masa_dates_for_range(
     start: date,
     end: date,
@@ -185,6 +205,7 @@ def get_chandra_masa_dates_for_range(
     timezone: str,
     tuning: AstronomyTuning,
     paksha_by_day: Dict[date, Paksha],
+    raasi_by_day: Dict[date, int],
 ) -> Dict[date, ChandraMasaDate]:
     """Bulk equivalent of calling :func:`get_chandra_masa_date` once per day in
     ``[start, end]`` (inclusive).
@@ -214,6 +235,14 @@ def get_chandra_masa_dates_for_range(
     for every padding day, reopening exactly the redundant per-day
     ``find_discrete`` searches the range-batched search upstream already
     eliminated for the same calendar days.
+
+    *raasi_by_day*, covering the same padded span, is likewise precomputed by
+    the caller via :func:`core.kollavarsham.kollavarsham.get_madhyahnam_raasi_for_range`
+    and passed to :func:`_classify_month_from_raasi_by_day` -- the per-day
+    :func:`core.kollavarsham.kollavarsham.get_madhyahnam_raasi` this replaces
+    (still used by :func:`get_chandra_masa_date`/:func:`_classify_month`
+    above, unchanged) does one scalar Skyfield position call per day, which
+    the range-batched version turns into one vectorized call per chunk.
     """
     padded_start = start - timedelta(days=_MAX_MASA_SPAN_DAYS)
     padded_end = end + timedelta(days=_MAX_MASA_SPAN_DAYS)
@@ -232,7 +261,7 @@ def get_chandra_masa_dates_for_range(
         month_end = month_starts[i + 1]
         if month_end <= start or month_start > end:
             continue  # month doesn't overlap [start, end] at all
-        masa, masa_type = _classify_month(month_start, month_end, latitude, longitude, timezone, tuning)
+        masa, masa_type = _classify_month_from_raasi_by_day(month_start, month_end, raasi_by_day)
         d = max(month_start, start)
         last = min(month_end - timedelta(days=1), end)
         while d <= last:
