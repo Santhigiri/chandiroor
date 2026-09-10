@@ -17,8 +17,12 @@ from app.core.astronomy.thithi_transition import (
     calc_thithi_transitions_for_range,
 )
 from app.core.astronomy.tuning import AstronomyTuning
-from app.core.chandramasa.chandramasa import get_chandra_masa_date
-from app.core.kollavarsham.kollavarsham import get_kollavarsham_date
+from app.core.chandramasa.chandramasa import (
+    _MAX_MASA_SPAN_DAYS,
+    get_chandra_masa_date,
+    get_chandra_masa_dates_for_range,
+)
+from app.core.kollavarsham.kollavarsham import get_kollavarsham_date, get_kollavarsham_dates_for_range
 from datetime import date, timedelta
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.schemas.location import LocationInfo
@@ -54,27 +58,18 @@ def _build_panchangam_data(
     localdt: date,
     thithi_transitions,
     nakshatra_transitions,
+    kv,
+    chandra_masa,
     latitude: float,
     longitude: float,
     timezone: str,
-    tuning: AstronomyTuning,
     instant: Optional[datetime],
 ) -> PanchangamData:
     """Shared tail of :func:`get_panchangam_data`/:func:`get_panchangam_data_range`:
-    everything after the Thithi/Nakshatra transitions are known for *localdt*.
+    everything after the Thithi/Nakshatra transitions, Kollavarsham, and Chandra
+    Masa are known for *localdt* -- callers compute those (per-day or
+    range-batched) and pass them in.
     """
-    kv = get_kollavarsham_date(
-        dt = localdt,
-        latitude = latitude,
-        longitude = longitude,
-        timezone = timezone,
-        epsilon = tuning.kollavarsham_epsilon)
-    chandra_masa = get_chandra_masa_date(
-        dt = localdt,
-        latitude = latitude,
-        longitude = longitude,
-        timezone = timezone,
-        tuning = tuning)
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     # The thithi/nakshatra "of the day" is the one active at sunrise, unless the
     # caller asked for an arbitrary instant (e.g. the Starfinder "what's active
@@ -123,9 +118,16 @@ def get_panchangam_data(
 ):
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
+    kv = get_kollavarsham_date(
+        dt=localdt, latitude=latitude, longitude=longitude, timezone=timezone,
+        epsilon=tuning.kollavarsham_epsilon,
+    )
+    chandra_masa = get_chandra_masa_date(
+        dt=localdt, latitude=latitude, longitude=longitude, timezone=timezone, tuning=tuning,
+    )
     return _build_panchangam_data(
-        localdt, thithi_transitions, nakshatra_transitions,
-        latitude, longitude, timezone, tuning, instant,
+        localdt, thithi_transitions, nakshatra_transitions, kv, chandra_masa,
+        latitude, longitude, timezone, instant,
     )
 
 
@@ -154,39 +156,85 @@ def get_panchangam_data_range(
     ``find_discrete`` call spanning a whole year is measurably *slower* than
     the equivalent per-day loop, while ~30-day chunks land in the sweet spot
     between that per-array cost and the per-call overhead a plain per-day loop
-    pays 365 times over. Everything else (sunrise/sunset, Kollavarsham,
-    Chandra Masa) is still computed per day; they were not the bottleneck and
-    batching them is a separate, unvalidated change.
+    pays 365 times over.
+
+    Kollavarsham and Chandra Masa are each computed with one pass over the
+    range (:func:`core.kollavarsham.kollavarsham.get_kollavarsham_dates_for_range`/
+    :func:`core.chandramasa.chandramasa.get_chandra_masa_dates_for_range`)
+    instead of once per day -- profiling showed Chandra Masa's independent
+    per-day backward/forward month-boundary walk dominating total per-day
+    pipeline time; see those functions' docstrings. Chandra Masa's month-boundary
+    detection needs Thithi paksha for up to ``_MAX_MASA_SPAN_DAYS`` days on either
+    side of ``[start, end]``, so the range-batched Thithi search below actually
+    covers that padded span, not just ``[start, end]`` -- otherwise Chandra Masa
+    would fall back to re-deriving paksha per padding day via the single-day
+    Thithi path, reopening the exact redundant ``find_discrete`` calls this was
+    meant to eliminate. Sunrise/sunset is still computed per day -- it was not
+    the bottleneck and batching it is a separate, unvalidated change.
 
     *tuning_for_year* is called once per distinct year in the range (tuning,
     notably ``nakshatra_step_days``, is admin-configurable per year -- see
     ``SettingsService.get_astronomy_tuning``) so a range spanning a tuning
     change at a year boundary still batches correctly -- chunk boundaries never
-    cross a year boundary, so each chunk uses exactly one tuning.
+    cross a year boundary, so each chunk uses exactly one tuning. Kollavarsham/
+    Chandra Masa are computed per calendar-year segment of ``[start, end]`` for
+    the same reason, matching :func:`get_chandra_masa_date`'s/
+    :func:`get_kollavarsham_date`'s own per-``dt``-year tuning resolution.
     """
+    masa_padded_start = start - timedelta(days=_MAX_MASA_SPAN_DAYS + 1)
+    masa_padded_end = end + timedelta(days=_MAX_MASA_SPAN_DAYS)
+
     thithi_by_day: Dict[date, list] = {}
     nakshatra_by_day: Dict[date, list] = {}
 
-    chunk_start = start
-    while chunk_start <= end:
+    chunk_start = masa_padded_start
+    while chunk_start <= masa_padded_end:
         tuning = tuning_for_year(chunk_start.year)
         year_end = date(chunk_start.year, 12, 31)
-        chunk_end = min(end, year_end, chunk_start + timedelta(days=_TRANSITION_CHUNK_DAYS - 1))
+        chunk_end = min(masa_padded_end, year_end, chunk_start + timedelta(days=_TRANSITION_CHUNK_DAYS - 1))
         thithi_by_day.update(
             calc_thithi_transitions_for_range(chunk_start, chunk_end, timezone, tuning)
         )
-        nakshatra_by_day.update(
-            calc_nakshatra_transitions_for_range(chunk_start, chunk_end, timezone, tuning)
-        )
+        # Nakshatra isn't needed by Chandra Masa/Kollavarsham -- only compute it
+        # for the actually-requested (unpadded) span.
+        seg_start, seg_end = max(chunk_start, start), min(chunk_end, end)
+        if seg_start <= seg_end:
+            nakshatra_by_day.update(
+                calc_nakshatra_transitions_for_range(seg_start, seg_end, timezone, tuning)
+            )
         chunk_start = chunk_end + timedelta(days=1)
+
+    paksha_by_day: Dict[date, object] = {}
+    d = masa_padded_start
+    while d <= masa_padded_end:
+        sunrise, _ = get_sunrise_sunset(d, latitude, longitude, timezone)
+        paksha_by_day[d] = _active_at(thithi_by_day[d], sunrise).thithi.paksha
+        d += timedelta(days=1)
+
+    kv_by_day: Dict[date, object] = {}
+    chandra_masa_by_day: Dict[date, object] = {}
+    seg_start = start
+    while seg_start <= end:
+        tuning = tuning_for_year(seg_start.year)
+        seg_end = min(end, date(seg_start.year, 12, 31))
+        kv_by_day.update(
+            get_kollavarsham_dates_for_range(
+                seg_start, seg_end, latitude, longitude, timezone, tuning.kollavarsham_epsilon
+            )
+        )
+        chandra_masa_by_day.update(
+            get_chandra_masa_dates_for_range(
+                seg_start, seg_end, latitude, longitude, timezone, tuning, paksha_by_day
+            )
+        )
+        seg_start = seg_end + timedelta(days=1)
 
     result: Dict[date, PanchangamData] = {}
     d = start
     while d <= end:
-        tuning = tuning_for_year(d.year)
         result[d] = _build_panchangam_data(
-            d, thithi_by_day[d], nakshatra_by_day[d],
-            latitude, longitude, timezone, tuning, instant=None,
+            d, thithi_by_day[d], nakshatra_by_day[d], kv_by_day[d], chandra_masa_by_day[d],
+            latitude, longitude, timezone, instant=None,
         )
         d += timedelta(days=1)
     return result

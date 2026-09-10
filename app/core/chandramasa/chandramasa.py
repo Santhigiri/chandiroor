@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from functools import lru_cache
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.core.astronomy.enums.paksha import Paksha
@@ -132,13 +132,32 @@ def get_chandra_masa_date(
     month_end = _walk_to_paksha_start(
         dt + timedelta(days=1), 1, latitude, longitude, timezone, tuning
     )
+    masa, masa_type = _classify_month(month_start, month_end, latitude, longitude, timezone, tuning)
+    return ChandraMasaDate(
+        date=dt,
+        masa=masa.id,
+        masa_day=(dt - month_start).days + 1,
+        masa_type=masa_type.id,
+    )
 
-    masa_day = (dt - month_start).days + 1
 
-    # Starts one day before `month_start`: a Sankranti can land exactly on the
-    # month's first day, which a sequence starting *at* month_start would miss
-    # entirely (no earlier sample to compare it against) -- undercounting
-    # crossings and misclassifying the month as Adhika.
+def _classify_month(
+    month_start: date,
+    month_end: date,
+    latitude: float,
+    longitude: float,
+    timezone: str,
+    tuning: AstronomyTuning,
+) -> Tuple[ChandraMasa, MasaType]:
+    """The month's name (raasi it carries at its end) and type (Adhika/Nija/
+    Kshaya), from the sequence of Sun raasi values sampled once per day across
+    ``[month_start, month_end)``.
+
+    Starts one day before `month_start`: a Sankranti can land exactly on the
+    month's first day, which a sequence starting *at* month_start would miss
+    entirely (no earlier sample to compare it against) -- undercounting
+    crossings and misclassifying the month as Adhika.
+    """
     raasi_sequence = []
     d = month_start - timedelta(days=1)
     while d < month_end:
@@ -155,10 +174,70 @@ def get_chandra_masa_date(
 
     masa = ChandraMasa.from_id(raasi_sequence[-1] + 1)
     masa_type = classify_masa_type(raasi_sequence)
+    return masa, masa_type
 
-    return ChandraMasaDate(
-        date=dt,
-        masa=masa.id,
-        masa_day=masa_day,
-        masa_type=masa_type.id,
+
+def get_chandra_masa_dates_for_range(
+    start: date,
+    end: date,
+    latitude: float,
+    longitude: float,
+    timezone: str,
+    tuning: AstronomyTuning,
+    paksha_by_day: Dict[date, Paksha],
+) -> Dict[date, ChandraMasaDate]:
+    """Bulk equivalent of calling :func:`get_chandra_masa_date` once per day in
+    ``[start, end]`` (inclusive).
+
+    :func:`get_chandra_masa_date` finds its month's start/end by walking
+    day-by-day from ``dt`` itself (up to ``_MAX_MASA_SPAN_DAYS`` steps each
+    direction) -- independently for *every* ``dt``, even though consecutive
+    days within the same lunar month share the same month_start/month_end and
+    the same masa/masa_type classification. Profiling a real generation range
+    showed this walk dominating total per-day pipeline cost.
+
+    This instead finds every month boundary with a single forward pass over
+    *paksha_by_day* (a day is a month start when its sunrise Thithi is Shukla
+    Paksha immediately after a Krishna Paksha day -- same rule as
+    :func:`_walk_to_paksha_start`, just evaluated once per day instead of
+    re-searched from every day), then classifies each resulting month with
+    :func:`_classify_month` exactly once and assigns it to every day within
+    that month -- instead of once per day in the month.
+
+    *paksha_by_day* is precomputed by the caller (:func:`core.calendar.panchangam.get_panchangam_data_range`)
+    from its own range-batched Thithi transition search over
+    ``[start - _MAX_MASA_SPAN_DAYS - 1, end + _MAX_MASA_SPAN_DAYS]`` (this
+    function's required padding, plus one extra leading day to classify the
+    padded start itself), rather than this function deriving it itself via
+    :func:`_sunrise_active_thithi` -- that would call the *single-day*
+    :func:`core.astronomy.thithi_transition.calc_thithi_transition_for_date`
+    for every padding day, reopening exactly the redundant per-day
+    ``find_discrete`` searches the range-batched search upstream already
+    eliminated for the same calendar days.
+    """
+    padded_start = start - timedelta(days=_MAX_MASA_SPAN_DAYS)
+    padded_end = end + timedelta(days=_MAX_MASA_SPAN_DAYS)
+
+    month_starts = sorted(
+        d for d in paksha_by_day
+        if d >= padded_start
+        and paksha_by_day[d] == Paksha.SHUKLA
+        and paksha_by_day[d - timedelta(days=1)] == Paksha.KRISHNA
     )
+
+    result: Dict[date, ChandraMasaDate] = {}
+    for i, month_start in enumerate(month_starts):
+        if i + 1 >= len(month_starts):
+            break  # no following month-start found within the padding -- incomplete, skip
+        month_end = month_starts[i + 1]
+        if month_end <= start or month_start > end:
+            continue  # month doesn't overlap [start, end] at all
+        masa, masa_type = _classify_month(month_start, month_end, latitude, longitude, timezone, tuning)
+        d = max(month_start, start)
+        last = min(month_end - timedelta(days=1), end)
+        while d <= last:
+            result[d] = ChandraMasaDate(
+                date=d, masa=masa.id, masa_day=(d - month_start).days + 1, masa_type=masa_type.id,
+            )
+            d += timedelta(days=1)
+    return result
