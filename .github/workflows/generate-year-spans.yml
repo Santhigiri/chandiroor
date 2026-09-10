@@ -2,8 +2,10 @@ name: Generate year spans
 
 # Manually regenerates panchangam data and Santhigiri event occurrences for
 # the database's available year span (scripts/generate_year_spans.py), e.g.
-# after a change to the astronomy/calendar computation code. Requires the
-# DATABASE_URL secret to point at the target Neon/Postgres database.
+# after a change to the astronomy/calendar computation code. The target
+# Neon/Postgres database is selected by the branch this workflow is run
+# against: develop -> DATABASE_URL_DEVELOP, release -> DATABASE_URL_STAGING,
+# main -> DATABASE_URL_PRODUCTION (all repo secrets).
 on:
   workflow_dispatch:
     inputs:
@@ -44,9 +46,36 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # --- Select DATABASE_URL by branch ---
+      - name: Select database URL
+        id: db
+        env:
+          DATABASE_URL_DEVELOP: ${{ secrets.DATABASE_URL_DEVELOP }}
+          DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_PRODUCTION }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            DATABASE_URL="${DATABASE_URL_DEVELOP}"
+          elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            DATABASE_URL="${DATABASE_URL_STAGING}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            DATABASE_URL="${DATABASE_URL_PRODUCTION}"
+          else
+            echo "::error::No DATABASE_URL secret mapping for ref ${{ github.ref }}. Run this workflow from develop, release, or main."
+            exit 1
+          fi
+
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::No DATABASE_URL secret configured for ref ${{ github.ref }}"
+            exit 1
+          fi
+
+          echo "::add-mask::${DATABASE_URL}"
+          echo "DATABASE_URL=${DATABASE_URL}" >> "$GITHUB_OUTPUT"
+
       - name: Run generation script
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ steps.db.outputs.DATABASE_URL }}
         run: |
           args=()
           if [ -n "${{ inputs.start_year }}" ]; then args+=(--start-year "${{ inputs.start_year }}"); fi
