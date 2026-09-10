@@ -1,6 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from functools import lru_cache
-from typing import List
+from typing import Dict, List
 from zoneinfo import ZoneInfo
 
 from numpy import ndarray
@@ -115,5 +115,51 @@ def calc_nakshatra_transition_for_date(
     final_transitions = [transition for transition in total_transitions if transition.start_time <= day_end and (transition.end_time is not None and transition.end_time >= day_start)]
 
     return final_transitions
+
+
+def calc_nakshatra_transitions_for_range(
+    start: date,
+    end: date,
+    timezone: str,
+    tuning: AstronomyTuning = AstronomyTuning(),
+) -> Dict[date, List[NakshatraTransition]]:
+    """Same semantics as calling :func:`calc_nakshatra_transition_for_date` once
+    per day in ``[start, end]`` (inclusive), but with a single ``find_discrete``
+    call over the whole padded range instead of one 5-day-window call per day.
+
+    Not ``@lru_cache``d -- see :func:`core.astronomy.thithi_transition.calc_thithi_transitions_for_range`
+    for why.
+    """
+    padded_start = start - timedelta(days=2)
+    padded_end = end + timedelta(days=2)
+    t0 = get_time(datetime.combine(padded_start, time.min), timezone)
+    t1 = get_time(datetime.combine(padded_end, time.max), timezone)
+
+    transition_fn = make_nakshatra_transition_fn(tuning.nakshatra_epsilon, tuning.nakshatra_step_days)
+    t, values = find_discrete(t0, t1, transition_fn, num=tuning.nakshatra_num)
+
+    tzinfo = ZoneInfo(timezone)
+    all_transitions: List[NakshatraTransition] = []
+    for ti, vi in zip(t, values):
+        start_time = ti.utc_datetime().astimezone(tzinfo)
+        nakshatra = Nakshatra.from_id(int(vi) + 1)
+        all_transitions.append(NakshatraTransition(nakshatra=nakshatra, start_time=start_time, end_time=None))
+    for i in range(len(all_transitions) - 1):
+        all_transitions[i].end_time = all_transitions[i + 1].start_time
+
+    by_day: Dict[date, List[NakshatraTransition]] = {}
+    d = start
+    while d <= end:
+        day_start = datetime.combine(d, time.min, tzinfo=tzinfo)
+        day_end = datetime.combine(d, time.max, tzinfo=tzinfo)
+        by_day[d] = [
+            transition
+            for transition in all_transitions
+            if transition.start_time <= day_end
+            and transition.end_time is not None
+            and transition.end_time >= day_start
+        ]
+        d += timedelta(days=1)
+    return by_day
 
 

@@ -92,15 +92,21 @@ class PanchangamGenerationService:
         location: Location = DEFAULT_LOCATION,
     ) -> AsyncIterator[Union[PanchangamGenerateProgress, PanchangamGenerateResult]]:
         """Yield a :class:`PanchangamGenerateProgress` after each day is
-        computed and written, then a final :class:`PanchangamGenerateResult`.
+        written, then a final :class:`PanchangamGenerateResult`.
 
-        Each day's Skyfield-backed computation runs via ``run_in_threadpool``
-        so that CPU-bound work doesn't block the event loop — other requests
-        stay responsive while a large range streams. The DB write itself stays
-        on the calling thread/coroutine: a SQLAlchemy ``Session`` is not safe
-        to use from a different thread than the one it was opened on, even
-        sequentially across awaits, so ``self._repo.upsert`` is never
-        offloaded — it's cheap relative to the Skyfield computation anyway.
+        The whole range's Thithi/Nakshatra transitions are computed together in
+        one ``run_in_threadpool`` call via
+        :func:`core.calendar.panchangam.get_panchangam_data_range` (one
+        range-batched ``find_discrete`` search instead of one per day — see its
+        docstring) so that CPU-bound work doesn't block the event loop — other
+        requests stay responsive while a large range streams. Progress is
+        therefore only reported for the write phase, not the compute phase:
+        there is nothing to yield between days until the whole range's
+        computation returns. The DB write itself stays on the calling
+        thread/coroutine: a SQLAlchemy ``Session`` is not safe to use from a
+        different thread than the one it was opened on, even sequentially
+        across awaits, so ``self.repository.upsert`` is never offloaded — it's
+        cheap relative to the Skyfield computation anyway.
         """
         self.validate_span(req)
         span = (req.end_date - req.start_date).days + 1
@@ -108,19 +114,20 @@ class PanchangamGenerationService:
 
         # Imported lazily: pulls in the Skyfield/ephemeris stack only when a
         # generate actually runs, keeping app startup free of it.
-        from app.core.calendar.panchangam import get_panchangam_data
+        from app.core.calendar.panchangam import get_panchangam_data_range
 
         start = perf_counter()
+        data_by_day = await run_in_threadpool(
+            get_panchangam_data_range,
+            req.start_date,
+            req.end_date,
+            location.latitude,
+            location.longitude,
+            location.timezone,
+            self.settings.get_astronomy_tuning,
+        )
         for i, day in enumerate(dates, start=1):
-            data = await run_in_threadpool(
-                get_panchangam_data,
-                day,
-                location.latitude,
-                location.longitude,
-                location.timezone,
-                self.settings.get_astronomy_tuning(day.year),
-            )
-            self.repository.upsert(data, location)  # does NOT commit
+            self.repository.upsert(data_by_day[day], location)  # does NOT commit
             yield PanchangamGenerateProgress(
                 completed=i,
                 total=span,
