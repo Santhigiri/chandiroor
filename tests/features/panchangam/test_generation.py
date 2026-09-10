@@ -201,11 +201,15 @@ def test_generate_over_range_reports_summary(client, admin_auth):
     assert result["end_date"] == "2022-03-03"
 
 
-def test_generate_reports_final_progress(client, admin_auth):
-    # The job row only keeps the LATEST progress snapshot (not a full history
-    # of every day, the way the old NDJSON stream did) — polling it mid-run is
-    # what shows intermediate progress in production; here we just confirm the
-    # final snapshot reflects the whole range having completed.
+def test_generate_reports_final_result(client, admin_auth):
+    # generate_streaming yields only heartbeat progress lines (completed=0)
+    # while the range is computed, then writes every day in one pass with no
+    # per-day progress line — so the whole range lands in the DB as one
+    # write, the same as before per-day progress lines existed at all (see
+    # PanchangamGenerationService.generate_streaming's docstring). The job's
+    # "progress" column may therefore still hold a stale heartbeat (or None,
+    # for a run that finished inside the first heartbeat interval) once the
+    # job has succeeded — "result" is what carries the real completion data.
     started = client.post(
         BASE,
         headers=admin_auth,
@@ -215,11 +219,13 @@ def test_generate_reports_final_progress(client, admin_auth):
     job = client.get(
         f"/api/v1/generation-jobs/{started.headers['x-job-id']}", headers=admin_auth
     ).json()
-    progress = job["progress"]
-    assert progress["completed"] == 3
-    assert progress["total"] == 3
-    assert progress["percent"] == 100.0
-    assert progress["current_date"] == "2022-03-03"
+    assert job["status"] == "succeeded"
+    result = job["result"]
+    assert result["count"] == 3
+    assert result["start_date"] == "2022-03-01"
+    assert result["end_date"] == "2022-03-03"
+    if job["progress"] is not None:
+        assert job["progress"]["completed"] == 0
 
 
 def test_generate_overwrites_existing_row(client, admin_auth, api_engine):
