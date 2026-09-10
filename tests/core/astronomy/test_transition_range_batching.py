@@ -73,8 +73,12 @@ def test_panchangam_data_range_matches_per_day_calls():
         actual = batched[d]
         assert actual.thithi == expected.thithi
         assert actual.nakshatra == expected.nakshatra
-        assert actual.sunrise == expected.sunrise
-        assert actual.sunset == expected.sunset
+        # Sunrise/sunset now come from a separately range-batched find_discrete
+        # call -- it converges to within find_discrete's epsilon (~1s) of the
+        # single-day call's own result, not bit-identically, same as the
+        # thithi/nakshatra transition comparisons elsewhere in this file.
+        assert abs((actual.sunrise - expected.sunrise).total_seconds()) < 1
+        assert abs((actual.sunset - expected.sunset).total_seconds()) < 1
         assert actual.kv == expected.kv
         assert abs(actual.nazhika_from_sunrise - expected.nazhika_from_sunrise) < 1e-6
 

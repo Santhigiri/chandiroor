@@ -8,7 +8,7 @@ from app.core.astronomy.nakshatra_transition import (
     calc_nakshatra_transition_for_date,
     calc_nakshatra_transitions_for_range,
 )
-from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+from app.core.astronomy.sunrise_sunset import get_sunrise_sunset, get_sunrise_sunset_for_range
 from app.core.astronomy.thithi import get_thithi
 from app.core.astronomy.enums.thithi import Thithi
 from app.core.astronomy.pournami import is_poornima_live
@@ -60,17 +60,17 @@ def _build_panchangam_data(
     nakshatra_transitions,
     kv,
     chandra_masa,
+    sunrise: datetime,
+    sunset: datetime,
     latitude: float,
     longitude: float,
-    timezone: str,
     instant: Optional[datetime],
 ) -> PanchangamData:
     """Shared tail of :func:`get_panchangam_data`/:func:`get_panchangam_data_range`:
-    everything after the Thithi/Nakshatra transitions, Kollavarsham, and Chandra
-    Masa are known for *localdt* -- callers compute those (per-day or
-    range-batched) and pass them in.
+    everything after the Thithi/Nakshatra transitions, Kollavarsham, Chandra
+    Masa, and sunrise/sunset are known for *localdt* -- callers compute those
+    (per-day or range-batched) and pass them in.
     """
-    sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     # The thithi/nakshatra "of the day" is the one active at sunrise, unless the
     # caller asked for an arbitrary instant (e.g. the Starfinder "what's active
     # right now, anywhere" query). Both transition lists were just computed for
@@ -125,9 +125,10 @@ def get_panchangam_data(
     chandra_masa = get_chandra_masa_date(
         dt=localdt, latitude=latitude, longitude=longitude, timezone=timezone, tuning=tuning,
     )
+    sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     return _build_panchangam_data(
         localdt, thithi_transitions, nakshatra_transitions, kv, chandra_masa,
-        latitude, longitude, timezone, instant,
+        sunrise, sunset, latitude, longitude, instant,
     )
 
 
@@ -169,8 +170,14 @@ def get_panchangam_data_range(
     covers that padded span, not just ``[start, end]`` -- otherwise Chandra Masa
     would fall back to re-deriving paksha per padding day via the single-day
     Thithi path, reopening the exact redundant ``find_discrete`` calls this was
-    meant to eliminate. Sunrise/sunset is still computed per day -- it was not
-    the bottleneck and batching it is a separate, unvalidated change.
+    meant to eliminate.
+
+    Sunrise/sunset is computed with :func:`core.astronomy.sunrise_sunset.get_sunrise_sunset_for_range`,
+    one ``find_discrete`` call per ``_SUNRISE_SUNSET_CHUNK_DAYS``-day chunk
+    over the same padded range Chandra Masa needs (its own paksha detection
+    above also needs sunrise, to know which Thithi is active *at* sunrise) --
+    profiling found this the single largest remaining cost after batching
+    Thithi/Nakshatra/Kollavarsham/Chandra Masa.
 
     *tuning_for_year* is called once per distinct year in the range (tuning,
     notably ``nakshatra_step_days``, is admin-configurable per year -- see
@@ -204,10 +211,14 @@ def get_panchangam_data_range(
             )
         chunk_start = chunk_end + timedelta(days=1)
 
+    sunrise_sunset_by_day = get_sunrise_sunset_for_range(
+        masa_padded_start, masa_padded_end, latitude, longitude, timezone
+    )
+
     paksha_by_day: Dict[date, object] = {}
     d = masa_padded_start
     while d <= masa_padded_end:
-        sunrise, _ = get_sunrise_sunset(d, latitude, longitude, timezone)
+        sunrise, _ = sunrise_sunset_by_day[d]
         paksha_by_day[d] = _active_at(thithi_by_day[d], sunrise).thithi.paksha
         d += timedelta(days=1)
 
@@ -232,9 +243,10 @@ def get_panchangam_data_range(
     result: Dict[date, PanchangamData] = {}
     d = start
     while d <= end:
+        sunrise, sunset = sunrise_sunset_by_day[d]
         result[d] = _build_panchangam_data(
             d, thithi_by_day[d], nakshatra_by_day[d], kv_by_day[d], chandra_masa_by_day[d],
-            latitude, longitude, timezone, instant=None,
+            sunrise, sunset, latitude, longitude, instant=None,
         )
         d += timedelta(days=1)
     return result
