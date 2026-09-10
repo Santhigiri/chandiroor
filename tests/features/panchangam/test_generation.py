@@ -16,19 +16,16 @@ The full-year live computation is fairly expensive (~0.1s/day), so it is done
 once per test module via the session/module-scoped ``real_year_2022_data``
 fixture and reused to seed a fresh in-memory engine per test.
 
-The endpoint streams progress as NDJSON while it works — the job's id is on
-the response's ``X-Job-Id`` header, available before the body is read — and
-keeps running to completion even if the client disconnects mid-stream (see
-``features/generation_jobs/streaming.py::ResilientStreamingResponse``),
-persisting every event into the job row as it goes. ``TestClient`` reads the
-whole streamed body synchronously before a call returns, so by the time
-``client.post(...)`` comes back the job has already finished — ``_run_job``
-below does the POST (draining the stream) and then a single GET on
-``/api/v1/generation-jobs/{job_id}`` to read its final status/result.
+The response is streamed as newline-delimited JSON (NDJSON): one ``"progress"``
+line per day, then a final ``"complete"`` line. ``TestClient`` (httpx-based)
+drives the ASGI app to completion and buffers the whole body in ``.text``
+regardless, so tests read it back by splitting on newlines and parsing each
+line — see ``_lines`` below.
 """
 from __future__ import annotations
 
 import calendar
+import json
 from datetime import date, timedelta
 
 import pytest
@@ -155,18 +152,9 @@ def _stored_nazhika(api_engine, day: str) -> float:
         ).nazhika_from_sunrise
 
 
-def _run_job(client, headers, payload: dict) -> dict:
-    """POST to ``BASE`` and return the finished job's status dict.
-
-    ``TestClient`` drains the endpoint's NDJSON stream to completion as part
-    of the same call, so the job is already ``succeeded``/``failed`` by the
-    time the initial POST returns — no real polling needed here."""
-    started = client.post(BASE, headers=headers, json=payload)
-    assert started.status_code == 200, started.text
-    job_id = started.headers["x-job-id"]
-    job = client.get(f"/api/v1/generation-jobs/{job_id}", headers=headers).json()
-    assert job["status"] == "succeeded", job
-    return job["result"]
+def _lines(response) -> list[dict]:
+    """Parse an NDJSON response body into a list of line objects."""
+    return [json.loads(line) for line in response.text.strip().split("\n") if line]
 
 
 # ── Authorization ────────────────────────────────────────────────────────────────
@@ -191,41 +179,36 @@ def test_generate_requires_admin_role(client):
 # ── Generate ─────────────────────────────────────────────────────────────────────
 
 def test_generate_over_range_reports_summary(client, admin_auth):
-    result = _run_job(
-        client, admin_auth, {"start_date": "2022-03-01", "end_date": "2022-03-03"}
-    )
-    assert result["type"] == "complete"
-    assert result["count"] == 3
-    assert result["years"] == [2022]
-    assert result["start_date"] == "2022-03-01"
-    assert result["end_date"] == "2022-03-03"
-
-
-def test_generate_reports_final_result(client, admin_auth):
-    # generate_streaming yields only heartbeat progress lines (completed=0)
-    # while the range is computed, then writes every day in one pass with no
-    # per-day progress line — so the whole range lands in the DB as one
-    # write, the same as before per-day progress lines existed at all (see
-    # PanchangamGenerationService.generate_streaming's docstring). The job's
-    # "progress" column may therefore still hold a stale heartbeat (or None,
-    # for a run that finished inside the first heartbeat interval) once the
-    # job has succeeded — "result" is what carries the real completion data.
-    started = client.post(
+    r = client.post(
         BASE,
         headers=admin_auth,
         json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
     )
-    assert started.status_code == 200
-    job = client.get(
-        f"/api/v1/generation-jobs/{started.headers['x-job-id']}", headers=admin_auth
-    ).json()
-    assert job["status"] == "succeeded"
-    result = job["result"]
-    assert result["count"] == 3
-    assert result["start_date"] == "2022-03-01"
-    assert result["end_date"] == "2022-03-03"
-    if job["progress"] is not None:
-        assert job["progress"]["completed"] == 0
+    assert r.status_code == 200
+    lines = _lines(r)
+    data = lines[-1]
+    assert data["type"] == "complete"
+    assert data["count"] == 3
+    assert data["years"] == [2022]
+    assert data["start_date"] == "2022-03-01"
+    assert data["end_date"] == "2022-03-03"
+
+
+def test_generate_streams_progress_per_day(client, admin_auth):
+    r = client.post(
+        BASE,
+        headers=admin_auth,
+        json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
+    )
+    lines = _lines(r)
+    progress = [line for line in lines if line["type"] == "progress"]
+    assert [p["completed"] for p in progress] == [1, 2, 3]
+    assert [p["total"] for p in progress] == [3, 3, 3]
+    assert [p["percent"] for p in progress] == [pytest.approx(33.3), pytest.approx(66.7), 100.0]
+    assert [p["current_date"] for p in progress] == [
+        "2022-03-01", "2022-03-02", "2022-03-03",
+    ]
+    assert lines[-1]["type"] == "complete"
 
 
 def test_generate_overwrites_existing_row(client, admin_auth, api_engine):
@@ -234,7 +217,11 @@ def test_generate_overwrites_existing_row(client, admin_auth, api_engine):
     _corrupt_nazhika(api_engine, day, -999.0)
     assert _stored_nazhika(api_engine, day) == -999.0
 
-    _run_job(client, admin_auth, {"start_date": day, "end_date": day})
+    r = client.post(
+        BASE, headers=admin_auth, json={"start_date": day, "end_date": day}
+    )
+    assert r.status_code == 200
+    assert _lines(r)[-1]["type"] == "complete"
     # The recomputed value replaced the corrupted one.
     assert _stored_nazhika(api_engine, day) != -999.0
     assert _stored_nazhika(api_engine, day) == pytest.approx(original)
@@ -245,8 +232,10 @@ def test_generate_keeps_year_etag_in_lockstep(client, admin_auth, api_engine):
     # diverge from the stored one; regenerating must both repair the row and
     # refresh the stored ETag so the two match again.
     _corrupt_nazhika(api_engine, "2022-03-01", -999.0)
-    _run_job(
-        client, admin_auth, {"start_date": "2022-03-01", "end_date": "2022-03-03"}
+    client.post(
+        BASE,
+        headers=admin_auth,
+        json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
     )
     served = client.get(
         "/api/v1/panchangam/year", params={"year": YEAR}

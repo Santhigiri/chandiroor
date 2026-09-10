@@ -37,8 +37,6 @@ from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
 from app.features.auth.service import AuthService, InvalidTokenException
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.etag.repository import EtagRepository
-from app.features.generation_jobs.ports import GenerationJobRepositoryPort
-from app.features.generation_jobs.repository import GenerationJobRepository
 from app.features.guruvani.ports import GuruvaniRepositoryPort
 from app.features.guruvani.repository import GuruvaniRepository
 from app.features.guruvani.service import GuruvaniService
@@ -109,15 +107,6 @@ def get_panchangam_repository(
 
 PanchangamRepositoryDep = Annotated[
     PanchangamRepositoryPort, Depends(get_panchangam_repository)
-]
-
-
-def get_generation_job_repository(session: SessionDep) -> GenerationJobRepositoryPort:
-    return GenerationJobRepository(session)
-
-
-GenerationJobRepositoryDep = Annotated[
-    GenerationJobRepositoryPort, Depends(get_generation_job_repository)
 ]
 
 
