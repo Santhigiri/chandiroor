@@ -117,6 +117,19 @@ class PanchangamGenerationService:
         from app.core.calendar.panchangam import get_panchangam_data_range
 
         start = perf_counter()
+        # The batched range computation below reports no progress of its own
+        # (see this method's docstring) and can take a while for a large
+        # span, so yield a 0%-complete line up front — otherwise a client has
+        # nothing to distinguish "just started" from "stuck" until the whole
+        # range's computation returns and the (fast) per-day write loop
+        # starts.
+        yield PanchangamGenerateProgress(
+            completed=0,
+            total=span,
+            percent=0.0,
+            current_date=req.start_date,
+            elapsed_seconds=0.0,
+        )
         data_by_day = await run_in_threadpool(
             get_panchangam_data_range,
             req.start_date,
