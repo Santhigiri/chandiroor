@@ -119,6 +119,8 @@ class PanchangamGenerationService:
                 location.longitude,
                 location.timezone,
                 self.settings.get_astronomy_tuning(day.year),
+                None,
+                self.settings.get_event_cutoffs().nazhika_cutoff,
             )
             self.repository.upsert(data, location)  # does NOT commit
             yield PanchangamGenerateProgress(

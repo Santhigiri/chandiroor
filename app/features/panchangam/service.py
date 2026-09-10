@@ -14,6 +14,7 @@ from app.core.astronomy.tuning import AstronomyTuning
 from app.core.chandramasa.chandramasa import ChandraMasaNotFoundError
 from app.core.ports.settings_service import SettingsServicePort
 from app.features.panchangam.ports import PanchangamRepositoryPort
+from app.schemas.app_setting import EventCutoffsValue
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.location import DEFAULT_LOCATION, Location
 from app.utils.santhigiri_events import SanthigiriEvent
@@ -69,6 +70,11 @@ class PanchangamService:
             return AstronomyTuning()
         return self._settings.get_astronomy_tuning(year)
 
+    def _nazhika_cutoff(self) -> float:
+        if self._settings is None:
+            return EventCutoffsValue().nazhika_cutoff
+        return self._settings.get_event_cutoffs().nazhika_cutoff
+
     def _check_year_in_range(self, year: int) -> None:
         """Enforce the admin-configured ``seed_year_range`` setting, if a
         ``SettingsServicePort`` is available. No-op otherwise (e.g. internal
@@ -99,6 +105,7 @@ class PanchangamService:
             location.longitude,
             location.timezone,
             self._tuning_for_year(day.year),
+            nazhika_cutoff=self._nazhika_cutoff(),
         )
         data.santhigiri_significant_dates = match_condition_based_events(
             data, self._event_defs(), location.timezone
@@ -128,7 +135,7 @@ class PanchangamService:
         instant = datetime.combine(day, time_of_day, tzinfo=ZoneInfo(timezone))
         data = get_panchangam_data(
             day, latitude, longitude, timezone, self._tuning_for_year(day.year),
-            instant=instant,
+            instant=instant, nazhika_cutoff=self._nazhika_cutoff(),
         )
         data.santhigiri_significant_dates = match_condition_based_events(
             data, self._event_defs(), timezone

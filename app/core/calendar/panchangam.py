@@ -3,7 +3,11 @@ from time import perf_counter
 from typing import Any, Callable, Dict, Optional
 import pytz
 from app.core.astronomy.calculations import get_sun_sidereal_longitude, get_time
-from app.core.astronomy.nakshatra import get_duration_from_sunrise, get_nakshatra
+from app.core.astronomy.nakshatra import (
+    duration_to_nazhika,
+    get_duration_from_sunrise,
+    get_nakshatra,
+)
 from app.core.astronomy.nakshatra_transition import (
     calc_nakshatra_transition_for_date,
     calc_nakshatra_transitions_for_range,
@@ -39,6 +43,13 @@ from app.utils.location import Location
 # large-array nutation cost and a plain per-day loop's per-call overhead.
 _TRANSITION_CHUNK_DAYS = 30
 
+# Fallback default mirroring EventCutoffsValue.nazhika_cutoff's default
+# (schemas/app_setting.py) -- same "seed-time default, admin-editable
+# thereafter" relationship AstronomyTuning's own defaults have with
+# nakshatra_transition_step_days. Real callers resolve the admin-configured
+# value via SettingsService.get_event_cutoffs() and pass it in explicitly.
+_DEFAULT_NAZHIKA_CUTOFF = 7.5
+
 
 def _active_at(transitions, instant):
     """Return the transition whose [start_time, end_time) interval contains `instant`.
@@ -58,6 +69,39 @@ def _active_at(transitions, instant):
     return transitions[-1]
 
 
+def _next_transition(transitions, at_or_after: datetime):
+    """The first transition in *transitions* (ordered by start_time) starting
+    at or after *at_or_after*, or ``None`` if it runs off the end of the
+    (padded) window."""
+    for transition in transitions:
+        if transition.start_time >= at_or_after:
+            return transition
+    return None
+
+
+def _nakshatra_at(nakshatra_transitions, at_instant: datetime, nazhika_cutoff: float):
+    """The Nakshatra attributed to *at_instant*: the one active then, unless
+    fewer than *nazhika_cutoff* Nazhikas of it remain from *at_instant* --  in
+    which case it's about to hand off to the next Nakshatra, which will
+    occupy the greater share of the time ahead, and that one is attributed
+    instead.
+
+    Mirrors the day-attribution cutoff already applied to Santhigiri event
+    occurrences (``core.events.event_occurrences``), generalized to every
+    Nakshatra lookup -- the plain per-day field (*at_instant* = sunrise) and
+    an arbitrary instant/location query (Starfinder's ``/instant``,
+    *at_instant* = the requested moment) alike.
+    """
+    active = _active_at(nakshatra_transitions, at_instant)
+    if active.end_time is not None:
+        remaining = duration_to_nazhika(active.end_time - at_instant)
+        if remaining <= nazhika_cutoff:
+            following = _next_transition(nakshatra_transitions, active.end_time)
+            if following is not None:
+                return following.nakshatra
+    return active.nakshatra
+
+
 def _build_panchangam_data(
     localdt: date,
     thithi_transitions,
@@ -69,6 +113,7 @@ def _build_panchangam_data(
     latitude: float,
     longitude: float,
     instant: Optional[datetime],
+    nazhika_cutoff: float = _DEFAULT_NAZHIKA_CUTOFF,
 ) -> PanchangamData:
     """Shared tail of :func:`get_panchangam_data`/:func:`get_panchangam_data_range`:
     everything after the Thithi/Nakshatra transitions, Kollavarsham, Chandra
@@ -82,7 +127,7 @@ def _build_panchangam_data(
     # evaluation at the eval instant.
     eval_instant = instant if instant is not None else sunrise
     thithi = _active_at(thithi_transitions, eval_instant).thithi
-    nakshatra = _active_at(nakshatra_transitions, eval_instant).nakshatra
+    nakshatra = _nakshatra_at(nakshatra_transitions, eval_instant, nazhika_cutoff)
     nazhika_from_sunrise = get_duration_from_sunrise(
         nakshatra=nakshatra,
         nakshatra_transitions=nakshatra_transitions,
@@ -119,6 +164,7 @@ def get_panchangam_data(
     timezone: str = DEFAULT_TIMEZONE,
     tuning: AstronomyTuning = AstronomyTuning(),
     instant: Optional[datetime] = None,
+    nazhika_cutoff: float = _DEFAULT_NAZHIKA_CUTOFF,
 ):
     thithi_transitions = calc_thithi_transition_for_date(localdt, timezone, tuning)
     nakshatra_transitions = calc_nakshatra_transition_for_date(localdt, timezone, tuning)
@@ -132,7 +178,7 @@ def get_panchangam_data(
     sunrise, sunset = get_sunrise_sunset(localdt, latitude, longitude, timezone)
     return _build_panchangam_data(
         localdt, thithi_transitions, nakshatra_transitions, kv, chandra_masa,
-        sunrise, sunset, latitude, longitude, instant,
+        sunrise, sunset, latitude, longitude, instant, nazhika_cutoff,
     )
 
 
@@ -143,6 +189,7 @@ def get_panchangam_data_range(
     longitude: float = Coordinates.SG_LONGITUDE,
     timezone: str = DEFAULT_TIMEZONE,
     tuning_for_year: Callable[[int], AstronomyTuning] = lambda year: AstronomyTuning(),
+    nazhika_cutoff: float = _DEFAULT_NAZHIKA_CUTOFF,
 ) -> Dict[date, PanchangamData]:
     """Bulk equivalent of calling :func:`get_panchangam_data` once per day in
     ``[start, end]`` (inclusive) -- used by the admin generation write path,
@@ -262,7 +309,7 @@ def get_panchangam_data_range(
         sunrise, sunset = sunrise_sunset_by_day[d]
         result[d] = _build_panchangam_data(
             d, thithi_by_day[d], nakshatra_by_day[d], kv_by_day[d], chandra_masa_by_day[d],
-            sunrise, sunset, latitude, longitude, instant=None,
+            sunrise, sunset, latitude, longitude, instant=None, nazhika_cutoff=nazhika_cutoff,
         )
         d += timedelta(days=1)
     return result

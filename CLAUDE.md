@@ -326,7 +326,7 @@ nakshatra_id = floor(moon_sidereal_longitude / (360/27))   # 0-indexed; +1 for 1
 
 The 27 Nakshatras begin with Aswathy (1) and end with Revathi (27). Names follow the Kerala/Malayalam convention.
 
-**Critical:** The Nakshatra for a day is the Nakshatra active at **sunrise**.
+**Critical:** The Nakshatra for a day is the Nakshatra active at **sunrise** — unless fewer than the admin-configured `event_cutoffs.nazhika_cutoff` (default 7.5) Nazhikas of it remain after sunrise, in which case the day is attributed to the *incoming* Nakshatra instead (see "Nazhika (Traditional Time Unit)" below). The same rule applies to any instant-anchored lookup (the `/instant` endpoint), relative to the requested instant rather than sunrise.
 
 ### Sidereal Astronomy and Ayanamsa
 
@@ -359,7 +359,12 @@ The Malayalam day is computed by walking backwards through days' end-of-Modyana 
 
 ### Nazhika (Traditional Time Unit)
 
-1 Nazhika = 24 minutes. A full day = 60 Nazhikas. The field `nazhika_from_sunrise` in `PanchangamData` represents how many Nazhikas of the current Nakshatra remain from sunrise. This is used to determine which day an event falls on when a Nakshatra transitions near sunrise (the "7.5 Nazhika rule").
+1 Nazhika = 24 minutes. A full day = 60 Nazhikas. The field `nazhika_from_sunrise` in `PanchangamData` represents how many Nazhikas of the current Nakshatra remain from sunrise.
+
+The same `event_cutoffs.nazhika_cutoff` setting (default 7.5) drives two independent things, both resolved by `SettingsService.get_event_cutoffs()`:
+
+- **Event day-attribution** — used to determine which day a Santhigiri event falls on when a Nakshatra transitions near sunrise (the "7.5 Nazhika rule" in `core/events/event_occurrences.py`).
+- **The Nakshatra field itself** — `core/calendar/panchangam.py::_nakshatra_at()` applies the same cutoff when resolving the Nakshatra for a day (or an arbitrary instant, for `/instant`): if the Nakshatra active at the eval instant has fewer than `nazhika_cutoff` Nazhikas left before it hands off, the incoming Nakshatra — which will occupy the greater share of the time ahead — is reported instead. `get_panchangam_data`/`get_panchangam_data_range` take `nazhika_cutoff` as a parameter (mirroring how `AstronomyTuning` is threaded in), resolved by the caller (`PanchangamService`, `PanchangamGenerationService`, `scripts/generate_year_spans.py`) via `SettingsServicePort.get_event_cutoffs().nazhika_cutoff` — `core/calendar/` itself never reads settings directly.
 
 ### Transitions
 

@@ -134,6 +134,7 @@ def _generate_panchangam(
     data_by_day = get_panchangam_data_range(
         start_date, end_date, location.latitude, location.longitude, location.timezone,
         lambda year: tuning_by_year[year],
+        nazhika_cutoff=settings.get_event_cutoffs().nazhika_cutoff,
     )
     print(f"  computed {len(data_by_day)} days in {perf_counter() - clock:.1f}s, writing...")
 
