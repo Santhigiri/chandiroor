@@ -16,13 +16,14 @@ The full-year live computation is fairly expensive (~0.1s/day), so it is done
 once per test module via the session/module-scoped ``real_year_2022_data``
 fixture and reused to seed a fresh in-memory engine per test.
 
-The endpoint itself only starts a background job and returns immediately
-(202) with a job id — the actual generation runs detached from the request
-via FastAPI ``BackgroundTasks`` (see ``features/generation_jobs/``), so it
-keeps going even if the client disconnects. ``TestClient`` drives the whole
-ASGI lifecycle (including background tasks) to completion before a call
-returns, though, so by the time ``client.post(...)`` comes back the job has
-already finished — ``_run_job`` below does the POST and then a single GET on
+The endpoint streams progress as NDJSON while it works — the job's id is on
+the response's ``X-Job-Id`` header, available before the body is read — and
+keeps running to completion even if the client disconnects mid-stream (see
+``features/generation_jobs/streaming.py::ResilientStreamingResponse``),
+persisting every event into the job row as it goes. ``TestClient`` reads the
+whole streamed body synchronously before a call returns, so by the time
+``client.post(...)`` comes back the job has already finished — ``_run_job``
+below does the POST (draining the stream) and then a single GET on
 ``/api/v1/generation-jobs/{job_id}`` to read its final status/result.
 """
 from __future__ import annotations
@@ -157,12 +158,12 @@ def _stored_nazhika(api_engine, day: str) -> float:
 def _run_job(client, headers, payload: dict) -> dict:
     """POST to ``BASE`` and return the finished job's status dict.
 
-    ``TestClient`` runs the endpoint's ``BackgroundTasks`` to completion as
-    part of the same ASGI call, so the job is already ``succeeded``/``failed``
-    by the time the initial POST returns — no real polling needed here."""
+    ``TestClient`` drains the endpoint's NDJSON stream to completion as part
+    of the same call, so the job is already ``succeeded``/``failed`` by the
+    time the initial POST returns — no real polling needed here."""
     started = client.post(BASE, headers=headers, json=payload)
-    assert started.status_code == 202, started.text
-    job_id = started.json()["job_id"]
+    assert started.status_code == 200, started.text
+    job_id = started.headers["x-job-id"]
     job = client.get(f"/api/v1/generation-jobs/{job_id}", headers=headers).json()
     assert job["status"] == "succeeded", job
     return job["result"]
@@ -210,9 +211,9 @@ def test_generate_reports_final_progress(client, admin_auth):
         headers=admin_auth,
         json={"start_date": "2022-03-01", "end_date": "2022-03-03"},
     )
-    assert started.status_code == 202
+    assert started.status_code == 200
     job = client.get(
-        f"/api/v1/generation-jobs/{started.json()['job_id']}", headers=admin_auth
+        f"/api/v1/generation-jobs/{started.headers['x-job-id']}", headers=admin_auth
     ).json()
     progress = job["progress"]
     assert progress["completed"] == 3

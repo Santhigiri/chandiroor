@@ -21,7 +21,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["ETag"],  # let browser JS read the ETag to send back in If-None-Match
+    expose_headers=[
+        "ETag",  # let browser JS read the ETag to send back in If-None-Match
+        "X-Job-Id",  # let browser JS read a generation job's id off its streamed response
+        "X-Job-Type",
+    ],
 )
 app.include_router(panchangam_v1_router, prefix="/api/v1")
 app.include_router(reference_v1_router, prefix="/api/v1")

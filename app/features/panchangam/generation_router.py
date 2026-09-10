@@ -1,38 +1,44 @@
 """
 Write endpoint for (re)generating Panchangam data, mounted under ``/api/v1``:
 
-* ``POST /api/v1/panchangam/generate`` — start a background job that computes a
-  date range from the astronomy code and writes it to the DB, overwriting any
-  existing rows                                                            (admin)
+* ``POST /api/v1/panchangam/generate`` — recompute a date range from the astronomy
+  code and write it to the DB, overwriting any existing rows                (admin)
 
 Authorization mirrors the rest of the API: generating overwrites the ashram's
 authoritative calendar data, so it requires the ``admin`` role. The handler stays
 thin: parse, delegate to ``PanchangamGenerationService``. Invalid ranges are
 rejected by the request schema (422) before a job is ever created.
 
-The run itself happens in a FastAPI ``BackgroundTasks`` callback, detached from
-this request — it keeps going even if the client that started it disconnects,
-navigates away, or the frontend is simply never reopened. The response returns
-immediately (202) with a job id; poll ``GET /api/v1/generation-jobs/{job_id}``
-(or ``GET /api/v1/generation-jobs/active`` if the id was lost) for progress and
-the final result. A ``generation_job`` row with ``status="running"`` acts as a
-cross-instance lock — see ``db/models/generation_job.py`` — so only one
-generation run (of any kind: this endpoint or the Santhigiri event-occurrence
-endpoints in ``features/santhigiri_events/router.py``) can be in flight at a
-time, even across multiple API instances sharing the same database. A second
-call while one is running gets ``409 Conflict``.
+The response is a live NDJSON stream (``application/x-ndjson``, one JSON object
+per line) of ``PanchangamGenerateProgress``/``PanchangamGenerateResult`` lines as
+the range is (re)computed — the job's id and type are available immediately via
+the ``X-Job-Id``/``X-Job-Type`` response headers, sent before the body starts.
+The underlying run is never tied to this particular HTTP connection staying
+open: ``ResilientStreamingResponse`` (see ``features/generation_jobs/streaming.py``)
+keeps driving it to completion even if the client disconnects, and every event
+is persisted into the ``generation_job`` row as it happens (see
+``features/generation_jobs/service.py::stream_generation_job``) — so a client
+that navigated away, lost the connection, or never reconnects still gets a
+finished run. Poll ``GET /api/v1/generation-jobs/{job_id}`` (or
+``GET /api/v1/generation-jobs/active`` if the id was lost) to pick progress back
+up without the live stream. A ``generation_job`` row with ``status="running"``
+also acts as a cross-instance lock — see ``db/models/generation_job.py`` — so
+only one generation run (of any kind: this endpoint or the Santhigiri
+event-occurrence endpoints in ``features/santhigiri_events/router.py``) can be
+in flight at a time, even across multiple API instances sharing the same
+database. A second call while one is running gets ``409 Conflict``.
 
-The background run needs its own DB session — the request-scoped one is torn
-down once the response finishes, which for a long generation run could happen
-before the work is done. ``_build_generation_service`` re-wires a
+The run needs its own DB session — the request-scoped one may be torn down by
+FastAPI before dependency cleanup would otherwise let it survive as long as the
+stream does. ``_build_generation_service`` re-wires a
 ``PanchangamGenerationService`` from a freshly opened session, exactly like
 ``api/deps.py::get_panchangam_generation_service`` does for the request-scoped
-one, and ``_run_and_close`` makes sure that session is closed once the run
+one, and ``_stream_and_close`` makes sure that session is closed once the run
 (succeeded or failed) is done.
 """
-from typing import Annotated
+from typing import Annotated, AsyncIterator
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.api.deps import (
@@ -51,8 +57,8 @@ from app.api.deps import (
     Principal,
 )
 from app.features.generation_jobs.ports import JobAlreadyRunningException
-from app.features.generation_jobs.schemas import GenerationJobStarted
-from app.features.generation_jobs.service import run_generation_job
+from app.features.generation_jobs.service import stream_generation_job
+from app.features.generation_jobs.streaming import ResilientStreamingResponse
 from app.features.panchangam.generation_service import PanchangamGenerationService, SpanTooLarge
 from app.features.panchangam.schemas.panchangam_generation import PanchangamGenerateRequest
 from app.utils.location import Location
@@ -80,32 +86,37 @@ def _build_generation_service(session: Session) -> PanchangamGenerationService:
     )
 
 
-async def _run_and_close(job_id: str, session: Session, service: PanchangamGenerationService,
-                          payload: PanchangamGenerateRequest, location: Location) -> None:
+async def _stream_and_close(
+    job_id: str,
+    session: Session,
+    service: PanchangamGenerationService,
+    payload: PanchangamGenerateRequest,
+    location: Location,
+) -> AsyncIterator[str]:
     try:
         events = service.generate_streaming(payload, location)
         job_repository = get_generation_job_repository(session)
-        await run_generation_job(job_id, events, job_repository, get_unit_of_work(session))
+        async for line in stream_generation_job(
+            job_id, events, job_repository, get_unit_of_work(session)
+        ):
+            yield line
     finally:
         session.close()
 
 
 @router.post(
     "/generate",
-    status_code=status.HTTP_202_ACCEPTED,
-    response_model=GenerationJobStarted,
     dependencies=[Depends(require_role(Role.ADMIN))],
 )
 def generate_panchangam(
     payload: PanchangamGenerateRequest,
     location: Annotated[Location, Depends(get_location)],
     principal: Annotated[Principal, Depends(get_current_principal)],
-    background_tasks: BackgroundTasks,
     request_session: SessionDep,
-) -> GenerationJobStarted:
+) -> ResilientStreamingResponse:
     # A brand-new Session bound to the SAME engine as the request-scoped one
-    # (never the request-scoped Session itself, which FastAPI tears down once
-    # this response finishes sending — before a long generation run is done).
+    # (never the request-scoped Session itself, which FastAPI may tear down
+    # before this stream — potentially long-running — is done).
     session = Session(request_session.get_bind())
     try:
         service = _build_generation_service(session)
@@ -131,5 +142,8 @@ def generate_panchangam(
         session.close()
         raise
 
-    background_tasks.add_task(_run_and_close, job.id, session, service, payload, location)
-    return GenerationJobStarted(job_id=job.id, job_type=job.job_type, status=job.status)
+    return ResilientStreamingResponse(
+        _stream_and_close(job.id, session, service, payload, location),
+        media_type="application/x-ndjson",
+        headers={"X-Job-Id": job.id, "X-Job-Type": job.job_type},
+    )
