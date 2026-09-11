@@ -1,0 +1,109 @@
+"""
+Match editable event definitions against a single computed day.
+
+It lets the ``PanchangamService`` fallback overlay condition-based events onto
+a date the DB has no pre-computed occurrence row for, so events added via the
+admin CRUD show up automatically on live-fallback dates. Works for any event
+sharing the ``EventCondition`` shape, whether a built-in Santhigiri observance
+or a custom definition.
+
+It is intentionally *pure*: it imports only domain/astronomy helpers and the
+response schema — never ``db/`` or ``api/`` — so it respects the layer
+boundaries and stays independently testable.
+
+Only events whose condition pins a **single day** are matched here. Events that
+need whole-year context ("last occurrence" rules like Navapoojitham and the
+Shishyapoojitha birthday) or that only constrain a month/nakshatra without
+fixing a day (e.g. the nakshatra-only Janmagriha, the month-only Navapoojitham
+Vritharambam) are deliberately excluded — they are bespoke and remain the job of
+the dedicated offline cache scripts.
+"""
+from __future__ import annotations
+
+from datetime import datetime, time
+from typing import List
+
+from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.constants import DEFAULT_TIMEZONE
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
+
+
+def pins_single_day(condition: EventCondition) -> bool:
+    """True when the condition fixes an event to one calendar day.
+
+    A day is pinned by any of: a full-moon requirement, an English day, a
+    Malayalam day, a Chandra Masa (lunar month) day, or a Thithi. Conditions
+    with none of these constrain at most a month or a nakshatra and would
+    match many days a year, so they are left to the bespoke offline logic.
+    """
+    return bool(
+        condition.is_poornima
+        or condition.en_day is not None
+        or condition.ml_day is not None
+        or condition.chandra_masa_day is not None
+        or condition.thithi is not None
+    )
+
+
+def event_matches(
+    condition: EventCondition,
+    data: PanchangamData,
+    timezone: str = DEFAULT_TIMEZONE,
+) -> bool:
+    """Return True if *data*'s day satisfies every set field of *condition*.
+
+    "Last occurrence" events and conditions that pin no single day never
+    match here (see the module docstring).
+    """
+    if condition.last_occurance:
+        return False
+    if not pins_single_day(condition):
+        return False
+
+    if condition.nakshatra is not None and condition.nakshatra != data.nakshatra:
+        return False
+    if condition.thithi is not None and condition.thithi != data.thithi:
+        return False
+    if condition.ml_day is not None and condition.ml_day != data.kv.kv_day:
+        return False
+    if condition.ml_month is not None and condition.ml_month.id != data.kv.kv_month:
+        return False
+    if condition.ml_year is not None and condition.ml_year != data.kv.kv_year:
+        return False
+    if condition.chandra_masa_day is not None and condition.chandra_masa_day != data.chandra_masa.masa_day:
+        return False
+    if condition.chandra_masa_month is not None and condition.chandra_masa_month.id != data.chandra_masa.masa:
+        return False
+    if condition.en_day is not None and condition.en_day != data.date.day:
+        return False
+    if condition.en_month is not None and condition.en_month != data.date.month:
+        return False
+    if condition.en_year is not None and condition.en_year != data.date.year:
+        return False
+    if condition.is_poornima is not None and condition.is_poornima != is_poornima_live(
+        datetime.combine(data.date, time.min), timezone
+    ):
+        return False
+
+    return True
+
+
+def match_condition_based_events(
+    data: PanchangamData,
+    event_defs: List[SanthigiriEvent],
+    timezone: str = DEFAULT_TIMEZONE,
+) -> List[SanthigiriEvent]:
+    """Return the subset of *event_defs* whose condition matches *data*'s day.
+
+    Events with a ``day_offset`` are excluded here: this matcher only ever
+    sees one day's data, so it cannot tell whether *this* day is the shifted
+    target of some other day's match (that requires whole-year context, see
+    ``core.events.event_occurrences.compute_occurrences``).
+    """
+    return [
+        event
+        for event in event_defs
+        if not event.event_condition.day_offset
+        and event_matches(event.event_condition, data, timezone)
+    ]

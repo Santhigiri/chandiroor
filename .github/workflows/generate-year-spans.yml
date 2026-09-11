@@ -1,0 +1,88 @@
+name: Generate year spans
+
+# Manually regenerates panchangam data and Santhigiri event occurrences for
+# the database's available year span (scripts/generate_year_spans.py), e.g.
+# after a change to the astronomy/calendar computation code. The target
+# Neon/Postgres database is selected by the branch this workflow is run
+# against: develop -> DATABASE_URL_DEVELOP, release -> DATABASE_URL_STAGING,
+# main -> DATABASE_URL_PRODUCTION (all repo secrets).
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "First year to regenerate (blank = the seed_year_range setting's start_year)"
+        required: false
+        type: string
+      end_year:
+        description: "Last year to regenerate, inclusive (blank = the seed_year_range setting's end_year)"
+        required: false
+        type: string
+      location:
+        description: "Location code to generate for (blank = the default_location_code setting)"
+        required: false
+        type: string
+      skip_panchangam:
+        description: "Skip regenerating base panchangam data"
+        required: false
+        type: boolean
+        default: false
+      skip_events:
+        description: "Skip regenerating Santhigiri event occurrences"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # --- Select DATABASE_URL by branch ---
+      - name: Select database URL
+        id: db
+        env:
+          DATABASE_URL_DEVELOP: ${{ secrets.DATABASE_URL_DEVELOP }}
+          DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_PRODUCTION }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            DATABASE_URL="${DATABASE_URL_DEVELOP}"
+          elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            DATABASE_URL="${DATABASE_URL_STAGING}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            DATABASE_URL="${DATABASE_URL_PRODUCTION}"
+          else
+            echo "::error::No DATABASE_URL secret mapping for ref ${{ github.ref }}. Run this workflow from develop, release, or main."
+            exit 1
+          fi
+
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::No DATABASE_URL secret configured for ref ${{ github.ref }}"
+            exit 1
+          fi
+
+          echo "::add-mask::${DATABASE_URL}"
+          echo "DATABASE_URL=${DATABASE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Run generation script
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          args=()
+          if [ -n "${{ inputs.start_year }}" ]; then args+=(--start-year "${{ inputs.start_year }}"); fi
+          if [ -n "${{ inputs.end_year }}" ]; then args+=(--end-year "${{ inputs.end_year }}"); fi
+          if [ -n "${{ inputs.location }}" ]; then args+=(--location "${{ inputs.location }}"); fi
+          if [ "${{ inputs.skip_panchangam }}" = "true" ]; then args+=(--skip-panchangam); fi
+          if [ "${{ inputs.skip_events }}" = "true" ]; then args+=(--skip-events); fi
+          python scripts/generate_year_spans.py "${args[@]}"
