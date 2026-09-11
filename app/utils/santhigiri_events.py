@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -35,6 +36,52 @@ class SanthigiriEvent(BaseModel):
     event_condition: EventCondition
 
 
+class EventConditionFieldKind(str, Enum):
+    """The value shape an ``EventCondition`` field expects — either a plain
+    scalar the admin UI collects with a number/boolean input, or a reference
+    to one of the enum reference datasets (``GET /panchangam/<dataset>``) the
+    UI should populate a select from."""
+
+    NAKSHATRA = "nakshatra"
+    THITHI = "thithi"
+    MALAYALAM_MASA = "malayalam_masa"
+    CHANDRA_MASA = "chandra_masa"
+    INT = "int"
+    BOOL = "bool"
+
+
+@dataclass(frozen=True)
+class EventConditionFieldSpec:
+    """Describes one filterable ``EventCondition`` field for API consumers
+    building an "add condition" UI, so the set of fields an event's condition
+    can be built from is discovered from the API rather than hardcoded on
+    the client. ``key`` is the exact ``EventCondition`` attribute name."""
+
+    key: str
+    label: str
+    kind: EventConditionFieldKind
+    reference_dataset: Optional[str] = None
+
+
+# Every ``EventCondition`` field an admin can add as a matching criterion.
+# ``occurance`` is excluded — declared on ``EventCondition`` but not read by
+# ``core.events.event_occurrences._matches_fields`` (a pre-existing gap, not
+# addressed here). ``day_offset`` is excluded too: it shifts the days the
+# other fields already matched rather than being a matching criterion itself.
+EVENT_CONDITION_FIELDS: List[EventConditionFieldSpec] = [
+    EventConditionFieldSpec("nakshatra", "Nakshatra", EventConditionFieldKind.NAKSHATRA, "nakshatra"),
+    EventConditionFieldSpec("thithi", "Thithi", EventConditionFieldKind.THITHI, "thithi"),
+    EventConditionFieldSpec("ml_day", "Malayalam day", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("ml_month", "Malayalam month", EventConditionFieldKind.MALAYALAM_MASA, "masa"),
+    EventConditionFieldSpec("ml_year", "Malayalam year", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("chandra_masa_day", "Lunar day", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("chandra_masa_month", "Lunar month", EventConditionFieldKind.CHANDRA_MASA, "chandra_masa"),
+    EventConditionFieldSpec("en_day", "English day", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("en_month", "English month", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("en_year", "English year", EventConditionFieldKind.INT),
+    EventConditionFieldSpec("is_poornima", "Is Poornima", EventConditionFieldKind.BOOL),
+    EventConditionFieldSpec("last_occurance", "Last occurrence", EventConditionFieldKind.BOOL),
+]
 
 
 SANTHIGIRI_EVENTS: List[SanthigiriEvent] = []
