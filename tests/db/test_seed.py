@@ -1,19 +1,21 @@
 """Tests for db/seed.py — lookup-table seeding from the Python enums."""
 from sqlmodel import select
 
-from db.models.location import Location as LocationRow
-from db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
-from db.models.nakshatra import Nakshatra as NakshatraRow
-from db.models.paksha import Paksha as PakshaRow
-from db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
-from db.models.thithi import Thithi as ThithiRow
-from db.seed import seed_lookup_tables
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.paksha import Paksha
-from utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
-from utils.thithi import Thithi
+from app.db.models.location import Location as LocationRow
+from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
+from app.db.models.chandra_masa import ChandraMasa as ChandraMasaRow
+from app.db.models.nakshatra import Nakshatra as NakshatraRow
+from app.db.models.paksha import Paksha as PakshaRow
+from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
+from app.db.models.thithi import Thithi as ThithiRow
+from app.db.seed import seed_lookup_tables
+from app.utils.location import Location
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.chandramasa.enums.masa import ChandraMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.core.astronomy.enums.paksha import Paksha
+from app.utils.santhigiri_events import EVENT_DEFINITIONS_BY_ID
+from app.core.astronomy.enums.thithi import Thithi
 
 
 def _count(session, model) -> int:
@@ -27,6 +29,7 @@ def test_seed_inserts_exact_enum_counts(session):
     assert _count(session, ThithiRow) == 30
     assert _count(session, NakshatraRow) == 27
     assert _count(session, MalayalamMasaRow) == 12
+    assert _count(session, ChandraMasaRow) == 12
     assert _count(session, LocationRow) == len(list(Location))
     assert _count(session, SanthigiriEventRow) == len(EVENT_DEFINITIONS_BY_ID)
 
@@ -40,6 +43,8 @@ def test_seed_carries_day_offset_from_event_condition(session):
 
 
 def test_seed_values_match_enums(session):
+    """Only structural data is seeded from the enums — id, name, paksha, day.
+    Display text (ml/en) is intentionally left NULL by db/seed.py."""
     seed_lookup_tables(session)
 
     poornima = session.get(ThithiRow, Thithi.POORNIMA.id)
@@ -47,19 +52,18 @@ def test_seed_values_match_enums(session):
     assert poornima.name == Thithi.POORNIMA.name
     assert poornima.paksha_id == Thithi.POORNIMA.paksha.id
     assert poornima.day == Thithi.POORNIMA.day
-    assert poornima.ml == Thithi.POORNIMA.ml
-    assert poornima.en == Thithi.POORNIMA.en
+    assert poornima.ml is None and poornima.en is None
 
     chothi = session.get(NakshatraRow, Nakshatra.CHOTHI.id)
     assert chothi is not None
-    assert (chothi.name, chothi.ml, chothi.en) == (
-        Nakshatra.CHOTHI.name,
-        Nakshatra.CHOTHI.ml,
-        Nakshatra.CHOTHI.en,
-    )
+    assert chothi.name == Nakshatra.CHOTHI.name
+    assert chothi.ml is None and chothi.en is None
 
     masa = session.get(MalayalamMasaRow, MalayalamMasa.MEENAM.id)
     assert masa is not None and masa.name == MalayalamMasa.MEENAM.name
+
+    chandra_masa = session.get(ChandraMasaRow, ChandraMasa.PHALGUNA.id)
+    assert chandra_masa is not None and chandra_masa.name == ChandraMasa.PHALGUNA.name
 
     tvm = session.get(LocationRow, Location.TVM.id)
     assert tvm is not None
@@ -78,5 +82,6 @@ def test_seed_is_idempotent(session):
     assert _count(session, ThithiRow) == 30
     assert _count(session, NakshatraRow) == 27
     assert _count(session, MalayalamMasaRow) == 12
+    assert _count(session, ChandraMasaRow) == 12
     assert _count(session, PakshaRow) == len(list(Paksha))
     assert _count(session, LocationRow) == len(list(Location))

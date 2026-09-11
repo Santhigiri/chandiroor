@@ -1,0 +1,26 @@
+name: Lint
+
+on:
+  push:
+    branches: [develop, release, main]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  import-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # import-linter / grimp do static analysis of first-party code only — no
+      # runtime deps (skyfield, pyswisseph, …) are needed to build the graph.
+      - name: Install import-linter
+        run: pip install import-linter==2.14
+
+      - name: Check import contracts
+        run: lint-imports

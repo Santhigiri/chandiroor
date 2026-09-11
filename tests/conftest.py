@@ -25,20 +25,23 @@ os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 # Importing db.database registers the shared "connect" pragma listener that
 # turns foreign_keys ON for every SQLite connection, including our test engine.
-import db.database  # noqa: F401
-import db.models  # noqa: F401 — register every table on SQLModel.metadata
-from db.seed import seed_lookup_tables
+import app.db.database  # noqa: F401
+import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
+from app.db.seed import seed_lookup_tables
 
-from core.astronomy.nakshatra_transition import NakshatraTransition
-from core.astronomy.thithi_transition import ThithiTransition
-from core.calendar.kollavarsham import KollavarshamDate
-from schemas.location import LocationInfo
-from schemas.panchangam_data import PanchangamData
-from utils.location import Location
-from utils.malayalam_masa import MalayalamMasa
-from utils.nakshatra import Nakshatra
-from utils.santhigiri_events import SanthigiriEvent
-from utils.thithi import Thithi
+from app.core.astronomy.nakshatra_transition import NakshatraTransition
+from app.core.astronomy.thithi_transition import ThithiTransition
+from app.core.chandramasa.chandramasa_models import ChandraMasaDate
+from app.core.chandramasa.enums.masa import ChandraMasa
+from app.core.chandramasa.enums.masa_type import MasaType
+from app.core.kollavarsham.kollavarsham import KollavarshamDate
+from app.schemas.location import LocationInfo
+from app.schemas.panchangam_data import PanchangamData
+from app.utils.location import Location
+from app.core.kollavarsham.enums.masa import MalayalamMasa
+from app.core.astronomy.enums.nakshatra import Nakshatra
+from app.utils.santhigiri_events import SanthigiriEvent
+from app.core.astronomy.enums.thithi import Thithi
 
 
 # ── Engine / session fixtures ─────────────────────────────────────────────────
@@ -95,6 +98,9 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         kv_month: MalayalamMasa = MalayalamMasa.MEENAM,
         kv_day: int = 5,
         kv_year: int = 1201,
+        chandra_masa: ChandraMasa = ChandraMasa.PHALGUNA,
+        chandra_masa_day: int = 5,
+        chandra_masa_type: MasaType = MasaType.NIJA,
         thithi_transitions: Optional[List[ThithiTransition]] = None,
         nakshatra_transitions: Optional[List[NakshatraTransition]] = None,
         santhigiri_significant_dates: Optional[List[SanthigiriEvent]] = None,
@@ -107,7 +113,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         if thithi_transitions is None:
             thithi_transitions = [
                 ThithiTransition(
-                    name=thithi.en,
                     thithi=thithi,
                     start_time=day_start,
                     end_time=day_start + _dt.timedelta(hours=20),
@@ -116,7 +121,6 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
         if nakshatra_transitions is None:
             nakshatra_transitions = [
                 NakshatraTransition(
-                    name=nakshatra.en,
                     nakshatra=nakshatra,
                     start_time=day_start,
                     end_time=day_start + _dt.timedelta(hours=20),
@@ -128,13 +132,19 @@ def make_panchangam_data() -> Callable[..., PanchangamData]:
             kv_day=kv_day,
             kv_month=kv_month.id,
             kv_year=kv_year,
-            kv_month_name_en=kv_month.en,
-            kv_month_name_ml=kv_month.ml,
+        )
+
+        cm = ChandraMasaDate(
+            date=date,
+            masa=chandra_masa.id,
+            masa_day=chandra_masa_day,
+            masa_type=chandra_masa_type.id,
         )
 
         return PanchangamData(
             date=date,
             kv=kv,
+            chandra_masa=cm,
             thithi_transitions=thithi_transitions,
             nakshatra_transitions=nakshatra_transitions,
             thithi=thithi,
@@ -156,7 +166,7 @@ def temp_db(tmp_path, monkeypatch):
     """
     Point ``db.database`` at a throwaway on-disk SQLite file and return its engine.
     """
-    import db.database as database
+    import app.db.database as database
 
     db_path = tmp_path / "panchangam_test.db"
     test_engine = create_engine(
