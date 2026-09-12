@@ -439,6 +439,7 @@ Panchangam data (public — anonymous allowed, any supplied token still validate
 - `GET /api/v1/panchangam/month?year=YYYY&month=MM` — main version; returns the compact Panchangam for every day in the month
 - `GET /api/v1/panchangam/year?year=YYYY` — main version; ETag-validated (returns `304` on `If-None-Match`)
 - `GET /api/v1/panchangam/sunrise-sunset?day=..&latitude=..&longitude=..` — sunrise/sunset (UTC) for an arbitrary coordinate/date, always live-computed
+- `GET /api/v1/panchangam/sunrise-sunset/range?start_date=..&end_date=..&latitude=..&longitude=..` — sunrise/sunset (UTC) for an arbitrary coordinate over an inclusive date range (max 366 days), always live-computed; bulk equivalent of calling `/sunrise-sunset` once per date, using the range-batched `get_sunrise_sunset_for_range` computation
 - `POST /api/v1/panchangam/generate` — (admin) recompute a date range from the astronomy code and overwrite the corresponding DB rows, streamed as NDJSON (`PanchangamGenerationService`)
 
 Reference datasets (public, ETag-validated, read from the DB):

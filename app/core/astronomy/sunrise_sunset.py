@@ -125,10 +125,13 @@ def get_sunrise_sunset_for_range(
         chunk_start = chunk_end + timedelta(days=1)
 
     result: Dict[date, Tuple[datetime, datetime]] = {}
-    for d, (sunrise_local, sunset_local) in pending.items():
+    d = start
+    while d <= end:
+        sunrise_local, sunset_local = pending.get(d, [None, None])
         if sunrise_local is None or sunset_local is None:
             raise ValueError(
                 f"Sunrise and sunset times unavailable for {d} and the given location."
             )
         result[d] = (sunrise_local, sunset_local)
+        d += timedelta(days=1)
     return result

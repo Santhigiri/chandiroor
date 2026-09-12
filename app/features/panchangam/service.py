@@ -155,6 +155,27 @@ class PanchangamService:
         longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
         return get_sunrise_sunset(day, latitude, longitude, timezone="UTC")
 
+    def get_sunrise_sunset_range(
+        self, start: date, end: date, latitude: float, longitude: float
+    ) -> Dict[date, Tuple[datetime, datetime]]:
+        """Sunrise/sunset for an arbitrary coordinate over an inclusive date
+        range, in UTC.
+
+        Uses the chunked, range-batched
+        ``core.astronomy.sunrise_sunset.get_sunrise_sunset_for_range`` (one
+        ``find_discrete`` call per ~90-day chunk instead of one call per day)
+        so a client that needs many consecutive days (e.g. a calendar month)
+        doesn't have to issue one request per date. Same coordinate-snapping
+        as :meth:`get_sunrise_sunset`, for the same reason. Live computation
+        only; raises ValueError if any date in the range has no rising/setting
+        (e.g. polar day/night).
+        """
+        from app.core.astronomy.sunrise_sunset import get_sunrise_sunset_for_range
+
+        latitude = round(latitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
+        longitude = round(longitude, SUNRISE_SUNSET_CACHE_GRID_DEGREES)
+        return get_sunrise_sunset_for_range(start, end, latitude, longitude, timezone="UTC")
+
     def get_by_date(
         self, day: date, location: Location = DEFAULT_LOCATION
     ) -> PanchangamData:
