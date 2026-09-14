@@ -13,8 +13,15 @@ from app.api.deps import (
 from app.features.panchangam.schemas.get_instant_panchangam_params import GetInstantPanchangamParams
 from app.features.panchangam.schemas.get_monthly_panchangam_params import GetMonthlyPanchangamParams
 from app.features.panchangam.schemas.get_sunrise_sunset_params import GetSunriseSunsetParams
+from app.features.panchangam.schemas.get_sunrise_sunset_range_params import (
+    GetSunriseSunsetRangeParams,
+)
 from app.features.panchangam.schemas.get_yearly_panchangam_params import GetYearlyPanchangamParams
 from app.features.panchangam.schemas.sunrise_sunset_response import SunriseSunsetResponse
+from app.features.panchangam.schemas.sunrise_sunset_range_response import (
+    SunriseSunsetDay,
+    SunriseSunsetRangeResponse,
+)
 from app.features.panchangam.service import (
     ChandraMasaNotFoundError,
     PanchangamService,
@@ -87,6 +94,44 @@ def sunrise_sunset(
         day=params.day,
         sunrise=sunrise,
         sunset=sunset,
+    )
+
+
+@router.get(
+    '/sunrise-sunset/range',
+    response_model=SunriseSunsetRangeResponse,
+)
+def sunrise_sunset_range(
+    params: Annotated[GetSunriseSunsetRangeParams, Query()],
+    service: Annotated[PanchangamService, Depends(get_panchangam_service)],
+):
+    """Sunrise/sunset (UTC) for an arbitrary coordinate over an inclusive date
+    range.
+
+    Bulk equivalent of calling ``/sunrise-sunset`` once per date in the range
+    -- intended for clients (e.g. a calendar view) that need several
+    consecutive days at once, so they don't have to issue one request per
+    date. Uses the range-batched computation in
+    ``PanchangamService.get_sunrise_sunset_range``, which is substantially
+    cheaper than the same number of individual ``/sunrise-sunset`` calls.
+    Coordinates are snapped the same way as the single-day endpoint before
+    computing; the response still echoes back the coordinates as submitted.
+    """
+    try:
+        results = service.get_sunrise_sunset_range(
+            params.start_date, params.end_date, params.latitude, params.longitude
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return SunriseSunsetRangeResponse(
+        latitude=params.latitude,
+        longitude=params.longitude,
+        start_date=params.start_date,
+        end_date=params.end_date,
+        results={
+            day: SunriseSunsetDay(sunrise=sunrise, sunset=sunset)
+            for day, (sunrise, sunset) in results.items()
+        },
     )
 
 
