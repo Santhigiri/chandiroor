@@ -137,8 +137,11 @@ def _generate_panchangam(
     )
     print(f"  computed {len(data_by_day)} days in {perf_counter() - clock:.1f}s, writing...")
 
-    for day, data in data_by_day.items():
-        repository.upsert(data, location)  # does NOT commit
+    write_clock = perf_counter()
+    # commit=False: the whole run stays one atomic transaction, same as the
+    # old per-day upsert() loop — refresh_etags() below does the single commit.
+    repository.upsert_many(data_by_day.values(), location, commit=False)
+    print(f"  wrote {len(data_by_day)} days in {perf_counter() - write_clock:.1f}s")
 
     years = sorted({d.year for d in data_by_day})
     refresh_etags(
