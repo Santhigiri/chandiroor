@@ -15,7 +15,6 @@ from app.db.models.nakshatra_transition import NakshatraTransition
 from app.db.models.santhigiri_event import SanthigiriEvent
 from app.db.models.santhigiri_event_date import SanthigiriEventDate
 from app.db.models.dataset_etag import DatasetEtag
-from app.db.models.user import User
 from app.db.models.guruvani import Guruvani
 from app.db.models.app_setting import AppSetting
 
@@ -35,7 +34,6 @@ __all__ = [
     "SanthigiriEvent",
     "SanthigiriEventDate",
     "DatasetEtag",
-    "User",
     "Guruvani",
     "AppSetting",
 ]

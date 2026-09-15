@@ -125,15 +125,16 @@ panchangam-api/
     │   │                                # rather than features/reference/ports.py because ReferenceRepository is a genuine
     │   │                                # cross-feature dependency — also consumed directly by features/etag/service.py — same
     │   │                                # reasoning as SettingsServicePort.
-    │   ├── security.py             # Password hashing + JWT mint/decode (no HTTP)
-    │   └── config.py               # Settings (JWT_SECRET_KEY etc.) via pydantic-settings
+    │   ├── security.py             # Verifies TVM-issued JWT access tokens against TVM's JWKS (no HTTP, no local minting)
+    │   ├── jwks_client.py          # Fetches/caches TVM's JWKS (core.config.settings.tvm_jwks_url), keyed by kid
+    │   └── config.py               # Settings (TVM_JWKS_URL etc.) via pydantic-settings
     ├── schemas/                     # Only schemas used by 2+ features, or by db/ or core/, stay here
     │   ├── location.py              # LocationInfo — used by features/panchangam/repository.py, core/calendar/, and multiple features
     │   ├── panchangam_data.py       # PanchangamData — returned by features/panchangam/repository.py and core/calendar/panchangam.py
     │   ├── compact_panchangam_data.py  # Used by features/etag/service.py, db/reference_repository.py, and multiple features
     │   └── app_setting.py           # Used by features/settings/service.py *and* features/santhigiri_events/service.py
     └── utils/                      # Domain enums, roles, and cross-cutting helpers with no feature to own them
-        ├── roles.py                # Role enum (anonymous < user < admin) for authorization
+        ├── roles.py                # Role enum (anonymous < user < editor < admin < super_admin < root) for authorization
         ├── lifespan.py             # Startup: init_db() ensures the Postgres schema exists (no runtime seeding)
         └── santhigiri_events.py    # Event definitions and matching conditions — stays here (not features/) since
                                      # core/calendar/, core/events/, and db/ import it directly and must not depend on features/
@@ -204,9 +205,9 @@ imports back to a top-level package name.
 
 ### Ports & adapters
 
-The target pattern for every feature going forward is **ports and adapters**: a feature's service depends only on an abstract `Protocol` describing what it needs from persistence (and, where a service itself is a cross-feature dependency, what it needs from that service), never on a concrete SQLModel repository class or another feature's concrete service class. `features/auth/` is the canonical, fully-migrated example — read it before migrating another feature. `features/santhigiri_events/` is migrated the same way.
+The target pattern for every feature going forward is **ports and adapters**: a feature's service depends only on an abstract `Protocol` describing what it needs from persistence (and, where a service itself is a cross-feature dependency, what it needs from that service), never on a concrete SQLModel repository class or another feature's concrete service class. `features/santhigiri_events/` is the canonical, fully-migrated example — read it before migrating another feature. (Chandiroor used to have a `features/auth/` feature built the same way, issuing and verifying its own JWTs; it was removed when the service became a JWT resource server for TVM — see "Authentication & Authorization" below. Its shape is still the reference other write-heavy CRUD features were modeled on.)
 
-`features/settings/` is migrated with its `ports.py`/`repository.py`/`service.py` all living under `features/settings/`, same as `auth`. What's different is that `SettingsService` is a dependency of 3+ other features' own services (`panchangam`, its generation path, `santhigiri_events`), not just its own router — so those other services do not import `features.settings.service.SettingsService` directly (that would violate the layer-boundary rule against importing another feature's `service.py`). Instead they depend on `core/ports/settings_service.py::SettingsServicePort`, a `Protocol` covering just the typed getters those services actually call (`get_seed_year_range`, `get_max_generate_span_days`, `get_max_event_generate_year_span`, `get_event_cutoffs`, `get_astronomy_tuning`) — `SettingsService` satisfies it structurally, with no explicit `implements` needed. This port lives in `core/ports/` (next to `unit_of_work.py`) rather than in `features/settings/ports.py`, because unlike a repository port (which only the owning feature's own service consumes) it's the seam other features' services depend on directly. `api/deps.py` still wires the concrete `SettingsService` for every consumer, whether the consumer's parameter is typed as `SettingsServicePort` or as `SettingsService` itself (`features/settings/router.py`, which owns the feature, uses the concrete class).
+`features/settings/` is migrated with its `ports.py`/`repository.py`/`service.py` all living under `features/settings/`, same as `santhigiri_events`. What's different is that `SettingsService` is a dependency of 3+ other features' own services (`panchangam`, its generation path, `santhigiri_events`), not just its own router — so those other services do not import `features.settings.service.SettingsService` directly (that would violate the layer-boundary rule against importing another feature's `service.py`). Instead they depend on `core/ports/settings_service.py::SettingsServicePort`, a `Protocol` covering just the typed getters those services actually call (`get_seed_year_range`, `get_max_generate_span_days`, `get_max_event_generate_year_span`, `get_event_cutoffs`, `get_astronomy_tuning`) — `SettingsService` satisfies it structurally, with no explicit `implements` needed. This port lives in `core/ports/` (next to `unit_of_work.py`) rather than in `features/settings/ports.py`, because unlike a repository port (which only the owning feature's own service consumes) it's the seam other features' services depend on directly. `api/deps.py` still wires the concrete `SettingsService` for every consumer, whether the consumer's parameter is typed as `SettingsServicePort` or as `SettingsService` itself (`features/settings/router.py`, which owns the feature, uses the concrete class).
 
 `features/etag/` also has its `ports.py`/`repository.py`/`service.py` all living under `features/etag/`, but with a wrinkle: `features/etag/service.py` isn't a class-based service at all — it's the shared payload-builder/ETag-compute module every feature's router or service calls into, so there's no single `EtagService` dataclass to hold a port, and no `EtagServicePort` either. Instead, `conditional_json_response()` and `refresh_etags()` take `etag_repository: EtagRepositoryPort` and `unit_of_work: UnitOfWork` as plain parameters, resolved by the caller (a router via `api/deps.py`'s `EtagRepositoryDep`/`UnitOfWorkDep`, or a feature's own `service.py` that already holds those fields, e.g. `SanthigiriEventService`) — every consumer imports the module's functions directly, the same as it would import any other feature-owned utility module whose functions are already parametrized by ports rather than by state. `features/etag/ports.py` has no DTO — unlike `AppSettingGet`/`UserGet`, the value crossing the boundary is a bare ETag string keyed by dataset name, so there is no row shape to translate.
 
@@ -216,13 +217,13 @@ The target pattern for every feature going forward is **ports and adapters**: a 
 
 `settings`, `etag`, `panchangam`, and `guruvani` are otherwise built exactly like a migrated feature's service: depending on ports + `UnitOfWork`, never a concrete adapter or another feature's concrete service class. Every feature has now been migrated to this pattern.
 
-The pieces, using `features/auth/` as the reference:
+The pieces, using `features/santhigiri_events/` as the reference:
 
-- **`ports.py`** defines three things: the repository `Protocol` (`AuthRepositoryPort`), frozen `@dataclass` DTOs for data crossing the boundary (`UserGet`, `UserCreate`, `UserUpdate`, `UserWithCredentials`), and any domain exceptions the port can raise (`UserNotFoundException`). Nothing in `ports.py` imports SQLModel or a session.
-- **The adapter** (`features/auth/auth_repository.py`, or `features/santhigiri_events/repository.py`) is a concrete class implementing the port against SQLModel: it takes a `Session`, and every method translates ORM rows to/from the port's DTOs (e.g. `AuthRepository._user_row_to_user_get`) — mirroring the `to_dto`/`from_dto` convention already used on `db/models/santhigiri_event.py`.
-- **`service.py`** is a frozen `@dataclass` (not a plain `__init__`) holding the port and a `UnitOfWork` (`core/ports/unit_of_work.py`) as fields — e.g. `AuthService(auth_repository: AuthRepositoryPort, uow: UnitOfWork)`. It imports the port's Protocol and DTOs, never the concrete adapter class or `Session`. Request-schema → DTO conversion (and the reverse, DTO → response-schema) happens inside `service.py` methods (e.g. `AuthService._user_get_to_get_user_response`), not in the router.
+- **`ports.py`** defines three things: the repository `Protocol` (`SanthigiriEventsRepositoryPort`), frozen `@dataclass` DTOs for data crossing the boundary (`SanthigiriEventGet`/`Create`/`Update`), and any domain exceptions the port can raise (`EventNotFoundException`). Nothing in `ports.py` imports SQLModel or a session.
+- **The adapter** (`features/santhigiri_events/repository.py`) is a concrete class implementing the port against SQLModel: it takes a `Session`, and every method translates ORM rows to/from the port's DTOs — mirroring the `to_dto`/`from_dto` convention already used on `db/models/santhigiri_event.py`.
+- **`service.py`** is a frozen `@dataclass` (not a plain `__init__`) holding the port and a `UnitOfWork` (`core/ports/unit_of_work.py`) as fields — e.g. `SanthigiriEventService(event_repository: SanthigiriEventsRepositoryPort, unit_of_work: UnitOfWork, ...)`. It imports the port's Protocol and DTOs, never the concrete adapter class or `Session`. Request-schema → DTO conversion (and the reverse, DTO → response-schema) happens inside `service.py` methods, not in the router.
 - **`db/unit_of_work.py::SqlUnitOfWork`** is the one concrete `UnitOfWork` adapter, wrapping a `Session`. A mutation wraps the repository call(s) in `with self.unit_of_work as uow: ...; uow.commit()` (or lets a shared commit helper like `features/etag/service.py::refresh_etags` do the commit, if the mutation must land atomically with an ETag refresh).
-- **`api/deps.py`** is where every concrete adapter gets bound to its port and injected — e.g. `get_auth_repository(session) -> AuthRepositoryPort: return AuthRepository(session)`, then `get_auth_service(auth_repository: AuthRepositoryDep, uow: UnitOfWorkDep) -> AuthService`. A feature's `router.py` depends on the service factory from `api/deps.py`; it never constructs a concrete adapter or service by hand.
+- **`api/deps.py`** is where every concrete adapter gets bound to its port and injected — e.g. `get_santhigiri_event_repository(session) -> SanthigiriEventsRepositoryPort: return SanthigiriEventRepository(session)`, then `get_santhigiri_event_service(event_repository: SanthigiriEventRepositoryDep, ...) -> SanthigiriEventService`. A feature's `router.py` depends on the service factory from `api/deps.py`; it never constructs a concrete adapter or service by hand.
 
 Match this granularity exactly when migrating a new feature — one `ports.py` per feature, one adapter class, no finer-grained ports (no separate read/write port classes, no per-method protocols).
 
@@ -232,13 +233,22 @@ Versioning is applied externally: a feature's `router.py` (or `generation_router
 
 ### Authentication & Authorization
 
-The API uses **JWT bearer authentication** with a three-tier role hierarchy: `anonymous` < `user` < `admin` (`utils/roles.py::Role`). All auth wiring lives in `api/deps.py`; the crypto lives in `core/security.py` (password hashing + access/refresh token mint and decode) and settings in `core/config.py`.
+Chandiroor is a **JWT resource server**, not an identity provider: it never mints tokens, hashes passwords, or stores user records. Identity comes from TVM, the Ashram's dedicated auth microservice — every request's `Authorization: Bearer` access token is verified locally against TVM's public key rather than by calling TVM synchronously. TVM signs access tokens with its own private key (RS256); Chandiroor only ever holds the public half.
 
-- **`get_current_principal`** resolves the request's bearer token into a `Principal` (`role`, `username`). No token → the `anonymous` principal. A malformed/expired/wrong-type token, or one naming an unknown or deactivated user → `401` (it is **not** downgraded to anonymous).
-- **`require_role(minimum)`** is a dependency factory that gates an endpoint at a minimum role. Anonymous callers to a protected endpoint get `401`; authenticated callers with an insufficient role get `403`. It returns the resolved `Principal` so handlers can read the current user.
+Two ways to get that public half, in preference order:
+
+1. **TVM's JWKS** (`GET <tvm>/.well-known/jwks.json`, `core.config.settings.tvm_jwks_url`) — the normal path. `core/security.py::verify_access_token` resolves the signing key by the token's `kid` header via `core/jwks_client.py`, which caches the fetched key set and refetches once on an unknown `kid` (picks up a TVM key rotation with no Chandiroor config change).
+2. **A static fallback key** (`core.config.settings.tvm_jwt_public_key`, a PEM-encoded RSA public key) — used only when the JWKS path is unset or the fetch fails (TVM hasn't stood up a JWKS endpoint yet, or is unreachable). It's still just TVM's public key — safe to hand out, since a public key can verify a signature but never produce one — but being static, it does **not** pick up a TVM key rotation automatically; whoever rotates TVM's signing key must update `TVM_JWT_PUBLIC_KEY` by hand.
+
+At least one of `TVM_JWKS_URL` / `TVM_JWT_PUBLIC_KEY` must be set (`core/config.py`'s `_require_a_verification_source` validator) — there is no way to verify a token with neither.
+
+The role hierarchy is `anonymous` < `user` < `editor` < `admin` < `super_admin` < `root` (`utils/roles.py::Role`) — the five authenticated tiers mirror TVM's own `Role` enum exactly (member *names* must match the `role` claim TVM signs), with `anonymous` added locally for "no token presented". All auth wiring lives in `api/deps.py`; token verification lives in `core/security.py` (`verify_access_token`/`TvmClaims`), backed by `core/jwks_client.py` (fetches and caches TVM's JWKS by `kid`, with a refetch-on-unknown-`kid` fallback for key rotation).
+
+- **`get_current_principal`** resolves the request's bearer token into a `Principal` (`role`, `user_id`) by calling `verify_access_token`. No token → the `anonymous` principal. A malformed/expired/unverifiable token → `401` (it is **not** downgraded to anonymous). There is no local user lookup — an already-issued access token is trusted for its full lifetime once verified, the same trust model as any stateless JWT resource server.
+- **`require_role(minimum)`** is a dependency factory that gates an endpoint at a minimum role. Anonymous callers to a protected endpoint get `401`; authenticated callers with an insufficient role get `403`. It returns the resolved `Principal` so handlers can read the caller's `role`/`user_id`.
 - **Public endpoints still declare a guard** — the panchangam data routers depend on `require_role(Role.ANONYMOUS)`, which permits anonymous access but still validates (and rejects) any bearer token that *is* supplied.
 
-Auth endpoints live in `features/auth/router.py` (`/api/v1/auth/login`, `/refresh`, `/logout`, `GET /me`, `PATCH /me`, `/users`). Tokens are delivered as HTTP-only cookies (never in the response body), with an `Authorization: Bearer` header accepted as a fallback for non-browser clients. Users are stored via the `AuthRepositoryPort` adapter (`features/auth/auth_repository.py`); an initial admin can be seeded at startup by setting `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`. Route handlers remain thin — credential checking, hashing, and token minting are delegated to `core/security.py`.
+There is no `features/auth/` anymore, and no `/api/v1/auth/*` endpoints — login, signup, refresh, and user/profile management are TVM's responsibility, not Chandiroor's. `TVM_JWT_ISSUER`/`TVM_JWT_AUDIENCE` must match TVM's configured `jwt.issuer`/`jwt.audience`.
 
 ### Editable Santhigiri event definitions
 
@@ -387,16 +397,14 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 |---|---|
 | `fastapi` | HTTP framework and request validation |
 | `uvicorn[standard]` | ASGI server (uvloop/httptools for production) |
-| `python-multipart` | Parses the OAuth2 form login (`features/auth/router.py`) |
 | `skyfield` | High-precision astronomical calculations (positions, `find_discrete`) |
 | `pyswisseph` | Lahiri Ayanamsa computation via Swiss Ephemeris |
 | `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
 | `psycopg2-binary` | PostgreSQL driver (Neon) |
 | `python-dotenv` | Loads `DATABASE_URL` from a local `.env` during development |
-| `python-jose[cryptography]` | Mint/verify JWT access & refresh tokens (`core/security.py`) |
-| `bcrypt` | Password hashing for user credentials |
-| `pydantic-settings` | Typed settings (JWT config) in `core/config.py` |
-| `google-auth` | Verifies Google ID tokens (`core/security.py::verify_google_id_token`) — currently unused by any router; see the `POST /auth/google` gap below |
+| `python-jose[cryptography]` | Verifies TVM-issued RS256 JWT access tokens against TVM's JWKS (`core/security.py`, `core/jwks_client.py`) |
+| `requests` | Fetches TVM's JWKS over HTTP (`core/jwks_client.py`) |
+| `pydantic-settings` | Typed settings (`TVM_JWKS_URL` etc.) in `core/config.py` |
 | `pytz` | Timezone handling |
 | `de421.bsp` | NASA/JPL ephemeris file (16.8 MB) loaded by Skyfield for Sun/Moon/Earth positions |
 
@@ -419,7 +427,7 @@ uvicorn app.main:app --reload --port 8000
 
 `DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup only ensures the schema exists (`init_db()`); it does not load any data. Seed the database once by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See `db/sql/README.md`.
 
-Set `JWT_SECRET_KEY` to a long random secret for auth (the app falls back to an insecure development default and logs a warning if unset). Optionally set `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD` to seed an admin at startup (idempotent). See `.env.example` for all auth variables and their defaults.
+Set `TVM_JWKS_URL` to TVM's JWKS endpoint, and/or `TVM_JWT_PUBLIC_KEY` to TVM's PEM-encoded public key as a static fallback (used when the JWKS endpoint is unset or unreachable) — at least one is required, or the app fails fast at startup. See `.env.example` for the auth variables and their defaults.
 
 ### Docker
 
@@ -456,14 +464,7 @@ Santhigiri event definitions (read public; writes require the `admin` role):
 - `POST   /api/v1/panchangam/events/{event_id}/occurrences/stream` — same, streamed one NDJSON line per year (admin)
 - `POST   /api/v1/panchangam/events/generate` — (re)generate every event's occurrence dates over a year range, streamed (admin)
 
-Authentication:
-
-- `POST  /api/v1/auth/login` — form login (`username`, `password`); sets access + refresh tokens as HTTP-only cookies and returns the current user
-- `POST  /api/v1/auth/refresh` — exchange the refresh-token cookie for a new token pair (rotation)
-- `POST  /api/v1/auth/logout` — clear the auth cookies
-- `GET   /api/v1/auth/me` — the current user (requires `user` or `admin`)
-- `PATCH /api/v1/auth/me` — update the caller's own profile fields (requires `user` or `admin`)
-- `POST  /api/v1/auth/users` — create a user (admin only)
+Authentication: Chandiroor has no `/api/v1/auth/*` endpoints of its own — it never issues tokens. Log in against TVM (the Ashram's auth microservice) and pass the resulting `Authorization: Bearer <token>` on every request to Chandiroor.
 
 Guruvani quotes (read public; writes require the `admin` role):
 
@@ -500,15 +501,13 @@ Current coverage:
 - `tests/core/kollavarsham/` — Kollavarsham coordinate/Modyana rules.
 - `tests/core/events/` — the event occurrence/significant-dates matchers.
 - `tests/db/` — shared persistence-layer unit tests (round-trips, cascade deletes, seeding) for the schema and `ReferenceRepository`.
-- `tests/features/auth/test_router.py` — JWT login/refresh, token-type enforcement, and the `require_role` guards (401/403).
-- `tests/features/auth/test_google_auth.py` — skipped; see its module docstring for the dropped `/auth/google` feature.
 - `tests/features/etag/` — `stable_hash`/`If-None-Match` helpers plus end-to-end conditional-request behaviour of the year and enum-reference endpoints.
 - `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path.
 - `tests/features/santhigiri_events/` — event-definition CRUD and occurrence-generation, end-to-end, including admin-role enforcement and ETag invalidation.
 - `tests/features/settings/` — `AppSettingRepository`, the admin settings CRUD endpoints, and settings→panchangam integration (e.g. `seed_year_range` gating `get_by_year`/`get_by_month`).
-- `features/guruvani/` has no test coverage yet (no `tests/features/guruvani/` directory) — a gap, not a deliberate omission; follow the `auth`/`santhigiri_events` test shape (repository round-trips + router CRUD + role-guard checks) when adding it.
+- `features/guruvani/` has no test coverage yet (no `tests/features/guruvani/` directory) — a gap, not a deliberate omission; follow the `santhigiri_events` test shape (repository round-trips + router CRUD + role-guard checks) when adding it.
 
-Tests use an in-memory SQLite engine (the FK pragma listener in `app/db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/features/etag/test_service.py` for the fixture pattern).
+Tests use an in-memory SQLite engine (the FK pragma listener in `app/db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/features/etag/test_service.py` for the fixture pattern). `tests/conftest.py` also mints test bearer tokens for `require_role`-gated endpoints: `bearer_header(role, user_id=1)` returns an `Authorization` header carrying a throwaway RS256 token shaped like a real TVM-issued one, and the autouse `_mock_tvm_jwks` fixture points `core.jwks_client` at that same in-memory test keypair instead of making a real HTTP call — no real TVM instance is needed to run the suite.
 
 When adding new astronomical calculations, add parametrized tests to `tests/` that verify against known Panchangam dates. Cross-check expected values against published physical Panchangams or the Drik Panchang reference.
 
@@ -577,10 +576,11 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `core/calendar/panchangam.py::get_panchangam()` (the dict-returning version) is a legacy function superseded by `get_panchangam_data()`. Do not add new callers of `get_panchangam()`.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - The Nakshatra transition search step is `0.01` days for 2021–2027 and 2029–2030, but `0.05` for 2028. This is now an admin-editable setting (`nakshatra_transition_step_days`, resolved per-year via `SettingsService.get_astronomy_tuning`) rather than a hardcoded constant — see "Transitions" above. Treat any change with caution, and note that a fresh database seeded from `db/sql/02_seed.sql` currently has no `2028` override configured. `app/utils/check_nakshatra_transitions.py`/`check_thithi_transitions.py` hold standalone transition-miss-checker functions for validating a change against a generated cache — they are **not** wired into app startup or CI, so run them manually after touching this setting.
-- `features/auth/`, `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every feature now follows this pattern.
+- `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every remaining feature now follows this pattern.
+- `features/auth/` was removed entirely (not migrated away from — deleted) when Chandiroor became a JWT resource server for TVM: it no longer issues tokens, hashes passwords, or stores user records, so there is nothing left for that feature to own. See "Authentication & Authorization" above for the replacement (`core/security.py::verify_access_token` + `core/jwks_client.py` against TVM's JWKS).
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
 - The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
-- `POST /auth/google` (Google Sign-In) and its find-or-create-by-`google_id` logic were dropped from `features/auth/` during the `app/` restructure and never carried over to `AuthRepositoryPort`/`AuthRepository`/`AuthService`, even though `db/models/user.py::User` still has a `google_id` column and `core/security.py::verify_google_id_token` still exists. `tests/features/auth/test_google_auth.py` documents this as a skipped gap rather than a fabricated pass — restoring it is a real feature slice (new port method + DTO + repository + service + router wiring), not a quick fix.
+- Google Sign-In (`verify_google_id_token`, the `google_id` column on the old local `user` table) was removed along with `features/auth/` — TVM is now the sole identity provider, so a second sign-in path in Chandiroor no longer makes sense. If Google Sign-In is wanted again, it belongs in TVM, not here.
 
 ---
 
