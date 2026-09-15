@@ -60,6 +60,8 @@ jobs:
 
       # --- Build ---
       - name: Build Docker image
+        env:
+          DOCKER_BUILDKIT: "0"
         run: |
           AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}-${{ steps.version.outputs.ENV }}"
           docker build -t "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" -f Dockerfile .
