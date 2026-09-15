@@ -29,6 +29,9 @@ _cached_at: float = 0.0
 
 
 def _fetch_jwks() -> Dict[str, Dict[str, Any]]:
+    if not settings.tvm_jwks_url:
+        raise JwksFetchError("TVM_JWKS_URL is not configured")
+
     try:
         response = requests.get(settings.tvm_jwks_url, timeout=5)
         response.raise_for_status()

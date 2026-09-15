@@ -233,7 +233,14 @@ Versioning is applied externally: a feature's `router.py` (or `generation_router
 
 ### Authentication & Authorization
 
-Chandiroor is a **JWT resource server**, not an identity provider: it never mints tokens, hashes passwords, or stores user records. Identity comes from TVM, the Ashram's dedicated auth microservice — every request's `Authorization: Bearer` access token is verified locally against TVM's published JWKS (`GET <tvm>/.well-known/jwks.json`, resolved via `core.config.settings.tvm_jwks_url`) rather than by calling TVM synchronously. TVM signs access tokens with its own private key (RS256); Chandiroor only ever holds the public half.
+Chandiroor is a **JWT resource server**, not an identity provider: it never mints tokens, hashes passwords, or stores user records. Identity comes from TVM, the Ashram's dedicated auth microservice — every request's `Authorization: Bearer` access token is verified locally against TVM's public key rather than by calling TVM synchronously. TVM signs access tokens with its own private key (RS256); Chandiroor only ever holds the public half.
+
+Two ways to get that public half, in preference order:
+
+1. **TVM's JWKS** (`GET <tvm>/.well-known/jwks.json`, `core.config.settings.tvm_jwks_url`) — the normal path. `core/security.py::verify_access_token` resolves the signing key by the token's `kid` header via `core/jwks_client.py`, which caches the fetched key set and refetches once on an unknown `kid` (picks up a TVM key rotation with no Chandiroor config change).
+2. **A static fallback key** (`core.config.settings.tvm_jwt_public_key`, a PEM-encoded RSA public key) — used only when the JWKS path is unset or the fetch fails (TVM hasn't stood up a JWKS endpoint yet, or is unreachable). It's still just TVM's public key — safe to hand out, since a public key can verify a signature but never produce one — but being static, it does **not** pick up a TVM key rotation automatically; whoever rotates TVM's signing key must update `TVM_JWT_PUBLIC_KEY` by hand.
+
+At least one of `TVM_JWKS_URL` / `TVM_JWT_PUBLIC_KEY` must be set (`core/config.py`'s `_require_a_verification_source` validator) — there is no way to verify a token with neither.
 
 The role hierarchy is `anonymous` < `user` < `editor` < `admin` < `super_admin` < `root` (`utils/roles.py::Role`) — the five authenticated tiers mirror TVM's own `Role` enum exactly (member *names* must match the `role` claim TVM signs), with `anonymous` added locally for "no token presented". All auth wiring lives in `api/deps.py`; token verification lives in `core/security.py` (`verify_access_token`/`TvmClaims`), backed by `core/jwks_client.py` (fetches and caches TVM's JWKS by `kid`, with a refetch-on-unknown-`kid` fallback for key rotation).
 
@@ -241,7 +248,7 @@ The role hierarchy is `anonymous` < `user` < `editor` < `admin` < `super_admin` 
 - **`require_role(minimum)`** is a dependency factory that gates an endpoint at a minimum role. Anonymous callers to a protected endpoint get `401`; authenticated callers with an insufficient role get `403`. It returns the resolved `Principal` so handlers can read the caller's `role`/`user_id`.
 - **Public endpoints still declare a guard** — the panchangam data routers depend on `require_role(Role.ANONYMOUS)`, which permits anonymous access but still validates (and rejects) any bearer token that *is* supplied.
 
-There is no `features/auth/` anymore, and no `/api/v1/auth/*` endpoints — login, signup, refresh, and user/profile management are TVM's responsibility, not Chandiroor's. `TVM_JWKS_URL` (plus `TVM_JWT_ISSUER`/`TVM_JWT_AUDIENCE`, matching TVM's configured `jwt.issuer`/`jwt.audience`) must be set or the app fails fast at startup — there is no local fallback secret.
+There is no `features/auth/` anymore, and no `/api/v1/auth/*` endpoints — login, signup, refresh, and user/profile management are TVM's responsibility, not Chandiroor's. `TVM_JWT_ISSUER`/`TVM_JWT_AUDIENCE` must match TVM's configured `jwt.issuer`/`jwt.audience`.
 
 ### Editable Santhigiri event definitions
 
@@ -420,7 +427,7 @@ uvicorn app.main:app --reload --port 8000
 
 `DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup only ensures the schema exists (`init_db()`); it does not load any data. Seed the database once by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See `db/sql/README.md`.
 
-Set `TVM_JWKS_URL` to TVM's JWKS endpoint (there is no local fallback secret — the app fails fast at startup if it's unset). See `.env.example` for the auth variables and their defaults.
+Set `TVM_JWKS_URL` to TVM's JWKS endpoint, and/or `TVM_JWT_PUBLIC_KEY` to TVM's PEM-encoded public key as a static fallback (used when the JWKS endpoint is unset or unreachable) — at least one is required, or the app fails fast at startup. See `.env.example` for the auth variables and their defaults.
 
 ### Docker
 

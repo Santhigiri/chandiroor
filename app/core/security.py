@@ -3,9 +3,13 @@ Verification of TVM-issued JWT access tokens.
 
 Chandiroor is a pure resource server: it never mints tokens or stores
 credentials. Every request's identity comes from an access token minted by
-TVM (the Ashram's auth microservice), signed with TVM's private key (RS256)
-and verified here against TVM's published JWKS
-(``core.config.settings.tvm_jwks_url``, via ``core.jwks_client``).
+TVM (the Ashram's auth microservice), signed with TVM's private key (RS256).
+Verification prefers TVM's published JWKS (``core.config.settings.tvm_jwks_url``,
+via ``core.jwks_client``), resolving the signing key by the token's ``kid``.
+If the JWKS endpoint is unset or unreachable, verification falls back to the
+static ``core.config.settings.tvm_jwt_public_key`` (a PEM-encoded RSA public
+key) when configured — useful before TVM exposes a JWKS endpoint, or during a
+TVM outage — at the cost of not picking up a TVM key rotation automatically.
 """
 from __future__ import annotations
 
@@ -34,7 +38,8 @@ class TvmClaims:
 
 def verify_access_token(token: str) -> TvmClaims:
     """
-    Verify *token* against TVM's JWKS and return its claims.
+    Verify *token* against TVM's published key (JWKS, or the static fallback
+    key) and return its claims.
 
     Raises ``TokenError`` on any failure: an unresolvable/unknown signing
     key, a bad signature, an expired token, a wrong issuer/audience, or
@@ -46,13 +51,24 @@ def verify_access_token(token: str) -> TvmClaims:
         raise TokenError(str(exc)) from exc
 
     kid = header.get("kid")
-    if not kid:
-        raise TokenError("token is missing a 'kid' header")
 
-    try:
-        signing_key = get_signing_key(kid)
-    except JwksFetchError as exc:
-        raise TokenError(str(exc)) from exc
+    signing_key: Any
+    if kid:
+        try:
+            signing_key = get_signing_key(kid)
+        except JwksFetchError:
+            if not settings.tvm_jwt_public_key:
+                raise TokenError(
+                    f"could not resolve signing key {kid!r} and no "
+                    "TVM_JWT_PUBLIC_KEY fallback is configured"
+                ) from None
+            signing_key = settings.tvm_jwt_public_key
+    elif settings.tvm_jwt_public_key:
+        # No 'kid' header — nothing to look up in the JWKS, so the static
+        # fallback key is the only option.
+        signing_key = settings.tvm_jwt_public_key
+    else:
+        raise TokenError("token is missing a 'kid' header")
 
     try:
         claims: Dict[str, Any] = jwt.decode(
