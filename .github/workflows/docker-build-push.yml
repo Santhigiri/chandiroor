@@ -32,17 +32,21 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
             TAG="dev-${DATE}.${PUSH_NUM}"
             SERVICE="chandiroor-dev"
+            ENV="dev"
           elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
             TAG="staging-${DATE}.${PUSH_NUM}"
             SERVICE="chandiroor-staging"
+            ENV="staging"
           else
             TAG="prod-${DATE}.${PUSH_NUM}"
             SERVICE="chandiroor-prod"
+            ENV="prod"
           fi
 
           echo "TAG=${TAG}" >> $GITHUB_OUTPUT
           echo "SERVICE=${SERVICE}" >> $GITHUB_OUTPUT
-          echo "Generated tag: ${TAG}, service: ${SERVICE}"
+          echo "ENV=${ENV}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}, service: ${SERVICE}, env: ${ENV}"
 
       # --- GCP auth ---
       - name: Authenticate to GCP
@@ -57,7 +61,7 @@ jobs:
       # --- Build ---
       - name: Build Docker image
         run: |
-          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
+          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}-${{ steps.version.outputs.ENV }}"
           docker build -t "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" -f Dockerfile .
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" "${AR_IMAGE}:latest"
@@ -66,7 +70,7 @@ jobs:
       # --- Push to Artifact Registry ---
       - name: Push image to Artifact Registry
         run: |
-          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
+          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}-${{ steps.version.outputs.ENV }}"
           docker push "${AR_IMAGE}:${{ steps.version.outputs.TAG }}"
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker push "${AR_IMAGE}:latest"
@@ -77,7 +81,7 @@ jobs:
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
       - name: Push images to Docker Hub
         run: |
-          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
+          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}-${{ steps.version.outputs.ENV }}"
           docker tag "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" "${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
           docker push "${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -91,7 +95,7 @@ jobs:
       # --- Deploy to Cloud Run ---
       - name: Deploy to Cloud Run
         run: |
-          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
+          AR_IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}-${{ steps.version.outputs.ENV }}"
           gcloud run deploy ${{ steps.version.outputs.SERVICE }} \
             --image="${AR_IMAGE}:${{ steps.version.outputs.TAG }}" \
             --region=${{ env.GCP_REGION }} \
