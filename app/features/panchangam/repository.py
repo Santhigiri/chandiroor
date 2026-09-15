@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime
 from typing import Dict, Iterable, List, Optional, Sequence
 
-from sqlalchemy import delete
+from sqlalchemy import delete, insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
@@ -43,6 +43,18 @@ from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 from app.core.astronomy.enums.thithi import Thithi
 
 from app.db.typing_utils import col as TypedColumn
+
+
+# Chunk size for IN(...)-list deletes issued by upsert_many's bulk path. Well
+# under both Postgres's parameter limit and SQLite's (>=3.32.0 default of
+# 32766, but older builds cap at 999) so it stays portable across the
+# Postgres/Neon runtime and the in-memory SQLite test engine.
+_DELETE_CHUNK_SIZE = 500
+
+
+def _chunked(items: Sequence, size: int) -> Iterable[Sequence]:
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
 
 
 # ── SQL row → domain type conversions ────────────────────────────────────────
@@ -173,10 +185,14 @@ class PanchangamRepository(PanchangamRepositoryPort):
     """
     Getters and setters for PanchangamData backed by Postgres.
 
-    Caller is responsible for committing the session.  ``upsert`` and
-    ``upsert_many`` deliberately do not commit so that multiple writes can be
-    batched into one transaction by the caller.  ``upsert_many`` is the
-    exception: it commits once at the end for convenience.
+    Caller is responsible for committing the session. ``upsert`` deliberately
+    does not commit so that multiple writes can be batched into one
+    transaction by the caller. ``upsert_many`` is the exception: it commits
+    once at the end for convenience — and, unlike a loop of ``upsert()``
+    calls, it writes the whole batch as a handful of set-based bulk
+    statements (chunked deletes + multi-row inserts) rather than one round
+    trip per day per table, which matters a great deal against a
+    network-latency-bound target like Neon.
     """
 
     def __init__(self, session: Session) -> None:
@@ -331,12 +347,179 @@ class PanchangamRepository(PanchangamRepositoryPort):
             )
 
     def upsert_many(
-        self, data: Iterable[PanchangamData], location: Location
+        self, data: Iterable[PanchangamData], location: Location, *, commit: bool = True
     ) -> None:
-        """Write multiple PanchangamData objects for *location* and commit once."""
-        for item in data:
-            self.upsert(item, location)
-        self._s.commit()
+        """
+        Bulk-write many PanchangamData objects for *location* in a handful of
+        set-based statements.
+
+        Unlike ``upsert`` (used for a single day, e.g. the streaming
+        ``/generate`` endpoint's per-day progress), this does not loop
+        per-item: it deletes every touched date's ``panchangam`` row in
+        chunked ``IN (...)`` batches — cascading (``ON DELETE CASCADE``) to
+        all five child tables in the same statement — then bulk-inserts the
+        new rows for every table via multi-row ``INSERT`` statements. This
+        turns what would be O(days) round trips into a small constant number,
+        which is what actually matters against a network-latency-bound
+        target like Neon.
+
+        Santhigiri events keep ``upsert``'s semantics: only dates whose
+        PanchangamData actually carries a non-empty
+        ``santhigiri_significant_dates`` are touched, so bulk-writing one
+        location's range never wipes the shared (location-independent) event
+        calendar another location's data already established for the same
+        dates.
+
+        Commits once at the end by default, same as before — pass
+        ``commit=False`` when the caller needs this write to land atomically
+        with something else in the same transaction (e.g.
+        ``scripts/generate_year_spans.py``, which lets the ETag refresh right
+        after do the single commit, exactly as the old per-day ``upsert()``
+        loop + ``refresh_etags()`` did).
+        """
+        # Dedupe by date, keeping the last occurrence — matches the old
+        # per-day upsert() loop's "last write wins" behavior for a caller
+        # that passes the same date twice, instead of a bulk multi-row
+        # INSERT tripping the (date, location_id) unique constraint.
+        items = list({item.date: item for item in data}.values())
+        if not items:
+            return
+
+        dates = [item.date for item in items]
+        self._delete_panchangam_rows(dates, location)
+
+        self._s.exec(
+            insert(PanchangamRow),
+            params=[
+                {
+                    "date": item.date,
+                    "location_id": location.id,
+                    "thithi_id": item.thithi.id,
+                    "nakshatra_id": item.nakshatra.id,
+                    "nazhika_from_sunrise": item.nazhika_from_sunrise,
+                }
+                for item in items
+            ],
+        )
+        self._s.exec(
+            insert(KollavarshamDateRow),
+            params=[
+                {
+                    "date": item.date,
+                    "location_id": location.id,
+                    "kv_day": item.kv.kv_day,
+                    "kv_month": item.kv.kv_month,
+                    "kv_year": item.kv.kv_year,
+                }
+                for item in items
+            ],
+        )
+        self._s.exec(
+            insert(ChandraMasaDateRow),
+            params=[
+                {
+                    "date": item.date,
+                    "location_id": location.id,
+                    "masa_id": item.chandra_masa.masa,
+                    "masa_day": item.chandra_masa.masa_day,
+                    "masa_type": item.chandra_masa.masa_type,
+                }
+                for item in items
+            ],
+        )
+        self._s.exec(
+            insert(SunriseSunsetRow),
+            params=[
+                {
+                    "date": item.date,
+                    "location_id": location.id,
+                    "sunrise": item.sunrise,
+                    "sunset": item.sunset,
+                }
+                for item in items
+            ],
+        )
+
+        thithi_rows = [
+            {
+                "panchangam_date": item.date,
+                "location_id": location.id,
+                "thithi_id": t.thithi.id,
+                "start_time": t.start_time,
+                "end_time": t.end_time,
+            }
+            for item in items
+            for t in item.thithi_transitions
+        ]
+        if thithi_rows:
+            self._s.exec(insert(ThithiTransitionRow), params=thithi_rows)
+
+        nakshatra_rows = [
+            {
+                "panchangam_date": item.date,
+                "location_id": location.id,
+                "nakshatra_id": n.nakshatra.id,
+                "start_time": n.start_time,
+                "end_time": n.end_time,
+            }
+            for item in items
+            for n in item.nakshatra_transitions
+        ]
+        if nakshatra_rows:
+            self._s.exec(insert(NakshatraTransitionRow), params=nakshatra_rows)
+
+        self._bulk_replace_santhigiri_events(items)
+
+        if commit:
+            self._s.commit()
+
+    def _delete_panchangam_rows(
+        self, dates: Sequence[datetime.date], location: Location
+    ) -> None:
+        """Delete *location*'s ``panchangam`` rows for *dates* in chunked
+        ``IN (...)`` batches. ``ON DELETE CASCADE`` (enforced under both
+        Postgres and the SQLite test engine — see ``tests/conftest.py``)
+        removes every child row (transitions, kollavarsham, chandra_masa,
+        sunrise_sunset) for each deleted row in the same statement, so this
+        single delete replaces what ``_delete_children`` does with five."""
+        for chunk in _chunked(dates, _DELETE_CHUNK_SIZE):
+            self._s.exec(
+                delete(PanchangamRow).where(
+                    col(PanchangamRow.date).in_(chunk),
+                    col(PanchangamRow.location_id) == location.id,
+                )
+            )
+
+    def _bulk_replace_santhigiri_events(
+        self, items: Sequence[PanchangamData]
+    ) -> None:
+        """Batched equivalent of ``_replace_santhigiri_events`` for every
+        item in *items* that actually carries events — dates with an empty
+        list are left untouched, same as ``upsert``."""
+        dated_events = [
+            (item.date, item.santhigiri_significant_dates)
+            for item in items
+            if item.santhigiri_significant_dates
+        ]
+        if not dated_events:
+            return
+
+        event_dates = [d for d, _ in dated_events]
+        for chunk in _chunked(event_dates, _DELETE_CHUNK_SIZE):
+            self._s.exec(
+                delete(SanthigiriEventDateRow).where(
+                    col(SanthigiriEventDateRow.panchangam_date).in_(chunk)
+                )
+            )
+
+        self._s.exec(
+            insert(SanthigiriEventDateRow),
+            params=[
+                {"panchangam_date": d, "event_id": event.id}
+                for d, events in dated_events
+                for event in events
+            ],
+        )
 
     def set_event_occurrences_for_year(
         self, event_id: str, year: int, dates: Iterable[datetime.date]

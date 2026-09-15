@@ -36,7 +36,7 @@ jobs:
             TAG="staging-${DATE}.${PUSH_NUM}"
             SERVICE="chandiroor-staging"
           else
-            TAG="${DATE}.${PUSH_NUM}"
+            TAG="prod-${DATE}.${PUSH_NUM}"
             SERVICE="chandiroor-prod"
           fi
 

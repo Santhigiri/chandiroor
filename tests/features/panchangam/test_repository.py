@@ -481,3 +481,211 @@ def test_upsert_many_commits(engine, seeded_session, make_panchangam_data):
     # A brand-new session sees the committed rows (upsert_many commits for us).
     with Session(engine) as other:
         assert _count(other, PanchangamRow) == 3
+
+
+def test_upsert_many_empty_is_a_noop(seeded_session):
+    PanchangamRepository(seeded_session).upsert_many([], TVM)
+    assert _count(seeded_session, PanchangamRow) == 0
+
+
+def test_upsert_many_matches_sequential_upsert(seeded_session, make_panchangam_data):
+    """The bulk path must produce byte-for-byte the same rows as looping
+    upsert() — the whole point is changing *how* the writes happen, not
+    *what* gets written."""
+    from app.core.astronomy.nakshatra_transition import NakshatraTransition
+    from app.core.astronomy.thithi_transition import ThithiTransition
+
+    dates = [datetime.date(2026, 7, d) for d in range(1, 6)]
+
+    def _build(d: datetime.date):
+        day = datetime.datetime.combine(d, datetime.time.min, tzinfo=datetime.timezone.utc)
+        return make_panchangam_data(
+            d,
+            thithi=Thithi.EKADASHI_SHUKLA if d.day % 2 else Thithi.POORNIMA,
+            nakshatra=Nakshatra.CHOTHI if d.day % 2 else Nakshatra.POORURUTTATHI,
+            thithi_transitions=[
+                ThithiTransition(thithi=Thithi.EKADASHI_SHUKLA, start_time=day,
+                                  end_time=day + datetime.timedelta(hours=8)),
+                ThithiTransition(thithi=Thithi.DWADASHI_SHUKLA, start_time=day + datetime.timedelta(hours=8),
+                                  end_time=day + datetime.timedelta(hours=20)),
+            ],
+            nakshatra_transitions=[
+                NakshatraTransition(nakshatra=Nakshatra.CHOTHI, start_time=day,
+                                     end_time=day + datetime.timedelta(hours=20)),
+            ],
+            santhigiri_significant_dates=[_pournami_event()] if d.day == 3 else [],
+        )
+
+    sequential_data = [_build(d) for d in dates]
+    bulk_data = [_build(d) for d in dates]
+
+    engine = seeded_session.get_bind()
+    repo_seq = PanchangamRepository(seeded_session)
+    for item in sequential_data:
+        repo_seq.upsert(item, TVM)
+    seeded_session.commit()
+    sequential_results = {
+        d: repo_seq.get_by_date(d, TVM) for d in dates
+    }
+
+    # Wipe and re-run via the bulk path in a second, independent session on
+    # the same underlying engine.
+    with Session(engine) as sb:
+        PanchangamRepository(sb).upsert_many(bulk_data, TVM)
+
+    with Session(engine) as sc:
+        repo_bulk = PanchangamRepository(sc)
+        bulk_results = {d: repo_bulk.get_by_date(d, TVM) for d in dates}
+
+    assert bulk_results == sequential_results
+
+
+def test_upsert_many_replaces_stale_rows_on_rerun(seeded_session, make_panchangam_data):
+    """Bulk-writing the same dates twice must not leave duplicate/stale
+    transition rows behind — mirrors test_upsert_replaces_children_cleanly."""
+    from app.core.astronomy.thithi_transition import ThithiTransition
+
+    date = datetime.date(2026, 9, 1)
+    day = datetime.datetime.combine(date, datetime.time.min, tzinfo=datetime.timezone.utc)
+    repo = PanchangamRepository(seeded_session)
+
+    repo.upsert_many([make_panchangam_data(date)], TVM)  # 1 default transition
+
+    two = [
+        ThithiTransition(thithi=Thithi.POORNIMA, start_time=day,
+                          end_time=day + datetime.timedelta(hours=12)),
+        ThithiTransition(thithi=Thithi.AMAVASYA, start_time=day + datetime.timedelta(hours=12),
+                          end_time=day + datetime.timedelta(hours=20)),
+    ]
+    repo.upsert_many([make_panchangam_data(date, thithi_transitions=two)], TVM)
+
+    rows = seeded_session.exec(
+        select(ThithiTransitionRow).where(ThithiTransitionRow.panchangam_date == date)
+    ).all()
+    assert len(rows) == 2
+    assert _count(seeded_session, PanchangamRow) == 1
+    assert _count(seeded_session, KollavarshamDateRow) == 1
+
+
+def test_upsert_many_preserves_events_when_batch_item_has_none(two_location_session, make_panchangam_data):
+    """Bulk-writing SECOND_LOCATION's data for a date must not wipe events
+    TVM already established for that same date — same rule as upsert()."""
+    date = datetime.date(2026, 9, 2)
+    repo = PanchangamRepository(two_location_session)
+
+    repo.upsert_many(
+        [make_panchangam_data(date, santhigiri_significant_dates=[_pournami_event()], location=TVM)],
+        TVM,
+    )
+    repo.upsert_many(
+        [make_panchangam_data(date, location=SECOND_LOCATION)],
+        SECOND_LOCATION,
+    )
+
+    got_tvm = repo.get_by_date(date, TVM)
+    got_other = repo.get_by_date(date, SECOND_LOCATION)
+    assert [e.id for e in got_tvm.santhigiri_significant_dates] == ["POURNAMI"]
+    assert [e.id for e in got_other.santhigiri_significant_dates] == ["POURNAMI"]
+    assert _count(two_location_session, SsdRow) == 1
+
+
+def test_upsert_many_location_isolation(two_location_session, make_panchangam_data):
+    """Bulk-writing one location's batch must not disturb another location's
+    rows for overlapping dates — same rule as upsert()."""
+    date = datetime.date(2026, 9, 3)
+    repo = PanchangamRepository(two_location_session)
+
+    repo.upsert_many([make_panchangam_data(date, location=TVM)], TVM)
+    repo.upsert_many([make_panchangam_data(date, location=SECOND_LOCATION)], SECOND_LOCATION)
+
+    repo.upsert_many(
+        [make_panchangam_data(date, nazhika_from_sunrise=99.0, location=TVM)], TVM
+    )
+
+    assert repo.get_by_date(date, SECOND_LOCATION) is not None
+    assert repo.get_by_date(date, TVM).nazhika_from_sunrise == 99.0
+    assert _count(two_location_session, PanchangamRow) == 2
+
+
+def test_upsert_many_dedupes_duplicate_dates_last_write_wins(seeded_session, make_panchangam_data):
+    """Same date passed twice in one batch must not trip the (date,
+    location_id) unique constraint — matches the old per-day loop's
+    last-write-wins behavior."""
+    date = datetime.date(2026, 9, 4)
+    repo = PanchangamRepository(seeded_session)
+
+    repo.upsert_many(
+        [
+            make_panchangam_data(date, nazhika_from_sunrise=1.0),
+            make_panchangam_data(date, nazhika_from_sunrise=2.0),
+        ],
+        TVM,
+    )
+
+    assert _count(seeded_session, PanchangamRow) == 1
+    assert repo.get_by_date(date, TVM).nazhika_from_sunrise == 2.0
+
+
+def test_upsert_many_commit_false_does_not_commit(seeded_session, make_panchangam_data):
+    """commit=False lets the caller batch this write into a larger
+    transaction (see scripts/generate_year_spans.py) — the row must be
+    visible within the same, still-open transaction (the bulk INSERT
+    executes right away) but a rollback of that transaction must undo it,
+    proving upsert_many itself never called commit()."""
+    date = datetime.date(2026, 9, 5)
+    repo = PanchangamRepository(seeded_session)
+
+    repo.upsert_many([make_panchangam_data(date)], TVM, commit=False)
+
+    # Visible within the same, uncommitted transaction.
+    assert repo.get_by_date(date, TVM) is not None
+
+    # Rolling back undoes it -- it was never committed.
+    seeded_session.rollback()
+    assert repo.get_by_date(date, TVM) is None
+
+
+def test_upsert_many_commit_false_lets_caller_commit_atomically(engine, seeded_session, make_panchangam_data):
+    """The caller (e.g. the script, right before refresh_etags()) can still
+    commit explicitly afterwards, landing the write durably."""
+    date = datetime.date(2026, 9, 6)
+    PanchangamRepository(seeded_session).upsert_many(
+        [make_panchangam_data(date)], TVM, commit=False
+    )
+    seeded_session.commit()
+
+    with Session(engine) as other:
+        assert _count(other, PanchangamRow) == 1
+
+
+def test_upsert_many_chunks_large_batches(monkeypatch, seeded_session, make_panchangam_data):
+    """Exercise the chunked IN(...) delete/replace path across chunk
+    boundaries by forcing a tiny chunk size."""
+    import app.features.panchangam.repository as repository_module
+
+    monkeypatch.setattr(repository_module, "_DELETE_CHUNK_SIZE", 3)
+
+    dates = [datetime.date(2026, 10, d) for d in range(1, 11)]  # 10 days, 3-1-3-3 chunking
+    repo = PanchangamRepository(seeded_session)
+    repo.upsert_many(
+        [
+            make_panchangam_data(
+                d, santhigiri_significant_dates=[_pournami_event()] if d.day % 2 == 0 else [],
+            )
+            for d in dates
+        ],
+        TVM,
+    )
+
+    assert _count(seeded_session, PanchangamRow) == 10
+    for d in dates:
+        fetched = repo.get_by_date(d, TVM)
+        assert fetched is not None
+        expected_events = ["POURNAMI"] if d.day % 2 == 0 else []
+        assert [e.id for e in fetched.santhigiri_significant_dates] == expected_events
+
+    # Re-run over a shifted, partially-overlapping window to also exercise
+    # the chunked delete against pre-existing rows outside the new batch.
+    more_dates = [datetime.date(2026, 10, d) for d in range(6, 16)]
+    repo.upsert_many([make_panchangam_data(d) for d in more_dates], TVM)
+    assert _count(seeded_session, PanchangamRow) == 15  # 1-5 untouched, 6-15 rewritten
