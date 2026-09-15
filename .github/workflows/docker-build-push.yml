@@ -70,6 +70,8 @@ jobs:
           docker push "${AR_IMAGE}:${{ steps.version.outputs.TAG }}"
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker push "${AR_IMAGE}:latest"
+            docker tag "${AR_IMAGE}:${{ steps.version.outputs.TAG }}" "${AR_IMAGE}:prod-${{ steps.version.outputs.TAG }}"
+            docker push "${AR_IMAGE}:prod-${{ steps.version.outputs.TAG }}"
           fi
 
       # --- (Optional) Also push to Docker Hub ---
