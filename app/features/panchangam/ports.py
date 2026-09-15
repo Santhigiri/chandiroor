@@ -37,7 +37,7 @@ class PanchangamRepositoryPort(Protocol):
     def upsert(self, data: PanchangamData, location: Location) -> None: ...
 
     def upsert_many(
-        self, data: Iterable[PanchangamData], location: Location
+        self, data: Iterable[PanchangamData], location: Location, *, commit: bool = True
     ) -> None: ...
 
     def set_event_occurrences_for_year(
