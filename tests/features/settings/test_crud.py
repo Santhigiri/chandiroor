@@ -17,15 +17,16 @@ from sqlmodel import Session, SQLModel, create_engine
 
 import app.db.database  # noqa: F401 — registers the FK pragma listener
 import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
-from app.core.security import hash_password
 from app.db.database import get_session
 from app.db.seed import seed_lookup_tables
-from app.features.auth.auth_repository import AuthRepository
-from app.features.auth.ports import UserCreate
 from app.main import app
 from app.utils.roles import Role
+from tests.conftest import bearer_header
 
 SETTINGS_URL = "/api/v1/settings"
+# Passwords are unused now (Chandiroor trusts a TVM-issued token, never a
+# username/password) but kept as placeholders so _bearer()'s call sites below
+# don't need touching.
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
 NORMAL_USER, NORMAL_PW = "devotee", "user-password"
 
@@ -40,9 +41,6 @@ def api_engine():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         seed_lookup_tables(s)
-        repo = AuthRepository(s)
-        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
-        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
         s.commit()
     try:
         yield engine
@@ -64,12 +62,13 @@ def client(api_engine):
         app.dependency_overrides.clear()
 
 
-def _bearer(client, username, password) -> dict:
-    token = client.post(
-        "/api/v1/auth/login",
-        data={"username": username, "password": password},
-    ).cookies["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def _bearer(client, username, password=None) -> dict:
+    # Chandiroor no longer authenticates by username/password — it trusts a
+    # TVM-issued access token. Tokens are minted directly here (no DB lookup,
+    # no login round trip) keyed by the same ADMIN_USER/NORMAL_USER labels the
+    # tests already used.
+    role = Role.ADMIN if username == ADMIN_USER else Role.USER
+    return bearer_header(role)
 
 
 @pytest.fixture

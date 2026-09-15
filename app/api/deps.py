@@ -7,13 +7,15 @@ Two concerns live here:
   request-scoped DB session, replacing the ``_get_service`` helper that was
   previously duplicated in each route module.
 
-* **Authentication / authorization** — ``get_current_principal`` resolves the
-  bearer token (if any) into a ``Principal``; ``require_role`` is a dependency
+* **Authentication / authorization** — ``get_current_principal`` verifies the
+  bearer token (if any) against TVM's JWKS (``core.security.verify_access_token``)
+  and resolves it into a ``Principal``; ``require_role`` is a dependency
   factory that gates an endpoint at a minimum ``Role``. Every request resolves
-  to one of the three principals: an ``admin``/``user`` backed by a valid access
-  token, or the ``anonymous`` principal when no token is presented. A malformed,
-  expired, or wrong-type token is rejected outright (401) rather than being
-  downgraded to anonymous.
+  to either an authenticated principal backed by a valid TVM-issued access
+  token, or the ``anonymous`` principal when no token is presented. A
+  malformed, expired, or unverifiable token is rejected outright (401) rather
+  than being downgraded to anonymous. Chandiroor never mints tokens or looks
+  up a local user record — the token's claims are trusted as-is.
 """
 
 from __future__ import annotations
@@ -22,19 +24,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
 from app.core.ports.panchangam_service import PanchangamServicePort
 from app.core.ports.reference_repository import ReferenceRepositoryPort
 from app.core.ports.unit_of_work import UnitOfWork
+from app.core.security import TokenError, verify_access_token
 from app.db.database import get_session
 from app.db.reference_repository import ReferenceRepository
 from app.db.unit_of_work import SqlUnitOfWork
-from app.features.auth.auth_repository import AuthRepository
-from app.features.auth.ports import AuthRepositoryPort, UserNotFoundException
-from app.features.auth.service import AuthService, InvalidTokenException
 from app.features.etag.ports import EtagRepositoryPort
 from app.features.etag.repository import EtagRepository
 from app.features.guruvani.ports import GuruvaniRepositoryPort
@@ -207,20 +207,6 @@ def get_panchangam_generation_service(
     )
 
 
-def get_auth_repository(session: SessionDep) -> AuthRepositoryPort:
-    return AuthRepository(session)
-
-
-AuthRepositoryDep = Annotated[AuthRepositoryPort, Depends(get_auth_repository)]
-
-
-def get_auth_service(
-    auth_repository: AuthRepositoryDep,
-    uow: UnitOfWorkDep,
-) -> AuthService:
-    return AuthService(auth_repository, uow)
-
-
 # ── Location selection ────────────────────────────────────────────────────────
 
 
@@ -258,7 +244,7 @@ class Principal:
     """The authenticated (or anonymous) identity behind a request."""
 
     role: Role
-    username: str | None = None
+    user_id: int | None = None
 
     @property
     def is_authenticated(self) -> bool:
@@ -267,10 +253,6 @@ class Principal:
 
 ANONYMOUS = Principal(role=Role.ANONYMOUS)
 
-# Name of the HTTP-only cookie carrying the access token (must match the name
-# the auth routes set it under).
-ACCESS_TOKEN_COOKIE = "access_token"
-
 # auto_error=False so requests without an Authorization header are allowed
 # through as the anonymous principal instead of being rejected here.
 _bearer = HTTPBearer(auto_error=False)
@@ -278,35 +260,25 @@ _bearer = HTTPBearer(auto_error=False)
 
 def get_current_principal(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-    access_token: Annotated[str | None, Cookie()] = None,
-    auth_service: AuthService = Depends(get_auth_service),
 ) -> Principal:
     """
-    Resolve the request's identity from its access token.
+    Resolve the request's identity from its ``Authorization: Bearer`` access
+    token, verified against TVM's JWKS.
 
-    The token is taken from the HTTP-only ``access_token`` cookie (how browsers
-    authenticate), falling back to an ``Authorization: Bearer`` header when
-    present (for non-browser/programmatic clients). Resolution:
-
-    * No cookie and no header → the anonymous principal.
-    * A valid access token for an existing, active user → that user's principal.
-    * A malformed/expired/wrong-type token, or one naming an unknown or
-      deactivated user → 401.
+    * No header → the anonymous principal.
+    * A token that verifies against TVM's JWKS → that token's principal,
+      trusted as-is (no local user lookup — Chandiroor owns no user data).
+    * A malformed/expired/unverifiable token → 401.
     """
-    token = access_token or (credentials.credentials if credentials else None)
-    if token is None:
+    if credentials is None:
         return ANONYMOUS
 
     try:
-        user = auth_service.resolve_principal_credentials(token)
-    except InvalidTokenException:
+        claims = verify_access_token(credentials.credentials)
+    except TokenError:
         raise _unauthorized("Invalid or expired token")
-    except UserNotFoundException:
-        raise _unauthorized("User Not Found")
-    if user is None or not user.is_active:
-        raise _unauthorized("User no longer valid")
 
-    return Principal(role=Role(user.role), username=user.username)
+    return Principal(role=claims.role, user_id=claims.user_id)
 
 
 def require_role(minimum: Role) -> Callable[..., Principal]:

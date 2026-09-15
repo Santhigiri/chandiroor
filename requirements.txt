@@ -11,7 +11,6 @@
 # --- Direct dependencies ---
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
-python-multipart==0.0.32
 skyfield==1.55
 pytz==2026.3.post1
 pyswisseph==2.10.3.2
@@ -19,9 +18,7 @@ sqlmodel==0.0.42
 psycopg2-binary==2.9.12
 python-dotenv==1.2.3
 python-jose[cryptography]==3.5.0
-bcrypt==5.0.0
 pydantic-settings==2.15.0
-google-auth==2.57.0
 requests==2.34.2
 
 # --- Transitive dependencies (pinned for reproducibility) ---
@@ -39,13 +36,10 @@ httptools==0.8.0
 idna==3.19
 jplephem==2.24
 numpy==2.5.2
-pyasn1==0.6.4
-pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
 PyYAML==6.0.3
-rsa==4.9.1
 sgp4==2.27
 six==1.17.0
 SQLAlchemy==2.0.52
