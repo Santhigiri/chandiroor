@@ -20,11 +20,12 @@ the dedicated offline cache scripts.
 """
 from __future__ import annotations
 
-from datetime import datetime, time
-from typing import List
+from datetime import date, datetime, time
+from typing import List, Mapping, Optional, Sequence, Tuple
 
-from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.pournami import is_poornima, is_poornima_live
 from app.core.astronomy.constants import DEFAULT_TIMEZONE
+from app.core.astronomy.transitions import ThithiTransition
 from app.schemas.panchangam_data import PanchangamData
 from app.utils.santhigiri_events import EventCondition, SanthigiriEvent
 
@@ -50,11 +51,20 @@ def event_matches(
     condition: EventCondition,
     data: PanchangamData,
     timezone: str = DEFAULT_TIMEZONE,
+    thithi_transitions_by_date: Optional[Mapping[date, Sequence[ThithiTransition]]] = None,
+    sunrise_sunset_by_date: Optional[Mapping[date, Tuple[datetime, datetime]]] = None,
 ) -> bool:
     """Return True if *data*'s day satisfies every set field of *condition*.
 
     "Last occurrence" events and conditions that pin no single day never
     match here (see the module docstring).
+
+    *thithi_transitions_by_date*/*sunrise_sunset_by_date*, when both supplied,
+    let an ``is_poornima`` check use already-computed data (e.g. a whole
+    year's ``PanchangamData`` already fetched from the DB) instead of
+    recomputing it live via ``is_poornima_live`` — see
+    ``core.astronomy.pournami`` for why the cached-data path is preferred
+    whenever a store is available.
     """
     if condition.last_occurance:
         return False
@@ -81,10 +91,14 @@ def event_matches(
         return False
     if condition.en_year is not None and condition.en_year != data.date.year:
         return False
-    if condition.is_poornima is not None and condition.is_poornima != is_poornima_live(
-        datetime.combine(data.date, time.min), timezone
-    ):
-        return False
+    if condition.is_poornima is not None:
+        actual_is_poornima = (
+            is_poornima(data.date, thithi_transitions_by_date, sunrise_sunset_by_date)
+            if thithi_transitions_by_date is not None and sunrise_sunset_by_date is not None
+            else is_poornima_live(datetime.combine(data.date, time.min), timezone)
+        )
+        if condition.is_poornima != actual_is_poornima:
+            return False
 
     return True
 
