@@ -78,24 +78,6 @@ CREATE TABLE paksha (
 	UNIQUE (name)
 );
 
-CREATE TABLE "user" (
-	id SERIAL NOT NULL, 
-	username VARCHAR NOT NULL, 
-	hashed_password VARCHAR, 
-	role VARCHAR NOT NULL, 
-	is_active BOOLEAN NOT NULL, 
-	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
-	email VARCHAR, 
-	full_name VARCHAR, 
-	google_id VARCHAR, 
-	date_of_birth DATE, 
-	birth_nakshatra VARCHAR, 
-	PRIMARY KEY (id)
-);
-
-CREATE UNIQUE INDEX ix_user_email ON "user" (email);
-CREATE UNIQUE INDEX ix_user_google_id ON "user" (google_id);
-CREATE UNIQUE INDEX ix_user_username ON "user" (username);
 
 CREATE TABLE thithi (
 	id SERIAL NOT NULL,

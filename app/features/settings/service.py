@@ -7,7 +7,8 @@ is absent (or, defensively, if a stored value somehow fails validation) — see
 each per-key Pydantic model in ``schemas/app_setting.py``, whose defaults
 mirror the constants being replaced. This makes rollout zero-downtime: a
 freshly-deployed database with no ``app_setting`` rows yet behaves exactly
-like the pre-settings code (see ``db/sql/migrations/0004_add_app_setting_table.sql``).
+like the pre-settings code (the ``app_setting`` table's introduction is
+folded into the Alembic baseline revision — see ``db/sql/README.md``).
 
 ``core/`` never resolves settings itself (per CLAUDE.md's layer boundaries) —
 only this service does, translating a stored JSON value into the plain

@@ -37,4 +37,8 @@ RUN python -m compileall -q /app /opt/venv
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Bring the schema to the current Alembic head before serving traffic — see
+# db/sql/README.md for the migration workflow. init_db() (app startup
+# lifespan) no longer creates tables; alembic upgrade head is now the only
+# path that changes schema.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

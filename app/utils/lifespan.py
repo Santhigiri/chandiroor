@@ -1,54 +1,40 @@
 from contextlib import asynccontextmanager
-from time import time
+from time import perf_counter
 
 from fastapi import FastAPI
-from sqlmodel import Session
 
-from app.features.auth.ports import UserCreate
-from app.core.config import settings
-from app.core.security import hash_password
-from app.db.database import engine, init_db
-from app.features.auth.auth_repository import AuthRepository
-from app.utils.roles import Role
-
-
-def _seed_admin_user() -> None:
-    """
-    Create the initial admin from ``INITIAL_ADMIN_USERNAME`` / ``_PASSWORD`` if
-    both are configured and the user does not already exist. Idempotent — a
-    no-op once the admin has been created (or when the env vars are unset).
-    """
-    username = settings.initial_admin_username
-    password = settings.initial_admin_password
-    if not username or not password:
-        return
-
-    with Session(engine) as session:
-        repo = AuthRepository(session)
-        if repo.exists(username):
-            return
-        repo.create_user(
-            UserCreate(
-                username=username,
-                hashed_password=hash_password(password),
-                role=Role.ADMIN,
-            )
-        )
-        print(f"Seeded initial admin user {username!r}")
+from app.db.database import init_db
+from app.utils.startup_timing import IMPORT_STARTED_AT
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    start = time()
+    start = perf_counter()
 
-    # Ensure the schema exists (idempotent). Seed data is loaded out-of-band via
-    # the SQL files in db/sql/ against the Neon/Postgres database — the app no
-    # longer imports the pickle cache at startup.
+    # Defensive safety net only — Alembic (`alembic upgrade head`, run before
+    # this process starts; see Dockerfile and db/sql/README.md) is the
+    # authoritative way schema changes reach a database. create_all() only
+    # creates *missing* tables and never alters an existing one, so it's a
+    # harmless no-op once migrations have run; it exists so a local
+    # `uvicorn --reload` dev flow that hasn't run migrations yet still gets a
+    # usable schema. Seed data is loaded out-of-band via the SQL files in
+    # db/sql/ against the Neon/Postgres database — the app no longer imports
+    # the pickle cache at startup.
     init_db()
-    _seed_admin_user()
 
-    elapsed = time() - start
+    elapsed = perf_counter() - start
     print(f"Database ready in {elapsed:.3f}s")
+
+    # Total time from the first line of app/main.py to "ready to serve" —
+    # always logged, in every environment, not gated behind a debug flag.
+    # This is the number that regressed to begin with when the Skyfield/
+    # ephemeris stack loaded eagerly at import time instead of lazily on
+    # first live computation (see tests/core/astronomy/test_lazy_astronomy.py
+    # and app/utils/startup_timing.py) — worth always having visible so a
+    # future regression like that one shows up in every boot's logs, not
+    # just an ad hoc local benchmark.
+    startup_elapsed = perf_counter() - IMPORT_STARTED_AT
+    print(f"App startup took {startup_elapsed:.3f}s (import + schema check)")
 
     yield
 

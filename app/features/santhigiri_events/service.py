@@ -37,6 +37,7 @@ from app.core.ports.settings_service import SettingsServicePort
 from app.core.ports.unit_of_work import UnitOfWork
 from app.features.panchangam.ports import PanchangamRepositoryPort
 from app.features.etag.ports import EtagRepositoryPort
+from app.features.santhigiri_events.ics import build_events_ics
 from app.features.santhigiri_events.ports import (
     SanthigiriEventCreate as SanthigiriEventCreatePort,
     SanthigiriEventGet,
@@ -121,6 +122,31 @@ class SanthigiriEventService:
     def get_event_by_id(self, event_id: str) -> SanthigiriEventDetail:
         event = self.event_repository.get_event_by_id(event_id)
         return self._to_detail(event)
+
+    def get_calendar_ics(self) -> str:
+        """Build an iCalendar (RFC 5545) document with one all-day ``VEVENT``
+        per Santhigiri event occurrence across the admin-configured
+        ``seed_year_range``, for ``GET /panchangam/events/calendar.ics``.
+
+        Reads directly off ``PanchangamData.santhigiri_significant_dates``
+        (already the full ``SanthigiriEvent`` objects, not just ids), the
+        same field the compact ``/year`` endpoint's
+        ``santhigiri_significant_dates`` list is derived from — so this
+        always reflects the same occurrence data a client already sees via
+        the regular panchangam endpoints, with no separate read path to
+        drift out of sync.
+        """
+        start_year, end_year = self.settings.get_seed_year_range()
+        start = date(start_year, 1, 1)
+        end = date(end_year, 12, 31)
+        yearly_data = self.panchangam_repo.get_by_date_range(start, end, DEFAULT_LOCATION)
+
+        occurrences = [
+            (day, event)
+            for day, data in sorted(yearly_data.items())
+            for event in data.santhigiri_significant_dates
+        ]
+        return build_events_ics(occurrences)
 
     # ── Write ───────────────────────────────────────────────────────────────────
 
