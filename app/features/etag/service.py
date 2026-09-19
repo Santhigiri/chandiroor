@@ -94,6 +94,27 @@ def etag_json_response(request: Request, payload: Any) -> Response:
     return JSONResponse(content=encoded, headers={"ETag": etag})
 
 
+def etag_text_response(request: Request, text: str, media_type: str) -> Response:
+    """
+    Serve *text* (already-built, e.g. an iCalendar document) as an
+    ETag-validated plain-text response, hashed fresh on every call.
+
+    Unlike :func:`conditional_json_response`, there is no persisted ETag to
+    check before rebuilding the payload — the caller has already built *text*
+    by the time this is called. This still saves the client a full re-download
+    when nothing changed (a 304 with no body), which is what matters for a
+    periodically-polled feed (e.g. a calendar subscription URL), and it can
+    never disagree with the body just built since both are derived from the
+    same value in the same call.
+    """
+    etag = '"' + stable_hash(text) + '"'
+
+    if if_none_match_satisfied(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"ETag": etag})
+
+    return Response(content=text, media_type=media_type, headers={"ETag": etag})
+
+
 def conditional_json_response(
     request: Request,
     etag_repository: EtagRepositoryPort,

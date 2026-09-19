@@ -28,11 +28,12 @@ resolved to a set of days and raises :class:`UnsupportedEventCondition`.
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Mapping, Sequence, Tuple
 
 import pytz
 
-from app.core.astronomy.pournami import is_poornima_live
+from app.core.astronomy.pournami import is_poornima, is_poornima_live
+from app.core.astronomy.transitions import ThithiTransition
 from app.core.events.significant_dates import event_matches, pins_single_day
 from app.core.astronomy.constants import DEFAULT_TIMEZONE
 from app.schemas.panchangam_data import PanchangamData
@@ -77,11 +78,37 @@ def classify_condition(condition: EventCondition) -> ConditionClass:
     )
 
 
-def _matches_fields(condition: EventCondition, data: PanchangamData) -> bool:
+def _transition_and_sunrise_maps(
+    yearly_data: PanchangamYear,
+) -> Tuple[
+    Dict[date, Sequence[ThithiTransition]],
+    Dict[date, Tuple[datetime, datetime]],
+]:
+    """Build the ``is_poornima``-cached-path input maps from *yearly_data*,
+    once per call site, so an ``is_poornima`` condition check reuses the
+    Thithi transitions/sunrise/sunset already fetched from the DB instead of
+    recomputing them live per day (see :func:`app.core.astronomy.pournami.is_poornima`
+    vs. ``is_poornima_live``).
+    """
+    thithi_transitions_by_date = {d: data.thithi_transitions for d, data in yearly_data.items()}
+    sunrise_sunset_by_date = {d: (data.sunrise, data.sunset) for d, data in yearly_data.items()}
+    return thithi_transitions_by_date, sunrise_sunset_by_date
+
+
+def _matches_fields(
+    condition: EventCondition,
+    data: PanchangamData,
+    thithi_transitions_by_date: Mapping[date, Sequence[ThithiTransition]] | None = None,
+    sunrise_sunset_by_date: Mapping[date, Tuple[datetime, datetime]] | None = None,
+) -> bool:
     """Field-by-field equality check against every set field of *condition*,
     ignoring ``last_occurance`` (unlike :func:`event_matches`, which treats a
     last-occurrence condition as never matching a single day on its own —
     exactly the case :func:`compute_last_occurrence` needs to check directly).
+
+    *thithi_transitions_by_date*/*sunrise_sunset_by_date*, when both supplied,
+    let an ``is_poornima`` check use already-computed data instead of
+    recomputing it live — see :func:`_transition_and_sunrise_maps`.
     """
     if condition.nakshatra is not None and condition.nakshatra != data.nakshatra:
         return False
@@ -103,10 +130,14 @@ def _matches_fields(condition: EventCondition, data: PanchangamData) -> bool:
         return False
     if condition.en_year is not None and condition.en_year != data.date.year:
         return False
-    if condition.is_poornima is not None and condition.is_poornima != is_poornima_live(
-        datetime.combine(data.date, time.min), DEFAULT_TIMEZONE
-    ):
-        return False
+    if condition.is_poornima is not None:
+        actual_is_poornima = (
+            is_poornima(data.date, thithi_transitions_by_date, sunrise_sunset_by_date)
+            if thithi_transitions_by_date is not None and sunrise_sunset_by_date is not None
+            else is_poornima_live(datetime.combine(data.date, time.min), DEFAULT_TIMEZONE)
+        )
+        if condition.is_poornima != actual_is_poornima:
+            return False
     return True
 
 
@@ -114,8 +145,15 @@ def compute_single_day_occurrences(
     condition: EventCondition, yearly_data: PanchangamYear
 ) -> List[date]:
     """Every day in *yearly_data* whose fields satisfy *condition*."""
+    thithi_transitions_by_date, sunrise_sunset_by_date = _transition_and_sunrise_maps(yearly_data)
     return sorted(
-        d for d, data in yearly_data.items() if event_matches(condition, data)
+        d
+        for d, data in yearly_data.items()
+        if event_matches(
+            condition, data,
+            thithi_transitions_by_date=thithi_transitions_by_date,
+            sunrise_sunset_by_date=sunrise_sunset_by_date,
+        )
     )
 
 
@@ -140,9 +178,10 @@ def _last_occurrence_candidates(
     field besides ``ml_month``) participates in the direct field-match above
     but has no Nakshatra-transition fallback of its own.
     """
+    thithi_transitions_by_date, sunrise_sunset_by_date = _transition_and_sunrise_maps(yearly_data)
     by_kv_year: Dict[int, List[date]] = {}
     for d, data in yearly_data.items():
-        if _matches_fields(condition, data):
+        if _matches_fields(condition, data, thithi_transitions_by_date, sunrise_sunset_by_date):
             by_kv_year.setdefault(data.kv.kv_year, []).append(d)
 
     if by_kv_year:

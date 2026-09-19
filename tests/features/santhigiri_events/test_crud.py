@@ -21,19 +21,17 @@ from sqlmodel import Session, SQLModel, create_engine
 
 import app.db.database  # noqa: F401 — registers the FK pragma listener
 import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
-from app.core.security import hash_password
 from app.db.database import get_session
 from app.features.etag.repository import EtagRepository
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.panchangam.repository import PanchangamRepository
 from app.db.reference_repository import ReferenceRepository
 from app.db.seed import seed_lookup_tables
-from app.features.auth.auth_repository import AuthRepository
-from app.features.auth.ports import UserCreate
 from app.features.panchangam.service import PanchangamService
 from app.main import app
 from app.features.etag.service import enum_key, refresh_etags
 from app.utils.roles import Role
+from tests.conftest import bearer_header
 
 EVENTS_URL = "/api/v1/panchangam/events"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
@@ -57,9 +55,6 @@ def api_engine():
             SqlUnitOfWork(s),
             [],
         )  # precompute enum ETags exactly as db.migrate does
-        repo = AuthRepository(s)
-        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
-        repo.create_user(UserCreate(NORMAL_USER, hash_password(NORMAL_PW), Role.USER))
         s.commit()
     try:
         yield engine
@@ -83,15 +78,13 @@ def client(api_engine):
 
 # ── Helpers ─────────────────────────────────────────────────────────────────────
 
-def _bearer(client, username, password) -> dict:
-    # Login delivers the access token as an HTTP-only cookie; read it from the
-    # login response and replay it via the Authorization header (still accepted
-    # as a fallback for non-browser clients).
-    token = client.post(
-        "/api/v1/auth/login",
-        data={"username": username, "password": password},
-    ).cookies["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def _bearer(client, username, password=None) -> dict:
+    # Chandiroor no longer authenticates by username/password — it trusts a
+    # TVM-issued access token. Tokens are minted directly here (no DB lookup,
+    # no login round trip) keyed by the same ADMIN_USER/NORMAL_USER labels the
+    # tests already used.
+    role = Role.ADMIN if username == ADMIN_USER else Role.USER
+    return bearer_header(role)
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ Co-located with the read-only ``GET /panchangam/events`` list (defined in
 ``/api/v1``:
 
 * ``POST   /api/v1/panchangam/events``                            — create an event  (admin)
+* ``GET    /api/v1/panchangam/events/calendar.ics``                — live iCalendar feed of every event occurrence  (public)
 * ``GET    /api/v1/panchangam/events/{event_id}``                  — fetch one event's full definition  (public)
 * ``PUT    /api/v1/panchangam/events/{event_id}``                  — partial-update an event  (admin)
 * ``DELETE /api/v1/panchangam/events/{event_id}``                  — delete an event  (admin)
@@ -41,10 +42,11 @@ dependency open until the response finishes sending.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from starlette.responses import StreamingResponse
 
 from app.api.deps import get_santhigiri_event_service, require_role
+from app.features.etag.service import etag_text_response
 from app.features.santhigiri_events.ports import EventNotFoundException
 from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate,
@@ -86,6 +88,26 @@ def create_event(payload: SanthigiriEventCreate, service: ServiceDep) -> Santhig
         )
     except InvalidEventReferenceException as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get(
+    "/calendar.ics",
+    dependencies=[Depends(require_role(Role.ANONYMOUS))],
+)
+def get_events_calendar_ics(request: Request, service: ServiceDep) -> Response:
+    """Live iCalendar (RFC 5545) feed of every Santhigiri event occurrence
+    across the configured ``seed_year_range``, meant to be added as a
+    subscribed calendar URL (e.g. Google Calendar's "From URL" import).
+    Unlike a one-off exported file, this always reflects current DB state —
+    a subscribed client just needs to re-poll the same URL, which Google
+    Calendar does periodically (roughly every 8-24 hours; not configurable
+    or forceable from here).
+
+    Declared ahead of ``GET /{event_id}`` so the literal ``calendar.ics``
+    path segment isn't swallowed by that route's ``{event_id}`` match.
+    """
+    ics_text = service.get_calendar_ics()
+    return etag_text_response(request, ics_text, media_type="text/calendar")
 
 
 @router.get(

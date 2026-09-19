@@ -24,11 +24,8 @@ from sqlmodel import Session, SQLModel, create_engine
 import app.db.database  # noqa: F401 — registers the FK pragma listener
 import app.db.models  # noqa: F401 — register every table on SQLModel.metadata
 from app.core.astronomy.enums.nakshatra import Nakshatra
-from app.core.security import hash_password
 from app.core.kollavarsham.enums.masa import MalayalamMasa
 from app.db.database import get_session
-from app.features.auth.auth_repository import AuthRepository
-from app.features.auth.ports import UserCreate
 from app.features.etag.repository import EtagRepository
 from app.db.unit_of_work import SqlUnitOfWork
 from app.features.panchangam.repository import PanchangamRepository
@@ -39,6 +36,7 @@ from app.main import app
 from app.features.etag.service import refresh_etags
 from app.utils.location import Location
 from app.utils.roles import Role
+from tests.conftest import bearer_header
 
 EVENTS_URL = "/api/v1/panchangam/events"
 ADMIN_USER, ADMIN_PW = "admin", "admin-password"
@@ -90,8 +88,6 @@ def api_engine(synthetic_data):
             SqlUnitOfWork(s),
             [2025, 2026, 2027],
         )
-        repo = AuthRepository(s)
-        repo.create_user(UserCreate(ADMIN_USER, hash_password(ADMIN_PW), Role.ADMIN))
         s.commit()
     try:
         yield engine
@@ -115,11 +111,10 @@ def client(api_engine):
 
 @pytest.fixture
 def admin_auth(client) -> dict:
-    token = client.post(
-        "/api/v1/auth/login",
-        data={"username": ADMIN_USER, "password": ADMIN_PW},
-    ).cookies["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    # Chandiroor no longer authenticates by username/password — it trusts a
+    # TVM-issued access token, minted directly here (no DB lookup, no login
+    # round trip).
+    return bearer_header(Role.ADMIN)
 
 
 @pytest.fixture
