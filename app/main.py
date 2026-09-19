@@ -1,3 +1,5 @@
+from app.utils.startup_timing import IMPORT_STARTED_AT  # noqa: F401 — must be the first import; see that module's docstring
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings

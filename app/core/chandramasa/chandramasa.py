@@ -5,14 +5,18 @@ from typing import Dict, List, Tuple
 from app.core.astronomy.constants import DEFAULT_TIMEZONE, Coordinates
 from app.core.astronomy.enums.paksha import Paksha
 from app.core.astronomy.enums.thithi import Thithi
-from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
-from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
 from app.core.astronomy.transitions import ThithiTransition
 from app.core.astronomy.tuning import AstronomyTuning
 from app.core.chandramasa.chandramasa_models import ChandraMasaDate
 from app.core.chandramasa.enums.masa import ChandraMasa
 from app.core.chandramasa.enums.masa_type import MasaType
-from app.core.kollavarsham.kollavarsham import get_madhyahnam_raasi
+
+# get_sunrise_sunset / calc_thithi_transition_for_date / get_madhyahnam_raasi
+# are imported lazily inside the functions that call them (below) rather than
+# here at module scope — this module is imported at app-wiring time via
+# features/panchangam/repository.py, and all three transitively pull in
+# Skyfield/pyswisseph/the ephemeris file, which must not load until a live
+# computation actually runs (see tests/core/astronomy/test_lazy_astronomy.py).
 
 # A lunar (synodic) month is <=30 days; this margin bounds the day-by-day walks
 # below the same way Kollavarsham's masa-start binary search is bounded to 32.
@@ -47,6 +51,9 @@ def _active_thithi(transitions: List[ThithiTransition], instant) -> Thithi:
 def _sunrise_active_thithi(
     d: date, latitude: float, longitude: float, timezone: str, tuning: AstronomyTuning
 ) -> Thithi:
+    from app.core.astronomy.sunrise_sunset import get_sunrise_sunset
+    from app.core.astronomy.thithi_transition import calc_thithi_transition_for_date
+
     transitions = calc_thithi_transition_for_date(d, timezone, tuning)
     sunrise, _ = get_sunrise_sunset(d, latitude, longitude, timezone)
     return _active_thithi(transitions, sunrise)
@@ -158,6 +165,8 @@ def _classify_month(
     entirely (no earlier sample to compare it against) -- undercounting
     crossings and misclassifying the month as Adhika.
     """
+    from app.core.kollavarsham.kollavarsham import get_madhyahnam_raasi
+
     raasi_sequence = []
     d = month_start - timedelta(days=1)
     while d < month_end:

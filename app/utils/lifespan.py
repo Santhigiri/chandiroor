@@ -1,14 +1,15 @@
 from contextlib import asynccontextmanager
-from time import time
+from time import perf_counter
 
 from fastapi import FastAPI
 
 from app.db.database import init_db
+from app.utils.startup_timing import IMPORT_STARTED_AT
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    start = time()
+    start = perf_counter()
 
     # Defensive safety net only — Alembic (`alembic upgrade head`, run before
     # this process starts; see Dockerfile and db/sql/README.md) is the
@@ -21,8 +22,19 @@ async def lifespan(app: FastAPI):
     # the pickle cache at startup.
     init_db()
 
-    elapsed = time() - start
+    elapsed = perf_counter() - start
     print(f"Database ready in {elapsed:.3f}s")
+
+    # Total time from the first line of app/main.py to "ready to serve" —
+    # always logged, in every environment, not gated behind a debug flag.
+    # This is the number that regressed to begin with when the Skyfield/
+    # ephemeris stack loaded eagerly at import time instead of lazily on
+    # first live computation (see tests/core/astronomy/test_lazy_astronomy.py
+    # and app/utils/startup_timing.py) — worth always having visible so a
+    # future regression like that one shows up in every boot's logs, not
+    # just an ad hoc local benchmark.
+    startup_elapsed = perf_counter() - IMPORT_STARTED_AT
+    print(f"App startup took {startup_elapsed:.3f}s (import + schema check)")
 
     yield
 
