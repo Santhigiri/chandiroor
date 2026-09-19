@@ -16,6 +16,7 @@
 -- scripts/gen_seed_sql.py, which picks them up automatically) — do not
 -- re-run this file against one.
 
+
 ALTER TABLE "user" ALTER COLUMN hashed_password DROP NOT NULL;
 
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email VARCHAR;
