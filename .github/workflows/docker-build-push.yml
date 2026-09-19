@@ -48,6 +48,45 @@ jobs:
           echo "ENV=${ENV}" >> $GITHUB_OUTPUT
           echo "Generated tag: ${TAG}, service: ${SERVICE}, env: ${ENV}"
 
+      # --- Database migrations ---
+      # Runs once per deploy here, not once per container cold start -- see
+      # db/sql/README.md for why the Dockerfile itself no longer does this.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install migration dependencies
+        run: pip install -r requirements.txt
+      - name: Select database URL
+        id: db
+        env:
+          DATABASE_URL_DEVELOP: ${{ secrets.DATABASE_URL_DEVELOP }}
+          DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_PRODUCTION }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            DATABASE_URL="${DATABASE_URL_DEVELOP}"
+          elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            DATABASE_URL="${DATABASE_URL_STAGING}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            DATABASE_URL="${DATABASE_URL_PRODUCTION}"
+          else
+            echo "::error::No DATABASE_URL secret mapping for ref ${{ github.ref }}. Run this workflow from develop, release, or main."
+            exit 1
+          fi
+
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::No DATABASE_URL secret configured for ref ${{ github.ref }}"
+            exit 1
+          fi
+
+          echo "::add-mask::${DATABASE_URL}"
+          echo "DATABASE_URL=${DATABASE_URL}" >> "$GITHUB_OUTPUT"
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: alembic upgrade head
+
       # --- GCP auth ---
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
