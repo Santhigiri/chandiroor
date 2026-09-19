@@ -96,13 +96,22 @@ alembic stamp head
 alembic upgrade head
 ```
 
-The Docker image runs `alembic upgrade head` automatically before starting
-`uvicorn` (see `Dockerfile`) — every deploy brings the schema current. For
-local development outside Docker, run `alembic upgrade head` yourself after
-pulling a change that touches `db/models/` (`app/utils/lifespan.py`'s
-`init_db()` is only a defensive `create_all()` fallback for tables Alembic
-hasn't created yet; it never `ALTER`s a table, so it cannot apply a column/type
-change on its own).
+`.github/workflows/docker-build-push.yml` runs `alembic upgrade head` once
+per deploy — a step before the image is built/pushed/deployed, selecting
+that push's target database via the same branch -> secret mapping
+`generate-year-spans.yml` uses (`develop` -> `DATABASE_URL_DEVELOP`,
+`release` -> `DATABASE_URL_STAGING`, `main` -> `DATABASE_URL_PRODUCTION`).
+This runs **once per deploy, not once per container cold start** —
+the `Dockerfile`'s `CMD` deliberately does *not* run `alembic upgrade head`
+itself. It did originally, but that meant every Cloud Run instance
+re-checked/re-connected to the database on every cold start (extra latency on
+every scale-up event, and needless load against the database for a check that
+only needs to happen once per deploy) for a database that's usually already
+at head. For local development outside Docker/CI, run `alembic upgrade head`
+yourself after pulling a change that touches `db/models/`
+(`app/utils/lifespan.py`'s `init_db()` is only a defensive `create_all()`
+fallback for tables Alembic hasn't created yet; it never `ALTER`s a table, so
+it cannot apply a column/type change on its own).
 
 ### Adding a new migration
 
