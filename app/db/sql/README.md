@@ -60,50 +60,98 @@ database from scratch still uses `01_schema.sql` + `02_seed.sql` as-is; a
 `db/models/` schema change only needs a hand-written migration (see below), not
 a full regeneration of these files.
 
-## Migrations
+## Migrations (Alembic)
 
-There is no migration framework in this repo (no Alembic) — `01_schema.sql`
-is a bootstrap-only snapshot of the current `db/models/` schema, regenerated
-wholesale rather than diffed. `init_db()` (`db/database.py`) only creates
-*missing* tables at startup; it never `ALTER`s an existing one. So a schema
-change made to `db/models/` after a database has already been bootstrapped
-needs a hand-written, one-time `ALTER TABLE` script applied directly:
+Schema changes are now managed by **Alembic**, configured at the repo root
+(`alembic.ini`) with its environment/scripts under `db/alembic/`
+(`env.py`, `script.py.mako`, `versions/`). `env.py` reads `DATABASE_URL` from
+`app.db.database` (the same variable/`.env` the app itself uses) and points
+`target_metadata` at `SQLModel.metadata` (`app.db.models` is imported for its
+side effect of registering every table), so `alembic revision --autogenerate`
+diffs the live database against the current `db/models/` definitions.
+
+`db/sql/migrations/0001`–`0008` (listed below) are retired — they are a
+historical record of hand-written `ALTER TABLE` scripts from before Alembic
+was adopted, folded into the single Alembic baseline revision
+(`db/alembic/versions/6c71c83ad4a0_baseline_schema.py`). Do not add new files
+to `db/sql/migrations/`; do not apply the old ones to a database that's
+already on Alembic (`alembic_version` table present) — they predate that
+baseline and re-running them (e.g. `0008`'s `DROP TABLE "user"`, `0002`'s
+`ALTER TABLE "user"` against a database where that table no longer exists)
+will error or double-apply.
+
+### Applying migrations
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/migrations/0001_add_yields_to_event_id.sql
+# Fresh database — creates every table (equivalent to the old 01_schema.sql):
+alembic upgrade head
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/sql/02_seed.sql   # then seed data as before
+
+# Already-deployed database that predates Alembic (has all the tables from
+# 01_schema.sql/the old migrations, but no alembic_version table yet) — mark
+# it as already at the baseline without re-running any DDL:
+alembic stamp head
+
+# Bring any database up to the latest schema:
+alembic upgrade head
 ```
 
-`0004_add_app_setting_table.sql` adds the `app_setting` table (DB-backed
+The Docker image runs `alembic upgrade head` automatically before starting
+`uvicorn` (see `Dockerfile`) — every deploy brings the schema current. For
+local development outside Docker, run `alembic upgrade head` yourself after
+pulling a change that touches `db/models/` (`app/utils/lifespan.py`'s
+`init_db()` is only a defensive `create_all()` fallback for tables Alembic
+hasn't created yet; it never `ALTER`s a table, so it cannot apply a column/type
+change on its own).
+
+### Adding a new migration
+
+After changing a table in `db/models/`:
+
+```bash
+alembic revision --autogenerate -m "add foo column to bar"
+```
+
+Then **read the generated file in `db/alembic/versions/`** — autogenerate
+reliably detects new/dropped tables and columns, but misses some things (pure
+data migrations, some constraint/index renames, server-side defaults) and
+needs the same two imports added by hand if `script.py.mako`'s import block
+is ever bypassed:
+
+```python
+import sqlmodel.sql.sqltypes
+import app.db.models.types
+```
+
+(`script.py.mako` already includes these for every new revision — they're
+needed because SQLModel's `AutoString` and this project's `UTCDateTime`
+column type aren't in `sqlalchemy`'s own namespace, which is all Alembic
+imports by default.)
+
+Test the migration locally before committing — `alembic upgrade head` then
+`alembic downgrade -1` against a scratch database — and commit the generated
+file under `db/alembic/versions/`. There is no need to touch `01_schema.sql`
+or `db/sql/migrations/` for new changes; those are frozen as the pre-Alembic
+historical snapshot.
+
+### Historical migrations (pre-Alembic, retired)
+
+`0004_add_app_setting_table.sql` added the `app_setting` table (DB-backed
 admin-editable settings) plus its default rows to an already-deployed
-database. Every `SettingsService` getter falls back to the hardcoded constant
-it replaces when a key's row is absent, so this migration is safe to apply at
-any time relative to a code deploy — there is no ordering dependency, unlike
-most other migrations here.
+database.
 
-`0006_reference_display_names_nullable.sql` drops the `NOT NULL` on the
-`ml`/`en` columns of `paksha`/`nakshatra`/`thithi`/`malayalam_masa`. The Python
-enums no longer carry display text, so `db/seed.py` seeds those columns as
-NULL; real databases still populate them from `02_seed.sql`. Safe to apply any
-time — existing rows already have values.
+`0006_reference_display_names_nullable.sql` dropped the `NOT NULL` on the
+`ml`/`en` columns of `paksha`/`nakshatra`/`thithi`/`malayalam_masa`.
 
-`0007_add_chandra_masa.sql` adds the `chandra_masa`/`chandra_masa_date` tables
-and `santhigiri_event.chandra_masa_day`/`chandra_masa_month` columns for a
-database bootstrapped before the Chandra Masa feature merged (`582d479`), plus
-the 12 lookup rows with their `ml`/`en` text (`init_db()` alone would create
-the two new tables automatically but leave them empty, and never touches the
-two new columns on the already-existing `santhigiri_event` table). Its
-`chandra_masa` insert uses `ON CONFLICT (id) DO UPDATE` rather than
-`DO NOTHING`, consistent with every other lookup-table migration here, so
-re-running it is harmless. Does not backfill `chandra_masa_date` rows for
-existing panchangam data — re-run `POST /api/v1/panchangam/generate` for that
-after applying.
+`0007_add_chandra_masa.sql` added the `chandra_masa`/`chandra_masa_date`
+tables and `santhigiri_event.chandra_masa_day`/`chandra_masa_month` columns
+for a database bootstrapped before the Chandra Masa feature merged
+(`582d479`), plus the 12 lookup rows with their `ml`/`en` text.
 
-Migrations live in `db/sql/migrations/`, numbered in application order. Most
-are idempotent (`ADD COLUMN IF NOT EXISTS`, guarded `UPDATE`s, etc.) so
-re-running them is harmless — the exception is a column *type* change (e.g.
-`0003_datetime_columns_to_timestamptz.sql`), which has no `IF NOT EXISTS`
-equivalent and must be applied exactly once; see that file's header comment.
-They only matter for a database that predates the change — a fresh database
-stood up from `01_schema.sql`/`02_seed.sql` already has every migrated change
-baked in, since those files are regenerated from the current `db/models/`
-state.
+`0008_drop_user_table.sql` dropped the local `user` table when Chandiroor
+became a JWT resource server for TVM (see the project's `CLAUDE.md`,
+"Authentication & Authorization").
+
+All of the above are already reflected in the current `db/models/` state and
+therefore in the Alembic baseline revision — nothing further needs to be done
+with them on a database that's been stamped/upgraded to that baseline.

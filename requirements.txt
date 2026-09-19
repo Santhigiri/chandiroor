@@ -20,6 +20,7 @@ python-dotenv==1.2.3
 python-jose[cryptography]==3.5.0
 pydantic-settings==2.15.0
 requests==2.34.2
+alembic==1.20.0
 
 # --- Transitive dependencies (pinned for reproducibility) ---
 annotated-doc==0.0.5
@@ -35,6 +36,8 @@ h11==0.16.0
 httptools==0.8.0
 idna==3.19
 jplephem==2.24
+Mako==1.4.1
+MarkupSafe==3.0.3
 numpy==2.5.2
 pycparser==3.0
 pydantic==2.13.5
