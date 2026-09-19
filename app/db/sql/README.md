@@ -70,15 +70,15 @@ Schema changes are now managed by **Alembic**, configured at the repo root
 side effect of registering every table), so `alembic revision --autogenerate`
 diffs the live database against the current `db/models/` definitions.
 
-`db/sql/migrations/0001`–`0008` (listed below) are retired — they are a
-historical record of hand-written `ALTER TABLE` scripts from before Alembic
-was adopted, folded into the single Alembic baseline revision
-(`db/alembic/versions/6c71c83ad4a0_baseline_schema.py`). Do not add new files
-to `db/sql/migrations/`; do not apply the old ones to a database that's
-already on Alembic (`alembic_version` table present) — they predate that
-baseline and re-running them (e.g. `0008`'s `DROP TABLE "user"`, `0002`'s
-`ALTER TABLE "user"` against a database where that table no longer exists)
-will error or double-apply.
+The hand-written `db/sql/migrations/0001`–`0008` scripts that predated Alembic
+have been deleted (see "Historical migrations" below for what each did) — they
+are fully folded into the single Alembic baseline revision
+(`db/alembic/versions/6c71c83ad4a0_baseline_schema.py`) and nothing in the
+codebase references them anymore; recover one from git history
+(`git log --all --full-history -- 'app/db/sql/migrations/*'`) if you ever need
+to see the exact original SQL. Do not create a `db/sql/migrations/` directory
+again — a schema change is now always a new Alembic revision under
+`db/alembic/versions/`.
 
 ### Applying migrations
 
@@ -131,10 +131,13 @@ imports by default.)
 Test the migration locally before committing — `alembic upgrade head` then
 `alembic downgrade -1` against a scratch database — and commit the generated
 file under `db/alembic/versions/`. There is no need to touch `01_schema.sql`
-or `db/sql/migrations/` for new changes; those are frozen as the pre-Alembic
-historical snapshot.
+for new changes; it is frozen as the pre-Alembic historical snapshot.
 
-### Historical migrations (pre-Alembic, retired)
+### Historical migrations (pre-Alembic, deleted)
+
+The files themselves are gone (see the note above on recovering one from git
+history); this summarizes what each one did, since a couple are referenced by
+name elsewhere in the codebase/docs.
 
 `0004_add_app_setting_table.sql` added the `app_setting` table (DB-backed
 admin-editable settings) plus its default rows to an already-deployed
