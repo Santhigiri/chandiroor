@@ -1,0 +1,1425 @@
+{
+  "info": {
+    "_postman_id": "5bb96338-72bb-47d1-b096-301301af1e15",
+    "name": "chandiroor-panchangam-api",
+    "description": "Panchangam (Indian astrological almanac) API for Santhigiri Ashram.\n\nAuth: Chandiroor is a JWT resource server only \u2014 it never issues tokens. Log in against TVM (the Ashram's auth microservice) and set the `bearerToken` collection/environment variable to the resulting access token. Endpoints marked '(Admin)' require the `admin` role; the rest permit anonymous access but still validate any bearer token supplied.\n\nSet `baseUrl` per environment (Local/Dev/Staging).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Panchangam",
+      "item": [
+        {
+          "name": "Get Day Panchangam",
+          "id": "576aef82-2516-40e5-985c-081e270650d5",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/day?day=2026-09-19&location=tvm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "day"
+              ],
+              "query": [
+                {
+                  "key": "day",
+                  "value": "2026-09-19"
+                },
+                {
+                  "key": "location",
+                  "value": "tvm",
+                  "description": "Location code, e.g. 'tvm'"
+                }
+              ]
+            },
+            "description": "Compact Panchangam for a single day, served from the DB (falls back to live computation if the date is missing).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Panchangam At Instant",
+          "id": "5b94daab-8d8f-4328-a93d-05d1d437ef68",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/instant?day=2026-09-19&time=06:00:00&latitude=8.645&longitude=76.938&timezone=Asia/Kolkata",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "instant"
+              ],
+              "query": [
+                {
+                  "key": "day",
+                  "value": "2026-09-19"
+                },
+                {
+                  "key": "time",
+                  "value": "06:00:00"
+                },
+                {
+                  "key": "latitude",
+                  "value": "8.645"
+                },
+                {
+                  "key": "longitude",
+                  "value": "76.938"
+                },
+                {
+                  "key": "timezone",
+                  "value": "Asia/Kolkata"
+                }
+              ]
+            },
+            "description": "Compact Panchangam active at an arbitrary date/time/location instant. Always live-computed; no DB lookup involved.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Monthly Panchangam",
+          "id": "9da729a4-bcef-455b-a215-2d08d7a06987",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/month?year=2026&month=9&location=tvm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "month"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "9"
+                },
+                {
+                  "key": "location",
+                  "value": "tvm",
+                  "description": "Location code, e.g. 'tvm'"
+                }
+              ]
+            },
+            "description": "Compact Panchangam for every day in the month, served from the DB.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Yearly Panchangam",
+          "id": "f8c5dc3f-c2c6-48e9-ab49-39e4f763a068",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/year?year=2026&location=tvm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "year"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "location",
+                  "value": "tvm",
+                  "description": "Location code, e.g. 'tvm'"
+                }
+              ]
+            },
+            "description": "ETag-validated: send `If-None-Match` to get a 304 when the year's data hasn't changed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sunrise/Sunset",
+          "id": "d209cd8c-ff66-4a82-8fa1-18608887c647",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/sunrise-sunset?latitude=8.645&longitude=76.938&day=2026-09-19",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "sunrise-sunset"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "8.645"
+                },
+                {
+                  "key": "longitude",
+                  "value": "76.938"
+                },
+                {
+                  "key": "day",
+                  "value": "2026-09-19"
+                }
+              ]
+            },
+            "description": "Sunrise/sunset (UTC) for an arbitrary coordinate and date. Always live-computed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sunrise/Sunset Range",
+          "id": "255c7d6f-4973-4d74-9452-1ae9ec2b03d9",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/sunrise-sunset/range?latitude=8.645&longitude=76.938&start_date=2026-09-01&end_date=2026-09-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "sunrise-sunset",
+                "range"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "8.645"
+                },
+                {
+                  "key": "longitude",
+                  "value": "76.938"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2026-09-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-09-30"
+                }
+              ]
+            },
+            "description": "Bulk sunrise/sunset over an inclusive date range (max 366 days). Always live-computed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate Panchangam (Admin)",
+          "id": "a206f9c4-62ce-4ee6-9e4e-d4b3ab3e209b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/generate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "generate"
+              ]
+            },
+            "description": "Recomputes the date range from the astronomy code and overwrites the corresponding DB rows.\n\nResponse is streamed as NDJSON: one progress line per day, then a final result line (or an error line). Postman will show the raw streamed body.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2026-09-30\"\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "id": "159de2fa-cef1-437c-9acf-99d7e00c2f54",
+      "description": "Core Panchangam reads (day/instant/month/year/sunrise-sunset) and the admin generate endpoint."
+    },
+    {
+      "name": "Reference",
+      "item": [
+        {
+          "name": "List Thithis",
+          "id": "e1877cdc-2929-464c-934a-457c29eb6ffa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/thithi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "thithi"
+              ]
+            },
+            "description": "ETag-validated enum reference dataset.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Nakshatras",
+          "id": "432be93a-54d9-4f2f-b5ff-af0c53f0c013",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/nakshatra",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "nakshatra"
+              ]
+            },
+            "description": "ETag-validated enum reference dataset.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Malayalam Masas",
+          "id": "27d9a310-bbb5-4863-a4ea-68667ab3b6c1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/masa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "masa"
+              ]
+            },
+            "description": "ETag-validated enum reference dataset.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Chandra Masas",
+          "id": "31ece9c7-70ee-4c80-a6de-406e75356ac8",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/chandra-masa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "chandra-masa"
+              ]
+            },
+            "description": "ETag-validated enum reference dataset.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Event Definitions (Compact)",
+          "id": "2dff71f4-0364-4969-b6df-6a24bf856f95",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events"
+              ]
+            },
+            "description": "Compact id/name/description list of every Santhigiri event definition. ETag-validated.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Locations",
+          "id": "9bb0eac1-b38d-4afb-b357-84cede5d8cd5",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/locations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "locations"
+              ]
+            },
+            "description": "Locations servable via `?location=<code>`. ETag-validated.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "id": "8af28ac1-7236-4a9e-b81e-5b027dd67f7b",
+      "description": "Read-only enum/reference datasets backing the Panchangam response fields."
+    },
+    {
+      "name": "Santhigiri Events",
+      "item": [
+        {
+          "name": "Create Event Definition (Admin)",
+          "id": "81111d30-7d02-420d-87cb-6ddf4f2111c4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events"
+              ]
+            },
+            "description": "Create a new editable Santhigiri event definition.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"POURNAMI_EXAMPLE\",\n  \"name\": \"Example Event\",\n  \"description\": \"Example event definition created via Postman.\",\n  \"sort_order\": null,\n  \"nakshatra_id\": null,\n  \"thithi_id\": 15,\n  \"ml_day\": null,\n  \"ml_month\": null,\n  \"ml_year\": null,\n  \"chandra_masa_day\": null,\n  \"chandra_masa_month\": null,\n  \"en_day\": null,\n  \"en_month\": null,\n  \"en_year\": null,\n  \"occurance\": null,\n  \"is_poornima\": true,\n  \"last_occurance\": null,\n  \"day_offset\": null,\n  \"yields_to_event_id\": null\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Events iCalendar Feed",
+          "id": "01d19ea5-7dd3-4790-923a-a8d9caa313ab",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/calendar.ics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                "calendar.ics"
+              ]
+            },
+            "description": "Live iCalendar (RFC 5545) feed of every event occurrence across the configured seed_year_range. Suitable as a subscribed calendar URL (e.g. Google Calendar 'From URL').",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event Definition",
+          "id": "7bf48c79-43ea-48f7-8d33-2f34d07f9f6c",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                ":event_id"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "POURNAMI"
+                }
+              ]
+            },
+            "description": "Fetch one event's full definition, including its matching condition.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Event Definition (Admin)",
+          "id": "436f87c7-3379-4178-ad57-00aef4313ea9",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                ":event_id"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "POURNAMI_EXAMPLE"
+                }
+              ]
+            },
+            "description": "Partial update \u2014 only the fields present in the body are changed.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example Event (updated)\",\n  \"description\": \"Updated description.\"\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete Event Definition (Admin)",
+          "id": "72cb3b0b-c86d-4227-922b-3121b8c1ce06",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                ":event_id"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "POURNAMI_EXAMPLE"
+                }
+              ]
+            },
+            "description": "Deletes the event definition and cascades its stored occurrences.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate Event Occurrences (Admin)",
+          "id": "417d8bec-5a9d-4a74-8ecb-1a647c899b4c",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id/occurrences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                ":event_id",
+                "occurrences"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "POURNAMI_EXAMPLE"
+                }
+              ]
+            },
+            "description": "(Re)compute this event's occurrence dates across [start_year, end_year] from the DB's panchangam data and replace what was stored for each of those years.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_year\": 2026,\n  \"end_year\": 2026\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Generate Event Occurrences - Streaming (Admin)",
+          "id": "ca9e88fb-528c-46c8-9e7e-e90c66fcd39a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/:event_id/occurrences/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                ":event_id",
+                "occurrences",
+                "stream"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "POURNAMI_EXAMPLE"
+                }
+              ]
+            },
+            "description": "Streaming (NDJSON) sibling of the occurrences endpoint above: one progress line per year.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_year\": 2026,\n  \"end_year\": 2026\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Generate All Event Occurrences (Admin)",
+          "id": "0db34ad7-f9ab-4849-8063-4a2598c0f1f6",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/panchangam/events/generate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "panchangam",
+                "events",
+                "generate"
+              ]
+            },
+            "description": "(Re)compute every event definition's occurrence dates across [start_year, end_year], streamed as NDJSON with one progress line per (year, event) pair.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_year\": 2026,\n  \"end_year\": 2026\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "id": "ab498d18-33a3-4640-93c9-dca4a0737242",
+      "description": "Editable Santhigiri event definitions and occurrence generation."
+    },
+    {
+      "name": "Guruvani",
+      "item": [
+        {
+          "name": "List Guruvani Quotes",
+          "id": "883327b3-be93-40b4-aaf5-2db02c6782f3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani"
+              ]
+            },
+            "description": "List every quote, ordered by sort_order.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Random Guruvani Quote",
+          "id": "02509751-e0a3-42d4-b402-02acd8713a3b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani/random",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani",
+                "random"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Guruvani Quote",
+          "id": "5aea5771-220d-47b3-a34e-fd8dcebfaeab",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani/:guruvani_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani",
+                ":guruvani_id"
+              ],
+              "variable": [
+                {
+                  "key": "guruvani_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Guruvani Quote (Admin)",
+          "id": "2dc175f4-339b-429a-b284-e35c722d572f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text_en\": \"Example quote.\",\n  \"text_ml\": \"\\u0d09\\u0d26\\u0d3e\\u0d39\\u0d30\\u0d23 \\u0d35\\u0d3e\\u0d15\\u0d4d\\u0d2f\\u0d02.\",\n  \"sort_order\": null\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires `admin` role.**"
+          }
+        },
+        {
+          "name": "Update Guruvani Quote (Admin)",
+          "id": "ab6dc7ae-ee4d-4fe8-a4ce-4c971a3cd04b",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani/:guruvani_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani",
+                ":guruvani_id"
+              ],
+              "variable": [
+                {
+                  "key": "guruvani_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text_en\": \"Example quote (updated).\"\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires `admin` role.**"
+          }
+        },
+        {
+          "name": "Delete Guruvani Quote (Admin)",
+          "id": "2c405719-f5e5-4b5b-8f88-028f1345aeed",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guruvani/:guruvani_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guruvani",
+                ":guruvani_id"
+              ],
+              "variable": [
+                {
+                  "key": "guruvani_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Requires `admin` role.**"
+          }
+        }
+      ],
+      "id": "c61e9878-888f-47a7-8f61-0e4f6234913d",
+      "description": "Guruvani quote CRUD."
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "List Settings (Admin)",
+          "id": "60b9c3bf-02d1-4f6b-8fc5-062c1d5b9038",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "settings"
+              ]
+            },
+            "description": "All endpoints under /settings require the admin role, including reads.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Setting (Admin)",
+          "id": "5bd80a8a-4cf0-4564-811f-cb0d4c78de0b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "seed_year_range"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Requires `admin` role.**"
+          }
+        },
+        {
+          "name": "Update Setting (Admin)",
+          "id": "c0aad4c8-208e-47d4-9654-2ffda691e850",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "seed_year_range"
+                }
+              ]
+            },
+            "description": "Full replace of the setting's `value`. Shape depends on the key \u2014 see schemas/app_setting.py.\n\n**Requires `admin` role.**",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": {\n    \"start_year\": 2021,\n    \"end_year\": 2030\n  }\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "id": "61511da0-d262-48da-b8d4-1694b445958a",
+      "description": "Admin-only tunable application settings."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearerToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
