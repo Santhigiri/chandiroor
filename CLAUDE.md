@@ -26,6 +26,8 @@ git push -u origin feature/<your-feature-name>
 # Open PR targeting develop
 ```
 
+`develop`/`release`/`main` are also the three deploy branches: a push to any of them triggers `.github/workflows/docker-build-push.yml`, which runs `alembic upgrade head` against that branch's database (`develop` → `DATABASE_URL_DEVELOP`/`chandiroor-dev`, `release` → `DATABASE_URL_STAGING`/`chandiroor-staging`, `main` → `DATABASE_URL_PRODUCTION`/`chandiroor-prod`) before building/deploying the image. See "Database Schema Migrations (Alembic)" below.
+
 ---
 
 ## Architecture Overview
@@ -42,6 +44,7 @@ an import-linter contract (see "The astronomy package" below).
 ```
 panchangam-api/
 ├── .importlinter                # import-linter contract fencing app/core/astronomy/ off from the rest of app/
+├── alembic.ini                  # Alembic config — script_location app/db/alembic; see "Database Schema Migrations (Alembic)" below
 └── app/
     ├── main.py                     # App factory: wires lifespan, CORS, routers
     ├── api/
@@ -74,7 +77,7 @@ panchangam-api/
     │   │   ├── service.py    # GuruvaniService — depends on GuruvaniRepositoryPort + UnitOfWork, not the concrete adapter
     │   │   └── schemas.py
     │   ├── reference/                   # No ports.py of its own — see core/ports/reference_repository.py below
-    │   │   └── router.py     # thithi/nakshatra/masa/events/locations reads, mounted under the /panchangam URL
+    │   │   └── router.py     # thithi/nakshatra/masa/chandra-masa/events/locations reads, mounted under the /panchangam URL
     │   │                      # prefix for backward compatibility even though it's its own feature package.
     │   │                      # Depends on core/ports/reference_repository.py's ReferenceRepositoryPort (bound to
     │   │                      # db/reference_repository.py::ReferenceRepository in api/deps.py) and on
@@ -104,9 +107,10 @@ panchangam-api/
     │   ├── unit_of_work.py         # SqlUnitOfWork — the one concrete UnitOfWork adapter (see "Ports & adapters" below)
     │   ├── reference_repository.py # ReferenceRepository — concrete adapter implementing ReferenceRepositoryPort
     │   │                            # (core/ports/reference_repository.py) against SQLModel; reads the enum/reference
-    │   │                            # datasets (thithi, nakshatra, masa, events, locations)
+    │   │                            # datasets (thithi, nakshatra, masa, chandra_masa, events, locations)
     │   ├── seed.py                 # Seeds lookup tables (Thithi, Nakshatra, Paksha, MalayalamMasa, Location, SanthigiriEvent)
-    │   ├── sql/                    # Standalone schema + seed SQL applied to Neon/Postgres via psql
+    │   ├── alembic/                 # Alembic env.py + versions/ — the authoritative source of schema changes now (see below)
+    │   ├── sql/                    # 01_schema.sql/02_seed.sql: a frozen one-time bootstrap snapshot + seed data, applied via psql — 01_schema.sql is NOT updated for new schema changes, see below
     │   └── models/                 # SQLModel table definitions
     ├── core/                        # Unchanged by the feature-folder move — shared by every feature
     │   ├── astronomy/              # Pure astronomical functions + vendored enums + de421.bsp — fenced off by .importlinter (see "The astronomy package" below)
@@ -195,7 +199,7 @@ imports back to a top-level package name.
 
 **`features/<name>/`** is a vertical slice: its `router.py` is the HTTP boundary (parses/validates query params, obtains a service via FastAPI `Depends`, delegates to it, translates domain errors to HTTP status codes) and its `service.py` sits between the router and persistence. `PanchangamService.get_by_date()`/`get_by_month()` read through the `PanchangamRepositoryPort`, falling back to `get_panchangam_data()` only when a date is missing from the database. Every feature owns its own `service.py`, including `settings` (`features/settings/service.py::SettingsService`) — a service consumed by 3+ other features' own services is still not imported directly cross-feature; the consumer depends on a `Protocol` in `core/ports/` instead (see "Ports & adapters" below). A feature that has been migrated to ports & adapters (see below) never imports a concrete `db/` repository from its `service.py`/`router.py` at all — only its own `ports.py` and the concrete adapter bound in `api/deps.py`.
 
-**`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `features/panchangam/repository.py`, the concrete adapter for `PanchangamRepositoryPort`) is the only place that talks to the database for panchangam data — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). `db/database.py::init_db()` ensures the schema exists at startup (idempotent); the database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to Neon/Postgres via `psql`. The server does not seed itself at runtime.
+**`db/`** is the Postgres persistence layer (SQLModel), untouched by the feature-folder split because several of its modules back more than one feature. The engine is built in `db/database.py` from a `DATABASE_URL` connection string read from the environment (a Neon Postgres URL, e.g. `postgresql://user:password@host/db?sslmode=require`) — no credentials are hardcoded. `PanchangamRepository` (in `features/panchangam/repository.py`, the concrete adapter for `PanchangamRepositoryPort`) is the only place that talks to the database for panchangam data — getters (`get_by_date`, `get_by_date_range`, `get_by_month`) and setters (`upsert`, `upsert_many`). Schema changes are applied by **Alembic**, not by `db/database.py::init_db()` — see "Database Schema Migrations (Alembic)" below. The database is seeded out-of-band by applying `db/sql/02_seed.sql` to Neon/Postgres via `psql`; the server does not seed itself at runtime.
 
 **`features/panchangam/router.py`** is the only panchangam router now — the unversioned legacy router was removed once all consumers moved to `/api/v1`. Route handlers parse and validate query parameters, obtain a service via FastAPI `Depends`, and delegate to it. They must not contain domain logic, computations, or direct astronomy/DB calls.
 
@@ -226,6 +230,20 @@ The pieces, using `features/santhigiri_events/` as the reference:
 - **`api/deps.py`** is where every concrete adapter gets bound to its port and injected — e.g. `get_santhigiri_event_repository(session) -> SanthigiriEventsRepositoryPort: return SanthigiriEventRepository(session)`, then `get_santhigiri_event_service(event_repository: SanthigiriEventRepositoryDep, ...) -> SanthigiriEventService`. A feature's `router.py` depends on the service factory from `api/deps.py`; it never constructs a concrete adapter or service by hand.
 
 Match this granularity exactly when migrating a new feature — one `ports.py` per feature, one adapter class, no finer-grained ports (no separate read/write port classes, no per-method protocols).
+
+### Database Schema Migrations (Alembic)
+
+Schema changes are managed by **Alembic**, configured at the repo root (`alembic.ini`, `script_location = app/db/alembic`) with `env.py`/`versions/` under `app/db/alembic/`. `env.py` reads `DATABASE_URL` from `app.db.database` (the same variable the app itself uses, not `alembic.ini`'s `sqlalchemy.url`) and points `target_metadata` at `SQLModel.metadata`, so `alembic revision --autogenerate` diffs the live database against the current `db/models/` definitions.
+
+After changing a table in `db/models/`:
+
+```bash
+alembic revision --autogenerate -m "add foo column to bar"
+```
+
+Then **read the generated file under `app/db/alembic/versions/`** — autogenerate reliably detects new/dropped tables and columns but misses some things (data migrations, some constraint/index renames, server-side defaults). Test it locally before committing (`alembic upgrade head` then `alembic downgrade -1` against a scratch database) and commit the generated file — there is no need to touch `db/sql/01_schema.sql` for a new change; it is **frozen** as the pre-Alembic historical bootstrap snapshot (`db/sql/02_seed.sql` is still live and current — only `01_schema.sql` is frozen).
+
+`.github/workflows/docker-build-push.yml` runs `alembic upgrade head` **once per deploy** (a step before the image is built/pushed), not once per container cold start — the Dockerfile's `CMD` deliberately does not run it, to avoid every Cloud Run instance re-checking the database on every scale-up event. `app/utils/lifespan.py`'s `init_db()` (`db/database.py`) is only a defensive `create_all()` fallback for tables Alembic hasn't created yet (e.g. a fresh local `uvicorn --reload` dev flow) — it never `ALTER`s an existing table, so it cannot apply a column/type change on its own. For local development outside Docker/CI, run `alembic upgrade head` yourself after pulling a change that touches `db/models/`. See `app/db/sql/README.md` for the full migration workflow, including how to bring an already-deployed pre-Alembic database up to date (`alembic stamp head`) and a summary of the historical pre-Alembic `db/sql/migrations/0001`–`0008` scripts (deleted; folded into the Alembic baseline revision).
 
 ### Versioning without a `v1/` directory
 
@@ -400,6 +418,7 @@ Some events use a "last occurrence" rule: for example, Navapoojitham falls on th
 | `skyfield` | High-precision astronomical calculations (positions, `find_discrete`) |
 | `pyswisseph` | Lahiri Ayanamsa computation via Swiss Ephemeris |
 | `sqlmodel` | ORM / table definitions over SQLAlchemy for the persistence layer |
+| `alembic` | Schema migrations, diffed against `SQLModel.metadata` — see "Database Schema Migrations (Alembic)" |
 | `psycopg2-binary` | PostgreSQL driver (Neon) |
 | `python-dotenv` | Loads `DATABASE_URL` from a local `.env` during development |
 | `python-jose[cryptography]` | Verifies TVM-issued RS256 JWT access tokens against TVM's JWKS (`core/security.py`, `core/jwks_client.py`) |
@@ -425,7 +444,7 @@ cp .env.example .env   # then fill in your Neon DATABASE_URL
 uvicorn app.main:app --reload --port 8000
 ```
 
-`DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup only ensures the schema exists (`init_db()`); it does not load any data. Seed the database once by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See `db/sql/README.md`.
+`DATABASE_URL` must be set (in the environment or a local `.env`) or startup fails fast — it points at a Neon/Postgres database. Startup's `init_db()` is only a defensive `create_all()` fallback for tables Alembic hasn't created yet; it does not load any data and never alters an existing table. Bring the schema up to date with `alembic upgrade head` (a fresh database gets every table this way — equivalent to the old `01_schema.sql`), then seed data once by applying `db/sql/02_seed.sql` with `psql` (10 years of pre-computed data, 2021–2030). See "Database Schema Migrations (Alembic)" above and `db/sql/README.md`.
 
 Set `TVM_JWKS_URL` to TVM's JWKS endpoint, and/or `TVM_JWT_PUBLIC_KEY` to TVM's PEM-encoded public key as a static fallback (used when the JWKS endpoint is unset or unreachable) — at least one is required, or the app fails fast at startup. See `.env.example` for the auth variables and their defaults.
 
@@ -452,7 +471,7 @@ Panchangam data (public — anonymous allowed, any supplied token still validate
 
 Reference datasets (public, ETag-validated, read from the DB):
 
-- `GET /api/v1/panchangam/thithi` · `/nakshatra` · `/masa` · `/events` · `/locations`
+- `GET /api/v1/panchangam/thithi` · `/nakshatra` · `/masa` · `/chandra-masa` · `/events` · `/locations`
 
 Santhigiri event definitions (read public; writes require the `admin` role):
 
@@ -521,7 +540,7 @@ This is the most performance-critical aspect of the system. Understand it before
 
 Both endpoints are served through `features/panchangam/service.py`, which reads via `features/panchangam/repository.py::PanchangamRepository` (the `PanchangamRepositoryPort` adapter) against the Neon/Postgres database configured by `DATABASE_URL` (seeded for 2021–2030). This makes the monthly endpoint essentially free — it serves pre-computed rows without any Skyfield calls. If a date is missing from the DB, `get_panchangam_data()` computes it live; the result is returned but **not** written back (unlike the retired in-memory cache), so a real gap must be closed by re-applying the SQL seed files rather than relying on organic backfill.
 
-At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db()`, which only ensures the schema exists (idempotent). The database is seeded out-of-band by applying `db/sql/01_schema.sql` and `db/sql/02_seed.sql` to the Neon/Postgres target with `psql`; the server never seeds itself at runtime.
+At startup, the FastAPI lifespan (`utils/lifespan.py`) calls `init_db()`, a defensive `create_all()` fallback that never alters an existing table — Alembic (`alembic upgrade head`, run once per deploy by `.github/workflows/docker-build-push.yml`) is the authoritative way schema changes reach a database, see "Database Schema Migrations (Alembic)" above. The database is seeded out-of-band by applying `db/sql/02_seed.sql` to the Neon/Postgres target with `psql`; the server never seeds itself at runtime.
 
 ### Function-level LRU caches
 
@@ -578,7 +597,7 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every remaining feature now follows this pattern.
 - `features/auth/` was removed entirely (not migrated away from — deleted) when Chandiroor became a JWT resource server for TVM: it no longer issues tokens, hashes passwords, or stores user records, so there is nothing left for that feature to own. See "Authentication & Authorization" above for the replacement (`core/security.py::verify_access_token` + `core/jwks_client.py` against TVM's JWKS).
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
-- The `thithi`/`nakshatra`/`masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
+- The `thithi`/`nakshatra`/`masa`/`chandra-masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
 - Google Sign-In (`verify_google_id_token`, the `google_id` column on the old local `user` table) was removed along with `features/auth/` — TVM is now the sole identity provider, so a second sign-in path in Chandiroor no longer makes sense. If Google Sign-In is wanted again, it belongs in TVM, not here.
 
 ---
@@ -592,3 +611,4 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - Do not change the Nakshatra transition step (the `nakshatra_transition_step_days` admin setting, or its seed-time default in `core/astronomy/constants.py`) without re-validating every year's cache with `app/utils/check_nakshatra_transitions.py`/`check_thithi_transitions.py` (run manually — they are not part of startup or CI).
 - Do not assume the daily endpoint passes user-supplied coordinates to the computation — check the route handler first.
 - Do not hardcode Malayalam or Sanskrit display names as string literals in new code. Domain logic keys off the typed enum (`.name` slug / `.id`); display text is DB-owned — read it from the reference tables. The only place display strings are literals is `db/sql/02_seed.sql`.
+- Do not edit `db/sql/01_schema.sql` for a schema change, and do not recreate a `db/sql/migrations/` directory. It is frozen as the pre-Alembic historical bootstrap snapshot — add an Alembic revision under `app/db/alembic/versions/` instead (see "Database Schema Migrations (Alembic)").

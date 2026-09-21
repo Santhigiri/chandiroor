@@ -1,13 +1,14 @@
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from sqlmodel import Session, col, delete, func, select
 
-from app.features.santhigiri_events.ports import EventNotFoundException, SanthigiriEventCreate, SanthigiriEventUdpate, SanthigiriEventGet, SanthigiriEventsRepositoryPort
+from app.features.santhigiri_events.ports import EventNotFoundException, IcsCacheGet, SanthigiriEventCreate, SanthigiriEventUdpate, SanthigiriEventGet, SanthigiriEventsRepositoryPort
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.santhigiri_event_date import SanthigiriEventDate as SanthigiriEventDateRow
+from app.db.models.ics_cache import IcsCache
 from app.db.typing_utils import col as TypedColumn
 
 
@@ -113,6 +114,24 @@ class SanthigiriEventRepository(SanthigiriEventsRepositoryPort):
         for d in dates:
             self.session.add(SanthigiriEventDateRow(panchangam_date=d, event_id=event_id))
         return dates
+
+    _ICS_CACHE_KEY = "events"
+
+    def get_ics_cache(self) -> Optional[IcsCacheGet]:
+        """Return the persisted ICS calendar document, or None if never built."""
+        row = self.session.get(IcsCache, self._ICS_CACHE_KEY)
+        return IcsCacheGet(body=row.body, etag=row.etag) if row else None
+
+    def set_ics_cache(self, body: str, etag: str) -> None:
+        """Insert or replace the persisted ICS calendar document. Does NOT commit."""
+        self.session.merge(
+            IcsCache(
+                key=self._ICS_CACHE_KEY,
+                body=body,
+                etag=etag,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
 
 
     # ── Private helpers ─────────────────────────────────────────────────────────
