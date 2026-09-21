@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from time import perf_counter
-from typing import AsyncIterator, Dict, Iterable, List, Set, Union
+from typing import AsyncIterator, Dict, Iterable, List, Set, Tuple, Union
 
 from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
@@ -44,6 +44,7 @@ from app.features.santhigiri_events.ports import (
     SanthigiriEventUdpate as SanthigiriEventUpdatePort,
     SanthigiriEventsRepositoryPort,
 )
+from app.utils.content_hash import stable_hash
 from app.features.santhigiri_events.schemas import (
     SanthigiriEventCreate as SanthigiriEventCreateRequest,
     SanthigiriEventDetail,
@@ -123,10 +124,33 @@ class SanthigiriEventService:
         event = self.event_repository.get_event_by_id(event_id)
         return self._to_detail(event)
 
-    def get_calendar_ics(self) -> str:
+    def get_calendar_ics(self) -> Tuple[str, str]:
+        """Return the ``(body, etag)`` iCalendar (RFC 5545) document for
+        ``GET /panchangam/events/calendar.ics``, read through the persisted
+        ``ics_cache`` row rather than rebuilt on every request.
+
+        Cache hit — the common case — is a single indexed row fetch, no
+        ``panchangam_repo`` call at all. Cache miss (e.g. first request after
+        a fresh deploy, before any event mutation has populated it) falls
+        back to :meth:`_build_calendar_ics`, persists the result, and returns
+        it — the same lazy-fill behaviour ``conditional_json_response`` uses
+        for a missing dataset ETag.
+        """
+        cached = self.event_repository.get_ics_cache()
+        if cached is not None:
+            return cached.body, cached.etag
+
+        body = self._build_calendar_ics()
+        etag = '"' + stable_hash(body) + '"'
+        with self.unit_of_work as uow:
+            self.event_repository.set_ics_cache(body, etag)
+            uow.commit()
+        return body, etag
+
+    def _build_calendar_ics(self) -> str:
         """Build an iCalendar (RFC 5545) document with one all-day ``VEVENT``
         per Santhigiri event occurrence across the admin-configured
-        ``seed_year_range``, for ``GET /panchangam/events/calendar.ics``.
+        ``seed_year_range``.
 
         Reads directly off ``PanchangamData.santhigiri_significant_dates``
         (already the full ``SanthigiriEvent`` objects, not just ids), the
@@ -134,7 +158,8 @@ class SanthigiriEventService:
         ``santhigiri_significant_dates`` list is derived from — so this
         always reflects the same occurrence data a client already sees via
         the regular panchangam endpoints, with no separate read path to
-        drift out of sync.
+        drift out of sync. Only called on a cache miss/refresh — see
+        :meth:`get_calendar_ics` and :meth:`_refresh_ics_cache`.
         """
         start_year, end_year = self.settings.get_seed_year_range()
         start = date(start_year, 1, 1)
@@ -566,11 +591,24 @@ class SanthigiriEventService:
         except (UnsupportedOccurrenceCondition, OccurrenceComputationError):
             return set()
 
+    def _refresh_ics_cache(self) -> None:
+        """Rebuild the ICS calendar document and stage it on the session.
+
+        Does NOT commit — called from :meth:`_commit_with_etags` before
+        ``refresh_etags`` commits, so the rebuilt ICS body/ETag land in the
+        same atomic transaction as the data change and the ETag refresh.
+        """
+        body = self._build_calendar_ics()
+        etag = '"' + stable_hash(body) + '"'
+        self.event_repository.set_ics_cache(body, etag)
+
     def _commit_with_etags(self, years: Iterable[int]) -> None:
-        # refresh_etags recomputes the payloads from the (still pending) session
-        # state and commits once, so the data change and its ETags land in a
-        # single transaction. It always refreshes every enum dataset — including
-        # ``events`` — and any years passed here.
+        # Stage the rebuilt ICS cache on the (still pending) session first, then
+        # let refresh_etags recompute the ETag payloads and commit once, so the
+        # data change, the ICS cache, and the ETags all land in a single
+        # transaction. refresh_etags always refreshes every enum dataset —
+        # including ``events`` — and any years passed here.
+        self._refresh_ics_cache()
         refresh_etags(
             self.reference_repository,
             self.panchangam_service_for_etag_refresh,

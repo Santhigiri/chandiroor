@@ -115,6 +115,25 @@ def etag_text_response(request: Request, text: str, media_type: str) -> Response
     return Response(content=text, media_type=media_type, headers={"ETag": etag})
 
 
+def conditional_text_response(
+    request: Request, body: str, etag: str, media_type: str
+) -> Response:
+    """
+    Serve a pre-built ``(body, etag)`` pair as an ETag-validated text response —
+    the read-through-cache sibling of :func:`etag_text_response`.
+
+    Use this when the caller already holds a persisted ETag alongside the body
+    (e.g. a cached document read from the database), so a matching
+    ``If-None-Match`` short-circuits to a ``304`` without re-hashing a body
+    that was already cheap to fetch — unlike :func:`etag_text_response`, which
+    always hashes *text* fresh because the caller had to rebuild it anyway.
+    """
+    if if_none_match_satisfied(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"ETag": etag})
+
+    return Response(content=body, media_type=media_type, headers={"ETag": etag})
+
+
 def conditional_json_response(
     request: Request,
     etag_repository: EtagRepositoryPort,

@@ -34,6 +34,11 @@ class SanthigiriEventCreate(SanthigiriEventBase):
 class SanthigiriEventUdpate(SanthigiriEventBase):
     pass
 
+@dataclass(frozen=True, kw_only=True)
+class IcsCacheGet:
+    body: str
+    etag: str
+
 class SanthigiriEventsRepositoryPort(Protocol):
 
 
@@ -60,3 +65,13 @@ class SanthigiriEventsRepositoryPort(Protocol):
 
     @abstractmethod
     def set_event_occurrences_for_year(self, event_id: str, year: int, dates:  List[date])-> List[date]: ...
+
+    @abstractmethod
+    def get_ics_cache(self) -> Optional[IcsCacheGet]:
+        """Return the persisted ICS calendar document, or None if never built."""
+        ...
+
+    @abstractmethod
+    def set_ics_cache(self, body: str, etag: str) -> None:
+        """Insert or replace the persisted ICS calendar document. Does NOT commit."""
+        ...
