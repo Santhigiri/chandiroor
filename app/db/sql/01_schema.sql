@@ -20,14 +20,6 @@ CREATE TABLE dataset_etag (
 	PRIMARY KEY (key)
 );
 
-CREATE TABLE ics_cache (
-	key VARCHAR NOT NULL,
-	body TEXT NOT NULL,
-	etag VARCHAR NOT NULL,
-	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-	PRIMARY KEY (key)
-);
-
 CREATE TABLE guruvani (
 	id SERIAL NOT NULL, 
 	text_en VARCHAR NOT NULL, 
