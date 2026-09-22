@@ -3,7 +3,6 @@ from app.utils.startup_timing import IMPORT_STARTED_AT  # noqa: F401 — must be
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.features.guruvani.router import router as guruvani_v1_router
 from app.features.panchangam.generation_router import router as panchangam_generation_v1_router
 from app.features.panchangam.router import router as panchangam_v1_router
 from app.features.reference.router import router as reference_v1_router
@@ -27,5 +26,4 @@ app.include_router(panchangam_v1_router, prefix="/api/v1")
 app.include_router(reference_v1_router, prefix="/api/v1")
 app.include_router(santhigiri_events_v1_router, prefix="/api/v1")
 app.include_router(panchangam_generation_v1_router, prefix="/api/v1")
-app.include_router(guruvani_v1_router, prefix="/api/v1")
 app.include_router(settings_v1_router, prefix="/api/v1")

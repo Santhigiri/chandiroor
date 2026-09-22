@@ -70,12 +70,6 @@ panchangam-api/
     │   │   ├── router.py    # login / refresh / me / users / Google sign-in (JWT auth)
     │   │   ├── service.py   # AuthService — depends on AuthRepositoryPort + UnitOfWork, not the concrete adapter
     │   │   └── schemas.py
-    │   ├── guruvani/                    # Migrated to ports & adapters, same shape as auth
-    │   │   ├── ports.py      # GuruvaniRepositoryPort (Protocol) + DTOs (GuruvaniGet/Create/Update) + GuruvaniNotFoundException
-    │   │   ├── repository.py # GuruvaniRepository — concrete adapter implementing the port against SQLModel
-    │   │   ├── router.py
-    │   │   ├── service.py    # GuruvaniService — depends on GuruvaniRepositoryPort + UnitOfWork, not the concrete adapter
-    │   │   └── schemas.py
     │   ├── reference/                   # No ports.py of its own — see core/ports/reference_repository.py below
     │   │   └── router.py     # thithi/nakshatra/masa/chandra-masa/events/locations reads, mounted under the /panchangam URL
     │   │                      # prefix for backward compatibility even though it's its own feature package.
@@ -219,7 +213,7 @@ The target pattern for every feature going forward is **ports and adapters**: a 
 
 `features/panchangam/` is migrated too, with its own wrinkle: `ports.py`'s `PanchangamRepositoryPort` has no new DTOs at all. `PanchangamData` (`schemas/panchangam_data.py`) and `SanthigiriEvent` (`utils/santhigiri_events.py`) are already plain, framework-independent Pydantic/dataclass domain objects — not SQLModel rows — so `PanchangamRepository` (`features/panchangam/repository.py`) returns and accepts them directly rather than translating to/from a separate boundary type. `PanchangamService` (`features/panchangam/service.py`) depends on `PanchangamRepositoryPort` and (optionally) `SettingsServicePort`, same as a canonical migrated feature. `PanchangamGenerationService` (`features/panchangam/generation_service.py`), the write-path sibling built for the admin `/generate` endpoint, is shaped like `SanthigiriEventService`: a frozen `@dataclass` holding `PanchangamRepositoryPort`, `SettingsServicePort`, `EtagRepositoryPort`, `PanchangamServicePort` (the settings-free binding — see the `etag` entry above), `ReferenceRepositoryPort` (that `refresh_etags` needs to build enum payloads), and `UnitOfWork` as fields — wired up by `api/deps.py::get_panchangam_generation_service` and injected into `generation_router.py` via `Depends`, never constructed by hand in the router. `SanthigiriEventService` carries the same `PanchangamServicePort` and `ReferenceRepositoryPort` fields for the same reason — its own `_commit_with_etags` also calls `refresh_etags()`.
 
-`settings`, `etag`, `panchangam`, and `guruvani` are otherwise built exactly like a migrated feature's service: depending on ports + `UnitOfWork`, never a concrete adapter or another feature's concrete service class. Every feature has now been migrated to this pattern.
+`settings`, `etag`, and `panchangam` are otherwise built exactly like a migrated feature's service: depending on ports + `UnitOfWork`, never a concrete adapter or another feature's concrete service class. Every feature has now been migrated to this pattern.
 
 The pieces, using `features/santhigiri_events/` as the reference:
 
@@ -485,15 +479,6 @@ Santhigiri event definitions (read public; writes require the `admin` role):
 
 Authentication: Chandiroor has no `/api/v1/auth/*` endpoints of its own — it never issues tokens. Log in against TVM (the Ashram's auth microservice) and pass the resulting `Authorization: Bearer <token>` on every request to Chandiroor.
 
-Guruvani quotes (read public; writes require the `admin` role):
-
-- `GET    /api/v1/guruvani` — list every quote, ordered by `sort_order` (public)
-- `GET    /api/v1/guruvani/random` — fetch one quote at random (public)
-- `GET    /api/v1/guruvani/{id}` — fetch one quote (public)
-- `POST   /api/v1/guruvani` — create a quote (admin)
-- `PUT    /api/v1/guruvani/{id}` — partial-update a quote (admin)
-- `DELETE /api/v1/guruvani/{id}` — delete a quote (admin)
-
 Settings (admin only, including reads — internal tuning/ops knobs, not ashram-facing reference data):
 
 - `GET /api/v1/settings` — list every setting
@@ -524,7 +509,6 @@ Current coverage:
 - `tests/features/panchangam/` — `PanchangamRepository`, the `/instant` and `/sunrise-sunset` endpoints, and the admin `/generate` write path.
 - `tests/features/santhigiri_events/` — event-definition CRUD and occurrence-generation, end-to-end, including admin-role enforcement and ETag invalidation.
 - `tests/features/settings/` — `AppSettingRepository`, the admin settings CRUD endpoints, and settings→panchangam integration (e.g. `seed_year_range` gating `get_by_year`/`get_by_month`).
-- `features/guruvani/` has no test coverage yet (no `tests/features/guruvani/` directory) — a gap, not a deliberate omission; follow the `santhigiri_events` test shape (repository round-trips + router CRUD + role-guard checks) when adding it.
 
 Tests use an in-memory SQLite engine (the FK pragma listener in `app/db/database.py` makes `ON DELETE CASCADE` behave as it does on Postgres); see `tests/conftest.py`. The API tests override `get_session` onto a seeded engine and drive the app with `TestClient` (see `tests/features/etag/test_service.py` for the fixture pattern). `tests/conftest.py` also mints test bearer tokens for `require_role`-gated endpoints: `bearer_header(role, user_id=1)` returns an `Authorization` header carrying a throwaway RS256 token shaped like a real TVM-issued one, and the autouse `_mock_tvm_jwks` fixture points `core.jwks_client` at that same in-memory test keypair instead of making a real HTTP call — no real TVM instance is needed to run the suite.
 
@@ -594,7 +578,8 @@ Importing anything from `core/astronomy/` triggers this load. Do not move the lo
 - `core/events/significant_dates.py` is implemented and live: `match_condition_based_events()` matches single-day-pinned event conditions against a computed day, and `PanchangamService._compute()`/`get_panchangam_at_instant()` (`features/panchangam/service.py`) call it to overlay `santhigiri_significant_dates` onto any live-computation fallback (a date missing from the DB, or the `/instant` endpoint). "Last occurrence" and month/nakshatra-only conditions are still out of scope for this matcher (see its module docstring) — they need whole-year context and remain the job of `core/events/event_occurrences.py`, used only by the DB-writing occurrence-generation endpoints.
 - The live-computation fallback in `PanchangamService` (used when a date is missing from the DB) does not write its result back to the database. A persistent gap must be closed by regenerating and re-applying the `db/sql/*.sql` seed files, not by traffic alone.
 - The Nakshatra transition search step is `0.01` days for 2021–2027 and 2029–2030, but `0.05` for 2028. This is now an admin-editable setting (`nakshatra_transition_step_days`, resolved per-year via `SettingsService.get_astronomy_tuning`) rather than a hardcoded constant — see "Transitions" above. Treat any change with caution, and note that a fresh database seeded from `db/sql/02_seed.sql` currently has no `2028` override configured. `app/utils/check_nakshatra_transitions.py`/`check_thithi_transitions.py` hold standalone transition-miss-checker functions for validating a change against a generated cache — they are **not** wired into app startup or CI, so run them manually after touching this setting.
-- `features/santhigiri_events/`, `features/settings/`, `features/etag/`, `features/panchangam/`, and `features/guruvani/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every remaining feature now follows this pattern.
+- `features/santhigiri_events/`, `features/settings/`, `features/etag/`, and `features/panchangam/` have all been migrated to the ports & adapters pattern (see "Ports & adapters" above). Every remaining feature now follows this pattern.
+- `features/guruvani/` was removed entirely (not migrated away from — deleted): the Guruvani quotes feature and its `guruvani` table have been fully migrated to the sibling `kumily` service, which is now the sole source of truth for that content.
 - `features/auth/` was removed entirely (not migrated away from — deleted) when Chandiroor became a JWT resource server for TVM: it no longer issues tokens, hashes passwords, or stores user records, so there is nothing left for that feature to own. See "Authentication & Authorization" above for the replacement (`core/security.py::verify_access_token` + `core/jwks_client.py` against TVM's JWKS).
 - There is no `app/services/` folder anymore — `SettingsService` and the ETag payload/compute functions now live in `features/settings/service.py` and `features/etag/service.py` respectively. Cross-feature callers of `SettingsService` depend on `core/ports/settings_service.py::SettingsServicePort`, not the concrete class. `features/etag/service.py` itself depends on `core/ports/panchangam_service.py::PanchangamServicePort` rather than importing `features.panchangam.service.PanchangamService`/`features.panchangam.repository.PanchangamRepository` directly — `api/deps.py::get_panchangam_service_for_etag_refresh` binds a settings-free instance for it and for the two write-path services that call `refresh_etags`. `features/etag/service.py::build_enum_payload`/`refresh_etags` likewise depend on `core/ports/reference_repository.py::ReferenceRepositoryPort` rather than constructing `db/reference_repository.py::ReferenceRepository` from a raw `Session` — `api/deps.py::get_reference_repository` binds the concrete adapter, injected into `features/reference/router.py`'s reference endpoints and into `PanchangamGenerationService`/`SanthigiriEventService` (which dropped their `session` fields now that `refresh_etags` no longer needs one).
 - The `thithi`/`nakshatra`/`masa`/`chandra-masa`/`events`/`locations` reference endpoints used to live on `features/panchangam/router.py`; they now live in their own `features/reference/router.py`, still mounted under the `/panchangam` URL prefix for backward compatibility. `features/reference/` has no `ports.py`/`service.py` of its own — it depends on `core/ports/reference_repository.py::ReferenceRepositoryPort` and `features/etag/service.py` directly, the same way `panchangam/router.py` does for `/year`.
