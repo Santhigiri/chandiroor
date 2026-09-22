@@ -16,7 +16,6 @@ from app.db.models.santhigiri_event import SanthigiriEvent
 from app.db.models.santhigiri_event_date import SanthigiriEventDate
 from app.db.models.dataset_etag import DatasetEtag
 from app.db.models.ics_cache import IcsCache
-from app.db.models.guruvani import Guruvani
 from app.db.models.app_setting import AppSetting
 
 __all__ = [
@@ -36,6 +35,5 @@ __all__ = [
     "SanthigiriEventDate",
     "DatasetEtag",
     "IcsCache",
-    "Guruvani",
     "AppSetting",
 ]
