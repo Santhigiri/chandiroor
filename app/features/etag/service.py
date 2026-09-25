@@ -38,6 +38,20 @@ _ENUM_READERS = {
 }
 ENUM_NAMES = tuple(_ENUM_READERS)
 
+# v2 counterparts, reading the row-per-(parent, language_code) translation
+# tables instead. Kept as a separate map (and separate ETag key namespace, see
+# `enum_key_v2`) so warming/serving a v2 dataset never collides with its v1
+# sibling of the same name — the two are different payload shapes cached
+# independently. `events`/`locations` have no translation table, so no v2 entry.
+_ENUM_READERS_V2 = {
+    "thithi": "list_thithis_v2",
+    "nakshatra": "list_nakshatras_v2",
+    "masa": "list_masas_v2",
+    "chandra_masa": "list_chandra_masas_v2",
+    "paksha": "list_pakshas_v2",
+}
+ENUM_NAMES_V2 = tuple(_ENUM_READERS_V2)
+
 
 # ── Keys ──────────────────────────────────────────────────────────────────────
 
@@ -47,6 +61,10 @@ def year_key(year: int, location_code: str) -> str:
 
 def enum_key(name: str) -> str:
     return f"enum:{name}"
+
+
+def enum_key_v2(name: str) -> str:
+    return f"enum:v2:{name}"
 
 
 # ── Payload builders ──────────────────────────────────────────────────────────
@@ -69,6 +87,11 @@ def build_enum_payload(
     return getattr(reference_repository, _ENUM_READERS[name])()
 
 
+def build_enum_payload_v2(reference_repository: ReferenceRepositoryPort, name: str) -> List[Any]:
+    """v2 counterpart of :func:`build_enum_payload`, reading the translation tables."""
+    return getattr(reference_repository, _ENUM_READERS_V2[name])()
+
+
 # ── ETag ──────────────────────────────────────────────────────────────────────
 
 def compute_etag(payload: Any) -> str:
@@ -76,7 +99,11 @@ def compute_etag(payload: Any) -> str:
     return '"' + stable_hash(jsonable_encoder(payload)) + '"'
 
 
-def etag_json_response(request: Request, payload: Any) -> Response:
+def etag_json_response(
+    request: Request,
+    payload: Any,
+    body_transform: Optional[Callable[[Any], Any]] = None,
+) -> Response:
     """
     Serve *payload* as an ETag-validated JSON response, computed fresh on every
     call — unlike :func:`conditional_json_response`, which persists the ETag to
@@ -84,6 +111,12 @@ def etag_json_response(request: Request, payload: Any) -> Response:
     data). Use this instead for payloads cheap enough to rebuild every request,
     e.g. the settings admin endpoints, where there's no benefit to persisting
     (and later invalidating) a stored ETag.
+
+    *body_transform*, if given, is applied to *payload* to build the served
+    body only — the ETag is still computed from the untransformed *payload*.
+    Used by v2 routers (app/api/envelope.py::envelope) to wrap the body in the
+    {success, message, data} envelope without changing what gets hashed, so a
+    v1 and v2 caller of the same underlying data always agree on the ETag.
     """
     encoded = jsonable_encoder(payload)
     etag = '"' + stable_hash(encoded) + '"'
@@ -91,7 +124,8 @@ def etag_json_response(request: Request, payload: Any) -> Response:
     if if_none_match_satisfied(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"ETag": etag})
 
-    return JSONResponse(content=encoded, headers={"ETag": etag})
+    body = encoded if body_transform is None else jsonable_encoder(body_transform(payload))
+    return JSONResponse(content=body, headers={"ETag": etag})
 
 
 def etag_text_response(request: Request, text: str, media_type: str) -> Response:
@@ -140,6 +174,7 @@ def conditional_json_response(
     unit_of_work: UnitOfWork,
     key: str,
     payload_builder: Callable[[], Any],
+    body_transform: Optional[Callable[[Any], Any]] = None,
 ) -> Response:
     """
     Serve an ETag-validated JSON response for the dataset stored under *key*.
@@ -149,20 +184,29 @@ def conditional_json_response(
     Otherwise builds the payload via *payload_builder* and returns it with its
     ``ETag`` header, computing and persisting the ETag on the way if it was not
     already stored (e.g. a year outside the pre-seeded range).
+
+    *body_transform*, if given, is applied to the built payload to construct the
+    served body only — the ETag is always computed from the untransformed
+    payload, so :func:`refresh_etags` (which hashes the same *payload_builder*
+    output directly, never transformed) and this function's lazily-computed
+    ETag can never disagree. See :func:`etag_json_response` for the same
+    convention on the non-persisted path.
     """
     etag = etag_repository.get(key)
 
     if etag and if_none_match_satisfied(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"ETag": etag})
 
-    encoded = jsonable_encoder(payload_builder())
+    payload = payload_builder()
+    encoded = jsonable_encoder(payload)
     if etag is None:
         etag = '"' + stable_hash(encoded) + '"'
         with unit_of_work as uow:
             etag_repository.set(key, etag)
             uow.commit()
 
-    return JSONResponse(content=encoded, headers={"ETag": etag})
+    body = encoded if body_transform is None else jsonable_encoder(body_transform(payload))
+    return JSONResponse(content=body, headers={"ETag": etag})
 
 
 def refresh_etags(
@@ -201,6 +245,12 @@ def refresh_etags(
             etag_repository.set(
                 enum_key(name),
                 compute_etag(build_enum_payload(reference_repository, name)),
+            )
+
+        for name in ENUM_NAMES_V2:
+            etag_repository.set(
+                enum_key_v2(name),
+                compute_etag(build_enum_payload_v2(reference_repository, name)),
             )
 
         uow.commit()

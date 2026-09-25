@@ -8,6 +8,11 @@ from app.db.models.nakshatra import Nakshatra as NakshatraRow
 from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
+from app.db.models.thithi import ThithiTranslation as ThithiTranslationRow
+from app.db.models.nakshatra import NakshatraTranslation as NakshatraTranslationRow
+from app.db.models.paksha import PakshaTranslation as PakshaTranslationRow
+from app.db.models.malayalam_masa import MalayalamMasaTranslation as MalayalamMasaTranslationRow
+from app.db.models.chandra_masa import ChandraMasaTranslation as ChandraMasaTranslationRow
 from app.db.seed import seed_lookup_tables
 from app.utils.location import Location
 from app.core.kollavarsham.enums.masa import MalayalamMasa
@@ -53,6 +58,15 @@ def test_seed_values_match_enums(session):
     assert poornima.paksha_id == Thithi.POORNIMA.paksha.id
     assert poornima.day == Thithi.POORNIMA.day
     assert poornima.ml is None and poornima.en is None
+
+    # v2 translation tables (row-per-(parent, language_code)) stay empty —
+    # same NULL-display-text convention db/seed.py already applies to ml/en,
+    # since there is no source text in the Python enums to backfill from.
+    assert _count(session, ThithiTranslationRow) == 0
+    assert _count(session, NakshatraTranslationRow) == 0
+    assert _count(session, PakshaTranslationRow) == 0
+    assert _count(session, MalayalamMasaTranslationRow) == 0
+    assert _count(session, ChandraMasaTranslationRow) == 0
 
     chothi = session.get(NakshatraRow, Nakshatra.CHOTHI.id)
     assert chothi is not None

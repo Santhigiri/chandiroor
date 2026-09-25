@@ -207,3 +207,38 @@ def test_locations_reference_lists_tvm(client):
     assert r.status_code == 200
     codes = {loc["code"] for loc in r.json()}
     assert "tvm" in codes
+
+
+# ── v2 enum reference endpoints ────────────────────────────────────────────────
+
+@pytest.mark.parametrize("name", ["thithi", "nakshatra", "masa", "chandra-masa", "paksha"])
+def test_reference_v2_etag_round_trip(client, name):
+    first = client.get(f"/api/v2/panchangam/{name}")
+    assert first.status_code == 200
+    etag = first.headers["etag"]
+    assert etag and first.json()
+
+    second = client.get(f"/api/v2/panchangam/{name}", headers={"If-None-Match": etag})
+    assert second.status_code == 304
+    assert second.content == b""
+
+
+def test_reference_v1_and_v2_etags_do_not_collide(client):
+    """Warming/serving a v2 dataset must not share a cache key with its v1 sibling."""
+    v1_etag = client.get("/api/v1/panchangam/thithi").headers["etag"]
+    v2_etag = client.get("/api/v2/panchangam/thithi").headers["etag"]
+    assert v1_etag != v2_etag
+
+    # The stale v1 etag must not satisfy a v2 conditional request, and vice versa.
+    r = client.get("/api/v2/panchangam/thithi", headers={"If-None-Match": v1_etag})
+    assert r.status_code == 200
+
+
+def test_v1_thithi_response_shape_is_unchanged_by_the_v2_migration(client):
+    """Regression guard: v1 must keep returning {id, name, paksha, ml, en} —
+    the v2 migration must never touch this endpoint's response shape."""
+    r = client.get("/api/v1/panchangam/thithi")
+    assert r.status_code == 200
+    item = r.json()[0]
+    assert set(item) == {"name", "id", "paksha", "ml", "en"}
+    assert set(item["paksha"]) == {"name", "id", "ml", "en"}
