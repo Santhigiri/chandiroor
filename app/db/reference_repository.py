@@ -15,10 +15,16 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from app.core.ports.reference_repository import (
+    ReferenceItemGet,
+    ReferenceTranslation,
+    ThithiItemGet,
+)
 from app.db.models.chandra_masa import ChandraMasa as ChandraMasaRow
 from app.db.models.location import Location as LocationRow
 from app.db.models.malayalam_masa import MalayalamMasa as MalayalamMasaRow
 from app.db.models.nakshatra import Nakshatra as NakshatraRow
+from app.db.models.paksha import Paksha as PakshaRow
 from app.db.models.santhigiri_event import SanthigiriEvent as SanthigiriEventRow
 from app.db.models.thithi import Thithi as ThithiRow
 from app.db.typing_utils import col
@@ -102,3 +108,80 @@ class ReferenceRepository:
         return [
             CompactSanthigiriEvent(id=e.id, name=e.name, description=e.description) for e in rows
         ]
+
+    # ── v2: row-per-(parent, language_code) translation reads ──────────────────
+    # Additive to the six methods above (which back the unchanged v1 endpoints
+    # and must keep reading `.ml`/`.en` directly). These read the new
+    # `*_translation` tables instead.
+
+    @staticmethod
+    def _translations(rows: List[object]) -> List[ReferenceTranslation]:
+        return [
+            ReferenceTranslation(language_code=r.language_code, text=r.text)  # type: ignore[attr-defined]
+            for r in sorted(rows, key=lambda r: r.language_code)  # type: ignore[attr-defined]
+        ]
+
+    @classmethod
+    def _paksha_to_item(cls, p: PakshaRow) -> ReferenceItemGet:
+        return ReferenceItemGet(id=p.id, name=p.name, translations=cls._translations(p.translations))
+
+    def list_thithis_v2(self) -> List[ThithiItemGet]:
+        rows = self._s.exec(
+            select(ThithiRow)
+            .options(
+                selectinload(col(ThithiRow.translations)),
+                selectinload(col(ThithiRow.paksha)).selectinload(col(PakshaRow.translations)),
+            )
+            .order_by(col(ThithiRow.id))
+        ).all()
+        return [
+            ThithiItemGet(
+                id=t.id,
+                name=t.name,
+                day=t.day,
+                paksha=self._paksha_to_item(t.paksha) if t.paksha else None,
+                translations=self._translations(t.translations),
+            )
+            for t in rows
+        ]
+
+    def list_nakshatras_v2(self) -> List[ReferenceItemGet]:
+        rows = self._s.exec(
+            select(NakshatraRow)
+            .options(selectinload(col(NakshatraRow.translations)))
+            .order_by(col(NakshatraRow.id))
+        ).all()
+        return [
+            ReferenceItemGet(id=n.id, name=n.name, translations=self._translations(n.translations))
+            for n in rows
+        ]
+
+    def list_masas_v2(self) -> List[ReferenceItemGet]:
+        rows = self._s.exec(
+            select(MalayalamMasaRow)
+            .options(selectinload(col(MalayalamMasaRow.translations)))
+            .order_by(col(MalayalamMasaRow.id))
+        ).all()
+        return [
+            ReferenceItemGet(id=m.id, name=m.name, translations=self._translations(m.translations))
+            for m in rows
+        ]
+
+    def list_chandra_masas_v2(self) -> List[ReferenceItemGet]:
+        rows = self._s.exec(
+            select(ChandraMasaRow)
+            .options(selectinload(col(ChandraMasaRow.translations)))
+            .order_by(col(ChandraMasaRow.id))
+        ).all()
+        return [
+            ReferenceItemGet(id=m.id, name=m.name, translations=self._translations(m.translations))
+            for m in rows
+        ]
+
+    def list_pakshas_v2(self) -> List[ReferenceItemGet]:
+        rows = self._s.exec(
+            select(PakshaRow)
+            .options(selectinload(col(PakshaRow.translations)))
+            .order_by(col(PakshaRow.id))
+        ).all()
+        return [self._paksha_to_item(p) for p in rows]

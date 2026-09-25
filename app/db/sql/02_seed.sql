@@ -12,6 +12,13 @@ INSERT INTO paksha (id, name, ml, en) VALUES
   (1, 'SHUKLA', 'ശുക്ലപക്ഷം', 'Shukla Paksha'),
   (2, 'KRISHNA', 'കൃഷ്ണപക്ഷം', 'Krishna Paksha');
 
+-- v2 reference source (row-per-(paksha, language_code)), derived from the
+-- ml/en literals above — never hand-duplicated. See features/reference/router_v2.py.
+INSERT INTO paksha_translation (paksha_id, language_code, text)
+SELECT id, 'en', en FROM paksha WHERE en IS NOT NULL
+UNION ALL
+SELECT id, 'ml', ml FROM paksha WHERE ml IS NOT NULL;
+
 INSERT INTO nakshatra (id, name, ml, en) VALUES
   (1, 'ASWATHI', 'അശ്വതി', 'Ashwati'),
   (2, 'BHARANI', 'ഭരണി', 'Bharani'),
@@ -40,6 +47,12 @@ INSERT INTO nakshatra (id, name, ml, en) VALUES
   (25, 'POORURUTTATHI', 'പൂരുരുട്ടാതി', 'Pooruruttathi'),
   (26, 'UTHRATTATHI', 'ഉത്രട്ടാതി', 'Uthrattathi'),
   (27, 'REVATHI', 'രേവതി', 'Revathi');
+
+-- v2 reference source, derived from the ml/en literals above.
+INSERT INTO nakshatra_translation (nakshatra_id, language_code, text)
+SELECT id, 'en', en FROM nakshatra WHERE en IS NOT NULL
+UNION ALL
+SELECT id, 'ml', ml FROM nakshatra WHERE ml IS NOT NULL;
 
 INSERT INTO thithi (id, name, paksha_id, day, ml, en) VALUES
   (1, 'PRATHAMA_SHUKLA', 1, 1, 'പ്രതിപദ', 'Prathama'),
@@ -73,6 +86,12 @@ INSERT INTO thithi (id, name, paksha_id, day, ml, en) VALUES
   (29, 'CHATURDASHI_KRISHNA', 2, 14, 'ചതുര്ദശി', 'Chaturdashi'),
   (30, 'AMAVASYA', 2, 15, 'അമാവാസി', 'Amavasya');
 
+-- v2 reference source, derived from the ml/en literals above.
+INSERT INTO thithi_translation (thithi_id, language_code, text)
+SELECT id, 'en', en FROM thithi WHERE en IS NOT NULL
+UNION ALL
+SELECT id, 'ml', ml FROM thithi WHERE ml IS NOT NULL;
+
 INSERT INTO malayalam_masa (id, name, ml, en) VALUES
   (1, 'MEDAM', 'മേടം', 'Medam'),
   (2, 'IDAVAM', 'ഇടവം', 'Edavam'),
@@ -87,6 +106,12 @@ INSERT INTO malayalam_masa (id, name, ml, en) VALUES
   (11, 'KUMBHAM', 'കുംഭം', 'Kumbham'),
   (12, 'MEENAM', 'മീനം', 'Meenam');
 
+-- v2 reference source, derived from the ml/en literals above.
+INSERT INTO malayalam_masa_translation (malayalam_masa_id, language_code, text)
+SELECT id, 'en', en FROM malayalam_masa WHERE en IS NOT NULL
+UNION ALL
+SELECT id, 'ml', ml FROM malayalam_masa WHERE ml IS NOT NULL;
+
 INSERT INTO chandra_masa (id, name, ml, en) VALUES
   (1, 'CHAITRA', 'ചൈത്രം', 'Chaitra'),
   (2, 'VAISHAKHA', 'വൈശാഖം', 'Vaishakha'),
@@ -100,6 +125,12 @@ INSERT INTO chandra_masa (id, name, ml, en) VALUES
   (10, 'PAUSHA', 'പൗഷം', 'Pausha'),
   (11, 'MAGHA', 'മാഘം', 'Magha'),
   (12, 'PHALGUNA', 'ഫാൽഗുനം', 'Phalguna');
+
+-- v2 reference source, derived from the ml/en literals above.
+INSERT INTO chandra_masa_translation (chandra_masa_id, language_code, text)
+SELECT id, 'en', en FROM chandra_masa WHERE en IS NOT NULL
+UNION ALL
+SELECT id, 'ml', ml FROM chandra_masa WHERE ml IS NOT NULL;
 
 INSERT INTO location (id, name, label, latitude, longitude, timezone) VALUES
   (1, 'tvm', 'Trivandrum, Kerala, India', 8.645, 76.938, 'Asia/Kolkata');

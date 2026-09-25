@@ -38,6 +38,20 @@ _ENUM_READERS = {
 }
 ENUM_NAMES = tuple(_ENUM_READERS)
 
+# v2 counterparts, reading the row-per-(parent, language_code) translation
+# tables instead. Kept as a separate map (and separate ETag key namespace, see
+# `enum_key_v2`) so warming/serving a v2 dataset never collides with its v1
+# sibling of the same name — the two are different payload shapes cached
+# independently. `events`/`locations` have no translation table, so no v2 entry.
+_ENUM_READERS_V2 = {
+    "thithi": "list_thithis_v2",
+    "nakshatra": "list_nakshatras_v2",
+    "masa": "list_masas_v2",
+    "chandra_masa": "list_chandra_masas_v2",
+    "paksha": "list_pakshas_v2",
+}
+ENUM_NAMES_V2 = tuple(_ENUM_READERS_V2)
+
 
 # ── Keys ──────────────────────────────────────────────────────────────────────
 
@@ -47,6 +61,10 @@ def year_key(year: int, location_code: str) -> str:
 
 def enum_key(name: str) -> str:
     return f"enum:{name}"
+
+
+def enum_key_v2(name: str) -> str:
+    return f"enum:v2:{name}"
 
 
 # ── Payload builders ──────────────────────────────────────────────────────────
@@ -67,6 +85,11 @@ def build_enum_payload(
 ) -> List[Dict[str, Any]]:
     """Return the reference list for an enum dataset name, read from the DB."""
     return getattr(reference_repository, _ENUM_READERS[name])()
+
+
+def build_enum_payload_v2(reference_repository: ReferenceRepositoryPort, name: str) -> List[Any]:
+    """v2 counterpart of :func:`build_enum_payload`, reading the translation tables."""
+    return getattr(reference_repository, _ENUM_READERS_V2[name])()
 
 
 # ── ETag ──────────────────────────────────────────────────────────────────────
@@ -201,6 +224,12 @@ def refresh_etags(
             etag_repository.set(
                 enum_key(name),
                 compute_etag(build_enum_payload(reference_repository, name)),
+            )
+
+        for name in ENUM_NAMES_V2:
+            etag_repository.set(
+                enum_key_v2(name),
+                compute_etag(build_enum_payload_v2(reference_repository, name)),
             )
 
         uow.commit()
