@@ -99,7 +99,11 @@ def compute_etag(payload: Any) -> str:
     return '"' + stable_hash(jsonable_encoder(payload)) + '"'
 
 
-def etag_json_response(request: Request, payload: Any) -> Response:
+def etag_json_response(
+    request: Request,
+    payload: Any,
+    body_transform: Optional[Callable[[Any], Any]] = None,
+) -> Response:
     """
     Serve *payload* as an ETag-validated JSON response, computed fresh on every
     call — unlike :func:`conditional_json_response`, which persists the ETag to
@@ -107,6 +111,12 @@ def etag_json_response(request: Request, payload: Any) -> Response:
     data). Use this instead for payloads cheap enough to rebuild every request,
     e.g. the settings admin endpoints, where there's no benefit to persisting
     (and later invalidating) a stored ETag.
+
+    *body_transform*, if given, is applied to *payload* to build the served
+    body only — the ETag is still computed from the untransformed *payload*.
+    Used by v2 routers (app/api/envelope.py::envelope) to wrap the body in the
+    {success, message, data} envelope without changing what gets hashed, so a
+    v1 and v2 caller of the same underlying data always agree on the ETag.
     """
     encoded = jsonable_encoder(payload)
     etag = '"' + stable_hash(encoded) + '"'
@@ -114,7 +124,8 @@ def etag_json_response(request: Request, payload: Any) -> Response:
     if if_none_match_satisfied(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"ETag": etag})
 
-    return JSONResponse(content=encoded, headers={"ETag": etag})
+    body = encoded if body_transform is None else jsonable_encoder(body_transform(payload))
+    return JSONResponse(content=body, headers={"ETag": etag})
 
 
 def etag_text_response(request: Request, text: str, media_type: str) -> Response:
@@ -163,6 +174,7 @@ def conditional_json_response(
     unit_of_work: UnitOfWork,
     key: str,
     payload_builder: Callable[[], Any],
+    body_transform: Optional[Callable[[Any], Any]] = None,
 ) -> Response:
     """
     Serve an ETag-validated JSON response for the dataset stored under *key*.
@@ -172,20 +184,29 @@ def conditional_json_response(
     Otherwise builds the payload via *payload_builder* and returns it with its
     ``ETag`` header, computing and persisting the ETag on the way if it was not
     already stored (e.g. a year outside the pre-seeded range).
+
+    *body_transform*, if given, is applied to the built payload to construct the
+    served body only — the ETag is always computed from the untransformed
+    payload, so :func:`refresh_etags` (which hashes the same *payload_builder*
+    output directly, never transformed) and this function's lazily-computed
+    ETag can never disagree. See :func:`etag_json_response` for the same
+    convention on the non-persisted path.
     """
     etag = etag_repository.get(key)
 
     if etag and if_none_match_satisfied(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"ETag": etag})
 
-    encoded = jsonable_encoder(payload_builder())
+    payload = payload_builder()
+    encoded = jsonable_encoder(payload)
     if etag is None:
         etag = '"' + stable_hash(encoded) + '"'
         with unit_of_work as uow:
             etag_repository.set(key, etag)
             uow.commit()
 
-    return JSONResponse(content=encoded, headers={"ETag": etag})
+    body = encoded if body_transform is None else jsonable_encoder(body_transform(payload))
+    return JSONResponse(content=body, headers={"ETag": etag})
 
 
 def refresh_etags(

@@ -29,6 +29,14 @@ from app.main import app
 V2 = "/api/v2/panchangam"
 
 
+def _data(response):
+    """Unwrap the {success, message, data} envelope, asserting it's well-formed."""
+    body = response.json()
+    assert body["success"] is True
+    assert isinstance(body["message"], str) and body["message"]
+    return body["data"]
+
+
 @pytest.fixture
 def api_engine():
     engine = create_engine(
@@ -69,7 +77,9 @@ def client(api_engine):
 def test_thithi_v2_returns_every_translation_and_nested_paksha(client):
     r = client.get(f"{V2}/thithi")
     assert r.status_code == 200
-    poornima = next(t for t in r.json() if t["id"] == Thithi.POORNIMA.id)
+    body = r.json()
+    assert body["message"] == "THITHI_LIST_SUCCESS"
+    poornima = next(t for t in body["data"] if t["id"] == Thithi.POORNIMA.id)
     assert poornima["name"] == Thithi.POORNIMA.name
     assert poornima["day"] == Thithi.POORNIMA.day
     assert {(t["language_code"], t["text"]) for t in poornima["translations"]} == {
@@ -82,7 +92,9 @@ def test_thithi_v2_returns_every_translation_and_nested_paksha(client):
 def test_nakshatra_v2_returns_every_translation(client):
     r = client.get(f"{V2}/nakshatra")
     assert r.status_code == 200
-    chothi = next(n for n in r.json() if n["id"] == Nakshatra.CHOTHI.id)
+    body = r.json()
+    assert body["message"] == "NAKSHATRA_LIST_SUCCESS"
+    chothi = next(n for n in body["data"] if n["id"] == Nakshatra.CHOTHI.id)
     assert {(t["language_code"], t["text"]) for t in chothi["translations"]} == {
         ("en", "Chothi"),
         ("ml", "ചോതി"),
@@ -93,7 +105,7 @@ def test_masa_chandra_masa_paksha_v2_are_served(client):
     for path in ("masa", "chandra-masa", "paksha"):
         r = client.get(f"{V2}/{path}")
         assert r.status_code == 200
-        assert r.json()
+        assert _data(r)
 
 
 # ── ?language_code= filtering ───────────────────────────────────────────────────
@@ -101,7 +113,7 @@ def test_masa_chandra_masa_paksha_v2_are_served(client):
 def test_list_filters_by_language_code(client):
     r = client.get(f"{V2}/thithi", params={"language_code": "en"})
     assert r.status_code == 200
-    poornima = next(t for t in r.json() if t["id"] == Thithi.POORNIMA.id)
+    poornima = next(t for t in _data(r) if t["id"] == Thithi.POORNIMA.id)
     assert poornima["translations"] == [{"language_code": "en", "text": "Purnima"}]
     assert poornima["paksha"]["translations"] == []  # paksha has no seeded translations here
 
@@ -109,6 +121,9 @@ def test_list_filters_by_language_code(client):
 def test_list_rejects_unsupported_language_code(client):
     r = client.get(f"{V2}/thithi", params={"language_code": "fr"})
     assert r.status_code == 422
+    body = r.json()
+    assert body["success"] is False
+    assert body["message"] == "VALIDATION_FAILED"
 
 
 def test_filtered_list_has_its_own_etag_not_the_persisted_all_etag(client):

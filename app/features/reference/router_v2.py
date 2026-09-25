@@ -18,6 +18,10 @@ already calls ``features/etag/service.py``'s helpers directly via a private
 ``_reference_response`` function) — the filter here is kept as a private
 router-local helper for the same reason, matching this feature's existing
 shape rather than introducing a service.py solely to hold one function.
+
+Every response is wrapped in the ``{success, message, data}`` envelope
+(``app/api/envelope.py``) — see that module and ``app/schemas/api_response.py``
+for the convention shared by every v2 router.
 """
 from dataclasses import replace
 from typing import List, Optional, Union
@@ -25,9 +29,11 @@ from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.api.deps import EtagRepositoryDep, ReferenceRepositoryDep, UnitOfWorkDep, require_role
+from app.api.envelope import envelope
 from app.core.ports.reference_repository import ReferenceItemGet, ThithiItemGet
 from app.features.etag.service import build_enum_payload_v2, conditional_json_response, enum_key_v2, etag_json_response
 from app.features.reference.schemas import ReferenceItemSchema, ThithiItemSchema
+from app.schemas.api_response import ApiResponse, MessageCode
 from app.utils.languages import LanguageCode
 from app.utils.roles import Role
 
@@ -56,6 +62,7 @@ def _reference_response_v2(
     unit_of_work: UnitOfWorkDep,
     name: str,
     language_code: Optional[LanguageCode],
+    message: MessageCode,
 ) -> Response:
     if language_code is None:
         return conditional_json_response(
@@ -64,14 +71,15 @@ def _reference_response_v2(
             unit_of_work,
             enum_key_v2(name),
             lambda: build_enum_payload_v2(reference_repository, name),
+            body_transform=envelope(message),
         )
 
     items = build_enum_payload_v2(reference_repository, name)
     filtered = [_filter_item(item, language_code.value) for item in items]
-    return etag_json_response(request, filtered)
+    return etag_json_response(request, filtered, body_transform=envelope(message))
 
 
-@router.get('/thithi', response_model=List[ThithiItemSchema])
+@router.get('/thithi', response_model=ApiResponse[List[ThithiItemSchema]])
 def thithi_reference_v2(
     request: Request,
     reference_repository: ReferenceRepositoryDep,
@@ -80,11 +88,12 @@ def thithi_reference_v2(
     language_code: Optional[LanguageCode] = Query(default=None),
 ) -> Response:
     return _reference_response_v2(
-        request, reference_repository, etag_repository, unit_of_work, "thithi", language_code
+        request, reference_repository, etag_repository, unit_of_work,
+        "thithi", language_code, MessageCode.THITHI_LIST_SUCCESS,
     )
 
 
-@router.get('/nakshatra', response_model=List[ReferenceItemSchema])
+@router.get('/nakshatra', response_model=ApiResponse[List[ReferenceItemSchema]])
 def nakshatra_reference_v2(
     request: Request,
     reference_repository: ReferenceRepositoryDep,
@@ -93,11 +102,12 @@ def nakshatra_reference_v2(
     language_code: Optional[LanguageCode] = Query(default=None),
 ) -> Response:
     return _reference_response_v2(
-        request, reference_repository, etag_repository, unit_of_work, "nakshatra", language_code
+        request, reference_repository, etag_repository, unit_of_work,
+        "nakshatra", language_code, MessageCode.NAKSHATRA_LIST_SUCCESS,
     )
 
 
-@router.get('/masa', response_model=List[ReferenceItemSchema])
+@router.get('/masa', response_model=ApiResponse[List[ReferenceItemSchema]])
 def masa_reference_v2(
     request: Request,
     reference_repository: ReferenceRepositoryDep,
@@ -106,11 +116,12 @@ def masa_reference_v2(
     language_code: Optional[LanguageCode] = Query(default=None),
 ) -> Response:
     return _reference_response_v2(
-        request, reference_repository, etag_repository, unit_of_work, "masa", language_code
+        request, reference_repository, etag_repository, unit_of_work,
+        "masa", language_code, MessageCode.MASA_LIST_SUCCESS,
     )
 
 
-@router.get('/chandra-masa', response_model=List[ReferenceItemSchema])
+@router.get('/chandra-masa', response_model=ApiResponse[List[ReferenceItemSchema]])
 def chandra_masa_reference_v2(
     request: Request,
     reference_repository: ReferenceRepositoryDep,
@@ -119,11 +130,12 @@ def chandra_masa_reference_v2(
     language_code: Optional[LanguageCode] = Query(default=None),
 ) -> Response:
     return _reference_response_v2(
-        request, reference_repository, etag_repository, unit_of_work, "chandra_masa", language_code
+        request, reference_repository, etag_repository, unit_of_work,
+        "chandra_masa", language_code, MessageCode.CHANDRA_MASA_LIST_SUCCESS,
     )
 
 
-@router.get('/paksha', response_model=List[ReferenceItemSchema])
+@router.get('/paksha', response_model=ApiResponse[List[ReferenceItemSchema]])
 def paksha_reference_v2(
     request: Request,
     reference_repository: ReferenceRepositoryDep,
@@ -133,5 +145,6 @@ def paksha_reference_v2(
 ) -> Response:
     # No v1 equivalent — v1 only ever exposes paksha nested inside /thithi.
     return _reference_response_v2(
-        request, reference_repository, etag_repository, unit_of_work, "paksha", language_code
+        request, reference_repository, etag_repository, unit_of_work,
+        "paksha", language_code, MessageCode.PAKSHA_LIST_SUCCESS,
     )

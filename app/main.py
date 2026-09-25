@@ -2,13 +2,17 @@ from app.utils.startup_timing import IMPORT_STARTED_AT  # noqa: F401 — must be
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.envelope import register_v2_exception_handlers
 from app.core.config import settings
 from app.features.panchangam.generation_router import router as panchangam_generation_v1_router
 from app.features.panchangam.router import router as panchangam_v1_router
+from app.features.panchangam.router_v2 import router as panchangam_v2_router
 from app.features.reference.router import router as reference_v1_router
 from app.features.reference.router_v2 import router as reference_v2_router
 from app.features.santhigiri_events.router import router as santhigiri_events_v1_router
+from app.features.santhigiri_events.router_v2 import router as santhigiri_events_v2_router
 from app.features.settings.router import router as settings_v1_router
+from app.features.settings.router_v2 import router as settings_v2_router
 
 from app.utils.lifespan import lifespan
 
@@ -28,4 +32,9 @@ app.include_router(reference_v1_router, prefix="/api/v1")
 app.include_router(santhigiri_events_v1_router, prefix="/api/v1")
 app.include_router(panchangam_generation_v1_router, prefix="/api/v1")
 app.include_router(settings_v1_router, prefix="/api/v1")
+app.include_router(panchangam_v2_router, prefix="/api/v2")
 app.include_router(reference_v2_router, prefix="/api/v2")
+app.include_router(santhigiri_events_v2_router, prefix="/api/v2")
+app.include_router(settings_v2_router, prefix="/api/v2")
+
+register_v2_exception_handlers(app)
