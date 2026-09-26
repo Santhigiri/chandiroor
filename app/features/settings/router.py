@@ -1,16 +1,18 @@
 """
-Admin CRUD for application-wide tunable settings, mounted under ``/api/v1``:
+Application-wide tunable settings, mounted under ``/api/v1``:
 
-* ``GET /api/v1/settings``       — list every setting                        (admin)
-* ``GET /api/v1/settings/{key}`` — fetch one setting                          (admin)
+* ``GET /api/v1/settings``       — list every setting                        (mixed)
+* ``GET /api/v1/settings/{key}`` — fetch one setting                          (mixed)
 * ``PUT /api/v1/settings/{key}`` — replace a setting's value                  (admin)
 
-Unlike the public-read Santhigiri event definitions, every endpoint here
-requires the ``admin`` role, including reads — these are internal
-tuning/ops knobs (calendar year bounds, generation caps, astronomy search
-tuning), not ashram-facing reference data. See ``utils.settings_keys.SettingKey``
-for the known keys and ``schemas.app_setting`` for each key's expected
-``value`` shape.
+Most of these are internal tuning/ops knobs (generation caps, astronomy
+search tuning, ...) and stay admin-only, including reads. ``PUBLIC_SETTING_KEYS``
+is the small exception: ``calendar_range`` and ``languages`` are client-facing
+config (what year range/languages a frontend should offer), so their reads are
+public — any caller, authenticated or not, can read them; only writes and
+every other key still require the ``admin`` role. See
+``utils.settings_keys.SettingKey`` for the known keys and
+``schemas.app_setting`` for each key's expected ``value`` shape.
 
 Changing a setting here never retroactively rewrites already-stored
 panchangam/event data (computed offline or via a previous generate run) — it
@@ -30,32 +32,64 @@ from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from app.api.deps import get_settings_service, require_role
+from app.api.deps import Principal, get_current_principal, get_settings_service, require_role
 from app.schemas.app_setting import AppSettingRead, AppSettingUpdate
 from app.features.etag.service import etag_json_response
 from app.features.settings.service import InvalidSettingValue, SettingNotFound, SettingsService
 from app.utils.roles import Role
+from app.utils.settings_keys import SettingKey
 
-router = APIRouter(
-    prefix="/settings",
-    tags=["settings"],
-    dependencies=[Depends(require_role(Role.ADMIN))],
-)
+router = APIRouter(prefix="/settings", tags=["settings"])
 
 
 _get_service = get_settings_service
+
+PUBLIC_SETTING_KEYS = frozenset(
+    {SettingKey.CALENDAR_RANGE.value, SettingKey.LANGUAGES.value}
+)
+
+
+def require_setting_read_access(
+    key: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+) -> Principal:
+    """Gate a single-setting read: *key* being in ``PUBLIC_SETTING_KEYS``
+    lets any caller (including anonymous) through; every other key still
+    needs the ``admin`` role, same as a write."""
+    if key in PUBLIC_SETTING_KEYS or principal.role.satisfies(Role.ADMIN):
+        return principal
+    if not principal.is_authenticated:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Insufficient privileges for this resource",
+    )
 
 
 @router.get("", response_model=List[AppSettingRead])
 def list_settings(
     request: Request,
     service: Annotated[SettingsService, Depends(_get_service)],
+    principal: Annotated[Principal, Depends(get_current_principal)],
 ) -> Response:
-    payload = [AppSettingRead.model_validate(row) for row in service.list_all()]
+    """Admins see every setting; every other caller (including anonymous)
+    sees only the keys in ``PUBLIC_SETTING_KEYS``."""
+    rows = service.list_all()
+    if not principal.role.satisfies(Role.ADMIN):
+        rows = [row for row in rows if row.key in PUBLIC_SETTING_KEYS]
+    payload = [AppSettingRead.model_validate(row) for row in rows]
     return etag_json_response(request, payload)
 
 
-@router.get("/{key}", response_model=AppSettingRead)
+@router.get(
+    "/{key}",
+    response_model=AppSettingRead,
+    dependencies=[Depends(require_setting_read_access)],
+)
 def get_setting(
     key: str,
     request: Request,
@@ -71,7 +105,11 @@ def get_setting(
     return etag_json_response(request, payload)
 
 
-@router.put("/{key}", response_model=AppSettingRead)
+@router.put(
+    "/{key}",
+    response_model=AppSettingRead,
+    dependencies=[Depends(require_role(Role.ADMIN))],
+)
 def update_setting(
     key: str,
     payload: AppSettingUpdate,

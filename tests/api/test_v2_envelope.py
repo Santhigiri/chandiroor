@@ -250,7 +250,21 @@ def test_get_setting_v1_error_shape_is_untouched(client):
     assert set(r.json()) == {"detail"}
 
 
-def test_settings_v2_requires_admin_even_for_reads(client):
+def test_settings_v2_list_is_filtered_to_public_keys_for_non_admin(client):
     r = client.get(f"{V2}/settings", headers=USER_AUTH)
+    assert r.status_code == 200
+    data = _assert_envelope(r.json(), "SETTINGS_LIST_SUCCESS")
+    assert {row["key"] for row in data} == {"calendar_range", "languages"}
+
+
+def test_settings_v2_calendar_range_read_is_public(client):
+    r = client.get(f"{V2}/settings/calendar_range")
+    assert r.status_code == 200
+    data = _assert_envelope(r.json(), "SETTING_FETCHED")
+    assert data["key"] == "calendar_range"
+
+
+def test_settings_v2_non_public_key_still_requires_admin_for_reads(client):
+    r = client.get(f"{V2}/settings/seed_year_range", headers=USER_AUTH)
     assert r.status_code == 403
     assert r.json()["message"] == "FORBIDDEN"

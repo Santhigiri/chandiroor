@@ -1,12 +1,12 @@
 """
-End-to-end tests for the admin settings CRUD endpoints under
-``/api/v1/settings``.
+End-to-end tests for the settings CRUD endpoints under ``/api/v1/settings``.
 
 Uses an in-memory SQLite engine seeded via ``seed_lookup_tables`` (which now
 also seeds default ``app_setting`` rows) plus an admin and a regular user.
-Unlike the Santhigiri event definitions, every endpoint here — including
-reads — requires the ``admin`` role, mirroring ``tests/test_santhigiri_event_crud.py``'s
-fixture pattern.
+Writes and reads of most keys require the ``admin`` role (mirroring
+``tests/test_santhigiri_event_crud.py``'s fixture pattern), except
+``calendar_range``/``languages`` (``features.settings.router.PUBLIC_SETTING_KEYS``),
+whose reads are public — see the "Public setting reads" section below.
 """
 from __future__ import annotations
 
@@ -78,13 +78,28 @@ def admin_auth(client) -> dict:
 
 # ── Authorization ────────────────────────────────────────────────────────────
 
-def test_list_requires_authentication(client):
-    assert client.get(SETTINGS_URL).status_code == 401
+def test_list_is_accessible_anonymously_but_filtered_to_public_keys(client):
+    r = client.get(SETTINGS_URL)
+    assert r.status_code == 200
+    keys = {row["key"] for row in r.json()}
+    assert keys == {"calendar_range", "languages"}
 
 
-def test_list_requires_admin_role(client):
+def test_list_is_filtered_to_public_keys_for_non_admin(client):
     user_auth = _bearer(client, NORMAL_USER, NORMAL_PW)
-    assert client.get(SETTINGS_URL, headers=user_auth).status_code == 403
+    r = client.get(SETTINGS_URL, headers=user_auth)
+    assert r.status_code == 200
+    keys = {row["key"] for row in r.json()}
+    assert keys == {"calendar_range", "languages"}
+
+
+def test_list_returns_every_key_for_admin(client, admin_auth):
+    r = client.get(SETTINGS_URL, headers=admin_auth)
+    assert r.status_code == 200
+    keys = {row["key"] for row in r.json()}
+    assert "seed_year_range" in keys
+    assert "calendar_range" in keys
+    assert "languages" in keys
 
 
 def test_get_one_requires_admin_role(client):
@@ -124,6 +139,51 @@ def test_get_seed_year_range_default(client, admin_auth):
 def test_get_unknown_key_is_404(client, admin_auth):
     r = client.get(f"{SETTINGS_URL}/not_a_real_key", headers=admin_auth)
     assert r.status_code == 404
+
+
+# ── Public setting reads (calendar_range, languages) ────────────────────────
+
+def test_get_calendar_range_is_public(client):
+    r = client.get(f"{SETTINGS_URL}/calendar_range")
+    assert r.status_code == 200
+    assert r.json()["value"] == {"start_year": 2021, "end_year": 2035}
+
+
+def test_get_languages_is_public(client):
+    r = client.get(f"{SETTINGS_URL}/languages")
+    assert r.status_code == 200
+    assert r.json()["value"] == {"codes": ["en", "ml"]}
+
+
+def test_get_calendar_range_rejects_invalid_bearer_token(client):
+    r = client.get(
+        f"{SETTINGS_URL}/calendar_range",
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+    assert r.status_code == 401
+
+
+def test_update_calendar_range_still_requires_admin(client):
+    user_auth = _bearer(client, NORMAL_USER, NORMAL_PW)
+    r = client.put(
+        f"{SETTINGS_URL}/calendar_range",
+        headers=user_auth,
+        json={"value": {"start_year": 2000, "end_year": 2040}},
+    )
+    assert r.status_code == 403
+
+
+def test_admin_can_update_calendar_range_and_public_can_read_it_back(client, admin_auth):
+    updated = client.put(
+        f"{SETTINGS_URL}/calendar_range",
+        headers=admin_auth,
+        json={"value": {"start_year": 2000, "end_year": 2040}},
+    )
+    assert updated.status_code == 200
+
+    fetched = client.get(f"{SETTINGS_URL}/calendar_range")
+    assert fetched.status_code == 200
+    assert fetched.json()["value"] == {"start_year": 2000, "end_year": 2040}
 
 
 # ── Write ────────────────────────────────────────────────────────────────────

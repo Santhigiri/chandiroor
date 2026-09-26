@@ -38,8 +38,10 @@ from app.features.settings.ports import AppSettingGet, AppSettingRepositoryPort
 from app.schemas.app_setting import (
     AppSettingUpdate,
     AstronomyEpsilonsValue,
+    CalendarRangeValue,
     DefaultLocationCodeValue,
     EventCutoffsValue,
+    LanguagesValue,
     MaxEventGenerateYearSpanValue,
     MaxGenerateSpanDaysValue,
     NakshatraStepDaysValue,
@@ -58,6 +60,8 @@ _VALUE_MODELS: Dict[SettingKey, Type[BaseModel]] = {
     SettingKey.EVENT_CUTOFFS: EventCutoffsValue,
     SettingKey.NAKSHATRA_TRANSITION_STEP_DAYS: NakshatraStepDaysValue,
     SettingKey.ASTRONOMY_EPSILONS: AstronomyEpsilonsValue,
+    SettingKey.CALENDAR_RANGE: CalendarRangeValue,
+    SettingKey.LANGUAGES: LanguagesValue,
 }
 
 
@@ -174,6 +178,13 @@ class SettingsService:
 
     def get_event_cutoffs(self) -> EventCutoffsValue:
         return self._value(SettingKey.EVENT_CUTOFFS, EventCutoffsValue)
+
+    def get_calendar_range(self) -> Tuple[int, int]:
+        v = self._value(SettingKey.CALENDAR_RANGE, CalendarRangeValue)
+        return v.start_year, v.end_year
+
+    def get_languages(self) -> LanguagesValue:
+        return self._value(SettingKey.LANGUAGES, LanguagesValue)
 
     def get_astronomy_tuning(self, year: int) -> AstronomyTuning:
         """Resolve the concrete tuning to use for *year* — the per-year
