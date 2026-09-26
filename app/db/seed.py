@@ -27,8 +27,10 @@ from app.utils.settings_keys import SettingKey
 from app.core.astronomy.enums.thithi import Thithi
 from app.schemas.app_setting import (
     AstronomyEpsilonsValue,
+    CalendarRangeValue,
     DefaultLocationCodeValue,
     EventCutoffsValue,
+    LanguagesValue,
     MaxEventGenerateYearSpanValue,
     MaxGenerateSpanDaysValue,
     NakshatraStepDaysValue,
@@ -95,6 +97,8 @@ def seed_app_settings(session: Session) -> None:
         SettingKey.EVENT_CUTOFFS: EventCutoffsValue(),
         SettingKey.NAKSHATRA_TRANSITION_STEP_DAYS: NakshatraStepDaysValue(),
         SettingKey.ASTRONOMY_EPSILONS: AstronomyEpsilonsValue(),
+        SettingKey.CALENDAR_RANGE: CalendarRangeValue(),
+        SettingKey.LANGUAGES: LanguagesValue(),
     }
     for key, value in defaults.items():
         session.merge(AppSettingRow(key=key.value, value=value.model_dump()))

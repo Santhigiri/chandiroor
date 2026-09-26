@@ -14,11 +14,12 @@ with no arguments reproduces current behavior exactly — the fallback
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.astronomy.constants import NAKSHATRA_TRANSITION_STEP_DAYS
+from app.utils.languages import LanguageCode
 from app.utils.location import DEFAULT_LOCATION_CODE
 
 
@@ -102,3 +103,25 @@ class AstronomyEpsilonsValue(BaseModel):
 
     nakshatra_epsilon: float = Field(default=1e-8, gt=0, lt=1)
     kollavarsham_epsilon: float = Field(default=1e-6, gt=0, lt=1)
+
+
+class CalendarRangeValue(BaseModel):
+    """Inclusive year bounds the app supports for client-facing calendar/date
+    pickers — the public counterpart of ``SeedYearRangeValue``: that one
+    gates what live computation/generation tooling will accept, this one is
+    what a frontend is told to show. The two are administered independently
+    and may differ (e.g. a wider seeded range than what's exposed publicly
+    yet)."""
+
+    start_year: int = Field(default=2021, ge=1)
+    end_year: int = Field(default=2035, ge=1)
+
+
+class LanguagesValue(BaseModel):
+    """Language codes available across Chandiroor's translatable reference
+    data. Defaults to every member of ``utils.languages.LanguageCode`` (the
+    same allow-list ``features/reference/schemas.py`` validates
+    ``language_code`` against), so this can't silently drift from what
+    content actually supports."""
+
+    codes: List[str] = Field(default_factory=lambda: [c.value for c in LanguageCode])

@@ -479,11 +479,13 @@ Santhigiri event definitions (read public; writes require the `admin` role):
 
 Authentication: Chandiroor has no `/api/v1/auth/*` endpoints of its own — it never issues tokens. Log in against TVM (the Ashram's auth microservice) and pass the resulting `Authorization: Bearer <token>` on every request to Chandiroor.
 
-Settings (admin only, including reads — internal tuning/ops knobs, not ashram-facing reference data):
+Settings (admin only, including reads, for most keys — internal tuning/ops knobs, not ashram-facing reference data. Exception: `calendar_range`/`languages` reads are public — `features.settings.router.PUBLIC_SETTING_KEYS` — client-facing config like what year range/languages a frontend should offer; every other key and all writes stay admin-only):
 
-- `GET /api/v1/settings` — list every setting
-- `GET /api/v1/settings/{key}` — fetch one setting
-- `PUT /api/v1/settings/{key}` — replace a setting's value
+- `GET /api/v1/settings` — list every setting; admins see all, every other caller (including anonymous) sees only `PUBLIC_SETTING_KEYS`
+- `GET /api/v1/settings/{key}` — fetch one setting; public for `calendar_range`/`languages`, admin for every other key
+- `PUT /api/v1/settings/{key}` — replace a setting's value (admin)
+
+Mirrored at `/api/v2/settings` (`features/settings/router_v2.py`), enveloped in the `{success, message, data}` shape (`app/api/envelope.py`, `app/schemas/api_response.py`). Same public/admin split as v1.
 
 Panchangam parameters default to today's date, Santhigiri Ashram coordinates, and `Asia/Kolkata` timezone.
 

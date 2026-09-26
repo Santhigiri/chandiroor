@@ -18,3 +18,5 @@ class SettingKey(str, Enum):
     EVENT_CUTOFFS = "event_cutoffs"
     NAKSHATRA_TRANSITION_STEP_DAYS = "nakshatra_transition_step_days"
     ASTRONOMY_EPSILONS = "astronomy_epsilons"
+    CALENDAR_RANGE = "calendar_range"
+    LANGUAGES = "languages"
